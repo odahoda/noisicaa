@@ -24,7 +24,7 @@ import enum
 import logging
 import os.path
 import time
-from typing import Any, Dict, List, Tuple, Iterable
+from typing import Any, Dict, List, Iterable
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -52,6 +52,27 @@ class State(enum.IntEnum):
     HOLD = 3
 
 
+class SignalPoint(object):
+    def __init__(self, screen_pos: int) -> None:
+        self.screen_pos = screen_pos
+        self.num_samples = 0
+        self.signal_sum = 0.0
+        self.max = None  # type: float
+        self.min = None  # type: float
+
+    @property
+    def avg(self) -> float:
+        return self.signal_sum / self.num_samples
+
+    def add_sample(self, value: float) -> None:
+        self.num_samples += 1
+        self.signal_sum += value
+        if self.max is None or value > self.max:
+            self.max = value
+        if self.min is None or value < self.min:
+            self.min = value
+
+
 class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
     timeScale, setTimeScale, timeScaleChanged = slots.slot(int, 'timeScale', default=-2)
     yScale, setYScale, yScaleChanged = slots.slot(int, 'yScale', default=0)
@@ -64,10 +85,11 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
 
         self.setMinimumSize(20, 20)
 
-        self.__signal = []  # type: List[Tuple[int, float]]
+        self.__signal = []  # type: List[SignalPoint]
         self.__state = State.WAIT_FOR_TRIGGER
         self.__insert_pos = 0
         self.__screen_pos = 0
+        self.__density = 3
         self.__remainder = 0.0
         self.__prev_sample = 0.0
         self.__hold_begin = 0.0
@@ -83,6 +105,7 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         self.__center_color = QtGui.QColor(60, 100, 60)
         self.__plot_pen = QtGui.QPen(QtGui.QColor(255, 255, 255))
         self.__plot_pen.setWidth(1)
+        self.__plot_fill_color = QtGui.QColor(200, 255, 200, 100)
         self.__label_color = QtGui.QColor(100, 200, 100)
         self.__label_font = QtGui.QFont(self.font())
         self.__label_font.setPointSizeF(0.8 * self.__label_font.pointSizeF())
@@ -135,7 +158,7 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         if self.__plot_rect is None:
             return
 
-        self.__timePerPixel = self.absTimeScale() / self.__time_step_size
+        self.__timePerPixel = self.__density * self.absTimeScale() / self.__time_step_size
         if not self.paused():
             self.__setState(State.WAIT_FOR_TRIGGER)
 
@@ -206,29 +229,37 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
                 if self.__remainder >= 0.0:
                     self.__remainder -= self.__timePerPixel
 
-                    self.__signal.insert(self.__insert_pos, (self.__screen_pos, value))
+                    pnt = SignalPoint(self.__screen_pos)
+                    pnt.add_sample(value)
+                    self.__signal.insert(self.__insert_pos, pnt)
                     self.__insert_pos += 1
 
                     while (self.__insert_pos < len(self.__signal)
-                           and self.__signal[self.__insert_pos][0] <= self.__screen_pos):
+                           and self.__signal[self.__insert_pos].screen_pos <= self.__screen_pos):
                         del self.__signal[self.__insert_pos]
 
-                    self.__screen_pos += 1
+                    self.__screen_pos += self.__density
+
+                else:
+                    pnt = self.__signal[self.__insert_pos - 1]
+                    pnt.add_sample(value)
 
             else:
-                self.__signal.insert(self.__insert_pos, (self.__screen_pos, value))
+                pnt = SignalPoint(self.__screen_pos)
+                pnt.add_sample(value)
+                self.__signal.insert(self.__insert_pos, pnt)
                 self.__insert_pos += 1
 
                 while (self.__insert_pos < len(self.__signal)
-                       and self.__signal[self.__insert_pos][0] <= self.__screen_pos):
+                       and self.__signal[self.__insert_pos].screen_pos <= self.__screen_pos):
                     del self.__signal[self.__insert_pos]
 
                 self.__remainder += self.__timePerSample
                 while self.__remainder >= 0.0:
                     self.__remainder -= self.__timePerPixel
-                    self.__screen_pos += 1
+                    self.__screen_pos += self.__density
 
-            if self.__screen_pos >= self.__plot_rect.width():
+            if self.__screen_pos >= self.__plot_rect.width() + 10:
                 self.__setState(State.HOLD)
                 del self.__signal[self.__insert_pos:]
 
@@ -407,18 +438,32 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
 
             y_scale = self.absYScale()
             y_offset = self.yOffset()
-            path = QtGui.QPolygon()
-            for x, value in self.__signal:
-                if x >= w:
+
+            min_path = QtGui.QPolygon()
+            max_path = QtGui.QPolygon()
+            for pnt in self.__signal:
+                if pnt.screen_pos >= w:
                     break
 
-                value /= y_scale
-                value += y_offset
-                y = h - int((h - 1) * (value + 1.0) / 2.0)
-                path.append(QtCore.QPoint(x, y))
+                x = pnt.screen_pos
+
+                min_value = pnt.min / y_scale + y_offset
+                min_y = int((h - 1) * (1.0 - min_value) / 2.0)
+                min_path.append(QtCore.QPoint(x, min_y))
+
+                max_value = pnt.max / y_scale + y_offset
+                max_y = int((h - 1) * (1.0 - max_value) / 2.0)
+                max_path.append(QtCore.QPoint(x, max_y))
+
+                if min_y > max_y + 1:
+                    painter.fillRect(
+                        x, max_y + 1,
+                        self.__density, min_y - max_y - 1,
+                        self.__plot_fill_color)
 
             painter.setPen(self.__plot_pen)
-            painter.drawPolyline(path)
+            painter.drawPolyline(min_path)
+            painter.drawPolyline(max_path)
 
             if not self.__trigger_found and h > 5 * self.__warning_font_metrics.capHeight():
                 x = (w - self.__warning_font_metrics.boundingRect("No Trigger").width()
