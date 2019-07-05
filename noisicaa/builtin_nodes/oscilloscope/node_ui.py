@@ -234,7 +234,7 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         else:
             self.__show_minor_grid = False
 
-        y_label_width = self.__label_font_metrics.boundingRect('500000').width()
+        y_label_width = self.__label_font_metrics.boundingRect('500000').width() + 3
         if evt.size().width() >= y_label_width + 100 and evt.size().height() >= 60:
             self.__show_y_labels = True
         else:
@@ -303,8 +303,11 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
             painter.translate(self.__plot_rect.topLeft())
 
             if self.__show_minor_grid:
-                for g in (1, 2, 3, 4, 6, 7, 8, 9):
-                    painter.fillRect(0, int(g * (h - 1) / 10), w, 1, self.__grid_color)
+                for g in (-4, -3, -2, -1, 1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 14):
+                    tick_pos = int((g / 10 - 0.5 * self.yOffset()) * (h - 1))
+                    if not 0 <= tick_pos < h:
+                        continue
+                    painter.fillRect(0, tick_pos, w, 1, self.__grid_color)
 
                 x = 0
                 while x < w:
@@ -315,7 +318,11 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
                     x += self.__time_step_size
 
             if self.__show_major_grid:
-                painter.fillRect(0, int(5 * (h - 1) / 10), w, 1, self.__center_color)
+                for tick in (-2.0, -1.0, 0.0, 1.0, 2.0):
+                    tick_pos = int(0.5 * (1.0 - tick - self.yOffset()) * (h - 1))
+                    if not 0 <= tick_pos < h:
+                        continue
+                    painter.fillRect(0, tick_pos, w, 1, self.__center_color)
 
                 x = self.__time_step_size
                 while x < w:
@@ -342,12 +349,23 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
                     t1)
 
             if self.__show_y_labels:
-                y1 = self.formatYScale(self.yScale())
-                y1r = self.__label_font_metrics.boundingRect(y1)
-                painter.drawText(
-                    self.__plot_rect.left() - y1r.width() - 2,
-                    self.__plot_rect.top() + self.__label_font_metrics.capHeight(),
-                    y1)
+                y_min = self.__plot_rect.top() + self.__label_font_metrics.capHeight()
+                y_max = self.__plot_rect.bottom()
+
+                for tick in (-2.0, -1.0, 0.0, 1.0, 2.0):
+                    tick_pos = int(0.5 * (1.0 - tick - self.yOffset()) * (h - 1))
+                    if not 0 <= tick_pos < h:
+                        continue
+
+                    painter.fillRect(
+                        self.__plot_rect.left() - 3, self.__plot_rect.top() + tick_pos, 3, 1, self.__border_color)
+
+                    y1 = '%g' % (tick * self.absYScale())
+                    y1r = self.__label_font_metrics.boundingRect(y1)
+                    painter.drawText(
+                        self.__plot_rect.left() - y1r.width() - 4,
+                        max(y_min, min(y_max, self.__plot_rect.top() + tick_pos + self.__label_font_metrics.capHeight() // 2)),
+                        y1)
 
         finally:
             painter.end()
