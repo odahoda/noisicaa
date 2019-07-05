@@ -58,4 +58,5 @@ install_files(
   track-type-sample.svg
   track-type-score.svg
   track-visible.svg
+  warning.svg
 )

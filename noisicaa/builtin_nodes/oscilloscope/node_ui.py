@@ -22,6 +22,7 @@
 
 import enum
 import logging
+import os.path
 import time
 from typing import Any, Dict, List, Tuple, Iterable
 
@@ -30,6 +31,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa import core
 from noisicaa import music
 from noisicaa.ui import slots
@@ -69,6 +71,8 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         self.__remainder = 0.0
         self.__prev_sample = 0.0
         self.__hold_begin = 0.0
+        self.__trigger_begin = 0.0
+        self.__trigger_found = False
 
         self.__timePerPixel = 1.0
         self.__timePerSample = 1.0 / 44100
@@ -83,6 +87,15 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         self.__label_font = QtGui.QFont(self.font())
         self.__label_font.setPointSizeF(0.8 * self.__label_font.pointSizeF())
         self.__label_font_metrics = QtGui.QFontMetrics(self.__label_font)
+        self.__warning_pen = QtGui.QPen(QtGui.QColor(255, 255, 255))
+        self.__warning_font = QtGui.QFont(self.font())
+        self.__warning_font.setPointSizeF(0.9 * self.__warning_font.pointSizeF())
+        self.__warning_font.setBold(True)
+        self.__warning_font_metrics = QtGui.QFontMetrics(self.__warning_font)
+        self.__warning_pixmap = QtGui.QIcon(QtGui.QIcon.fromTheme(
+            os.path.join(constants.DATA_DIR, 'icons', 'warning.svg'))).pixmap(
+                4 + self.__warning_font_metrics.capHeight(),
+                4 + self.__warning_font_metrics.capHeight())
 
         self.__show_minor_grid = False
         self.__show_major_grid = False
@@ -113,6 +126,8 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
             self.__remainder = 0.0
         elif state == State.HOLD:
             self.__hold_begin = time.time()
+        elif state == State.WAIT_FOR_TRIGGER:
+            self.__trigger_begin = time.time()
 
         self.__state = state
 
@@ -171,11 +186,15 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         for value in values:
             if self.__state == State.HOLD and not self.paused():
                 if time.time() - self.__hold_begin > self.absHoldTime():
-                    self.__state = State.WAIT_FOR_TRIGGER
+                    self.__setState(State.WAIT_FOR_TRIGGER)
 
             if self.__state == State.WAIT_FOR_TRIGGER:
                 if self.__prev_sample < trigger_value and value >= trigger_value:
+                    self.__trigger_found = True
                     self.__setState(State.RECORDING)
+                elif time.time() - self.__trigger_begin > 10 * self.absTimeScale():
+                    self.__setState(State.RECORDING)
+                    self.__trigger_found = False
 
             self.__prev_sample = value
 
@@ -358,14 +377,18 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
                         continue
 
                     painter.fillRect(
-                        self.__plot_rect.left() - 3, self.__plot_rect.top() + tick_pos, 3, 1, self.__border_color)
+                        self.__plot_rect.left() - 3, self.__plot_rect.top() + tick_pos,
+                        3, 1,
+                        self.__border_color)
 
                     y1 = '%g' % (tick * self.absYScale())
                     y1r = self.__label_font_metrics.boundingRect(y1)
-                    painter.drawText(
-                        self.__plot_rect.left() - y1r.width() - 4,
-                        max(y_min, min(y_max, self.__plot_rect.top() + tick_pos + self.__label_font_metrics.capHeight() // 2)),
-                        y1)
+                    label_pos = (
+                        self.__plot_rect.top()
+                        + tick_pos
+                        + self.__label_font_metrics.capHeight() // 2)
+                    label_pos = max(y_min, min(y_max, label_pos))
+                    painter.drawText(self.__plot_rect.left() - y1r.width() - 4, label_pos, y1)
 
         finally:
             painter.end()
@@ -396,6 +419,17 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
 
             painter.setPen(self.__plot_pen)
             painter.drawPolyline(path)
+
+            if not self.__trigger_found and h > 5 * self.__warning_font_metrics.capHeight():
+                x = (w - self.__warning_font_metrics.boundingRect("No Trigger").width()
+                     - self.__warning_pixmap.width() - 8)
+                if x > 0:
+                    painter.drawPixmap(x, 3, self.__warning_pixmap)
+                    x += self.__warning_pixmap.width() + 3
+
+                    painter.setPen(self.__warning_pen)
+                    painter.setFont(self.__warning_font)
+                    painter.drawText(x, 5 + self.__warning_font_metrics.capHeight(), "No Trigger")
 
         finally:
             painter.end()
