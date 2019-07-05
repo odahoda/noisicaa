@@ -54,7 +54,7 @@ class IntDial(base_dial.BaseDial):
         self.__drag_pos = None  # type: QtCore.QPoint
         self.__drag_start_value = None  # type: int
 
-    def normalize(self, value: int) -> float:
+    def normalize(self, value: base_dial.T) -> float:
         try:
             value = max(self.minimum(), min(value, self.maximum()))
             return (value - self.minimum()) / (self.maximum() - self.minimum())

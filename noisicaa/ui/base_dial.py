@@ -22,7 +22,7 @@
 
 import logging
 import math
-from typing import Any, Optional, Union, Callable
+from typing import Optional, Union, Callable
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
