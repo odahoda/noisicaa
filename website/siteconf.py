@@ -27,6 +27,8 @@ class BlogPost(odasite.blog.BlogPost):
 
             if cmd == 'img':
                 content += '<a href="/img/{name}"><img src="/img/{name}" style="max-width: 80%; width: 30em;"></a>'.format(name=body)
+            elif cmd == 'thumb':
+                content += '<a href="/img/{name}"><img src="/img/{name}" class="thumb"></a>'.format(name=body)
             else:
                 raise ValueError(cmd)
 
