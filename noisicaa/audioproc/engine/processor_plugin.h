@@ -50,7 +50,6 @@ protected:
   Status setup_internal() override;
   void cleanup_internal() override;
   Status set_parameters_internal(const pb::NodeParameters& parameters);
-  Status connect_port_internal(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) override;
   Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) override;
 
 private:
@@ -61,8 +60,7 @@ private:
   Status pipe_write(const char* data, size_t size, deadline_t deadline);
 
   int _pipe = -1;
-  map<uint32_t, size_t> _buffer_map;
-  bool _update_memmap = false;
+  bool _update_memmap;
 };
 
 }  // namespace noisicaa

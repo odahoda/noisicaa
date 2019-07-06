@@ -47,7 +47,6 @@ ProcessorStepSequencer::ProcessorStepSequencer(
 Status ProcessorStepSequencer::setup_internal() {
   RETURN_IF_ERROR(Processor::setup_internal());
 
-  _buffers.resize(_desc.ports_size());
   _current_step = -1;
   _current_step_d = 0.0;
 
@@ -68,8 +67,6 @@ void ProcessorStepSequencer::cleanup_internal() {
     delete spec;
   }
 
-  _buffers.clear();
-
   Processor::cleanup_internal();
 }
 
@@ -84,15 +81,6 @@ Status ProcessorStepSequencer::set_parameters_internal(const pb::NodeParameters&
   }
 
   return Processor::set_parameters_internal(parameters);
-}
-
-Status ProcessorStepSequencer::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= _buffers.size()) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-  _buffers[port_idx] = buf;
-  return Status::Ok();
 }
 
 Status ProcessorStepSequencer::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {

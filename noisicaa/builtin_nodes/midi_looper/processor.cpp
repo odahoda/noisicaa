@@ -56,7 +56,6 @@ ProcessorMidiLooper::ProcessorMidiLooper(
 Status ProcessorMidiLooper::setup_internal() {
   RETURN_IF_ERROR(Processor::setup_internal());
 
-  _buffers.resize(_desc.ports_size());
   _next_record_state.store(UNSET);
   _record_state = OFF;
   _recorded_count = 0;
@@ -80,8 +79,6 @@ void ProcessorMidiLooper::cleanup_internal() {
   if (spec != nullptr) {
     delete spec;
   }
-
-  _buffers.clear();
 
   Processor::cleanup_internal();
 }
@@ -111,15 +108,6 @@ Status ProcessorMidiLooper::handle_message_internal(pb::ProcessorMessage* msg) {
   }
 
   return Processor::set_parameters_internal(parameters);
-}
-
-Status ProcessorMidiLooper::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= _buffers.size()) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-  _buffers[port_idx] = buf;
-  return Status::Ok();
 }
 
 Status ProcessorMidiLooper::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {

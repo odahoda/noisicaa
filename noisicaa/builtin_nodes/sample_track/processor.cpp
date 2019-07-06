@@ -129,22 +129,13 @@ Status ProcessorSampleScript::handle_message_internal(pb::ProcessorMessage* msg)
   return Processor::handle_message_internal(msg);
 }
 
-Status ProcessorSampleScript::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  assert(port_idx < 2);
-  _out_buffers[port_idx] = buf;
-  return Status::Ok();
-}
-
 Status ProcessorSampleScript::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
   PerfTracker tracker(ctxt->perf.get(), "sample_script");
 
   SampleScript* script = _script_manager.get_current();
 
-  assert(_out_buffers[0] != nullptr);
-  float* out_l_ptr = (float*)_out_buffers[0];
-  assert(_out_buffers[1] != nullptr);
-  float* out_r_ptr = (float*)_out_buffers[1];
+  float* out_l_ptr = (float*)_buffers[0];
+  float* out_r_ptr = (float*)_buffers[1];
 
   SampleTime* stime = ctxt->time_map.get();
   for (uint32_t sample_pos = 0 ; sample_pos < _host_system->block_size() ; ++sample_pos, ++stime) {

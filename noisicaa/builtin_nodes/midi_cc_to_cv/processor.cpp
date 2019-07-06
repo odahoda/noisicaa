@@ -53,7 +53,6 @@ ProcessorMidiCCtoCV::ProcessorMidiCCtoCV(
 Status ProcessorMidiCCtoCV::setup_internal() {
   RETURN_IF_ERROR(Processor::setup_internal());
 
-  _buffers.resize(_desc.ports_size());
   for (int idx = 0; idx < 128 ; ++idx) {
     _current_value[idx] = -1;
   }
@@ -75,8 +74,6 @@ void ProcessorMidiCCtoCV::cleanup_internal() {
   if (spec != nullptr) {
     delete spec;
   }
-
-  _buffers.clear();
 
   Processor::cleanup_internal();
 }
@@ -112,15 +109,6 @@ Status ProcessorMidiCCtoCV::set_parameters_internal(const pb::NodeParameters& pa
   }
 
   return Processor::set_parameters_internal(parameters);
-}
-
-Status ProcessorMidiCCtoCV::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= _buffers.size()) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-  _buffers[port_idx] = buf;
-  return Status::Ok();
 }
 
 Status ProcessorMidiCCtoCV::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {

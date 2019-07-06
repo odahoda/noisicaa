@@ -138,6 +138,7 @@ Status Processor::setup_internal() {
   for (int port_idx = 0 ; port_idx < _desc.ports_size() ; ++port_idx) {
     _buffers[port_idx] = nullptr;
   }
+  _buffers_changed = true;
 
   return Status::Ok();
 }
@@ -151,6 +152,7 @@ void Processor::cleanup() {
 }
 
 void Processor::cleanup_internal() {
+  _buffers.clear();
 }
 
 Status Processor::handle_message(const string& msg_serialized) {
@@ -195,20 +197,16 @@ Status Processor::set_description_internal(const pb::NodeDescription& desc) {
 }
 
 void Processor::connect_port(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  // Some processors might have additional ports, which are not in the NodeDescription.
-  if (port_idx < _buffers.size()) {
-    _buffers[port_idx] = buf;
+  if (port_idx >= _buffers.size()) {
+    _logger->error(
+        "Processor %llx: connect_port(%u) failed: Invalid index %u", id(), port_idx, port_idx);
+    RTUnsafe rtu;  // We just crashed... doesn't matter we're now calling unsafe callbacks.
+    set_state(ProcessorState::BROKEN);
+    return;
   }
 
-  if (state() == ProcessorState::RUNNING) {
-    Status status = connect_port_internal(ctxt, port_idx, buf);
-    if (status.is_error()) {
-      _logger->error(
-          "Processor %llx: connect_port(%u) failed: %s", id(), port_idx, status.message());
-      RTUnsafe rtu;  // We just crashed... doesn't matter we're now calling unsafe callbacks.
-      set_state(ProcessorState::BROKEN);
-    }
-  }
+  _buffers[port_idx] = buf;
+  _buffers_changed = true;
 }
 
 void Processor::process_block(BlockContext* ctxt, TimeMapper* time_mapper) {
@@ -220,6 +218,8 @@ void Processor::process_block(BlockContext* ctxt, TimeMapper* time_mapper) {
       set_state(ProcessorState::BROKEN);
     }
   }
+
+  _buffers_changed = false;
 
   if (state() != ProcessorState::RUNNING || _muted.load()) {
     // Processor is muted or broken, just clear all outputs.

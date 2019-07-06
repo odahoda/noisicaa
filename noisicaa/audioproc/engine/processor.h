@@ -101,7 +101,6 @@ protected:
   virtual Status handle_message_internal(pb::ProcessorMessage* msg);
   virtual Status set_parameters_internal(const pb::NodeParameters& parameters);
   virtual Status set_description_internal(const pb::NodeDescription& description);
-  virtual Status connect_port_internal(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) = 0;
   virtual Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) = 0;
   virtual Status post_process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper);
 
@@ -115,12 +114,13 @@ protected:
   pb::NodeDescription _desc;
   pb::NodeParameters _params;
   atomic<bool> _muted;
+  vector<BufferPtr> _buffers;
+  bool _buffers_changed;
 
 private:
   static uint64_t new_id();
 
   ProcessorState _state;
-  vector<BufferPtr> _buffers;
 };
 
 }  // namespace noisicaa

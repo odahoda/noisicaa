@@ -45,7 +45,6 @@ public:
 protected:
   Status setup_internal() override;
   void cleanup_internal() override;
-  Status connect_port_internal(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) override;
   Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) override;
 };
 

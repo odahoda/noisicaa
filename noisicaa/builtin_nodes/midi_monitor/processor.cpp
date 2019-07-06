@@ -42,32 +42,17 @@ ProcessorMidiMonitor::ProcessorMidiMonitor(
 }
 
 Status ProcessorMidiMonitor::setup_internal() {
-  RETURN_IF_ERROR(Processor::setup_internal());
-
-  _in_buffer = nullptr;
-
-  return Status::Ok();
+  return Processor::setup_internal();
 }
 
 void ProcessorMidiMonitor::cleanup_internal() {
-  _in_buffer = nullptr;
-
   Processor::cleanup_internal();
-}
-
-Status ProcessorMidiMonitor::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= 1) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-  _in_buffer = buf;
-  return Status::Ok();
 }
 
 Status ProcessorMidiMonitor::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
   SampleTime* tmap = ctxt->time_map.get();
 
-  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_in_buffer;
+  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0];
   if (seq->atom.type != _host_system->lv2->urid.atom_sequence) {
     return ERROR_STATUS(
         "Excepted sequence in port 'in', got %d.", seq->atom.type);

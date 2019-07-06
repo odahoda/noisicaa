@@ -80,11 +80,7 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
 }
 
 Status ProcessorCSoundBase::setup_internal() {
-  RETURN_IF_ERROR(Processor::setup_internal());
-
-  _buffers.resize(_desc.ports_size());
-
-  return Status::Ok();
+  return Processor::setup_internal();
 }
 
 void ProcessorCSoundBase::cleanup_internal() {
@@ -101,18 +97,7 @@ void ProcessorCSoundBase::cleanup_internal() {
     delete instance;
   }
 
-  _buffers.clear();
-
   Processor::cleanup_internal();
-}
-
-Status ProcessorCSoundBase::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= _buffers.size()) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-  _buffers[port_idx] = buf;
-  return Status::Ok();
 }
 
 Status ProcessorCSoundBase::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {

@@ -39,11 +39,6 @@ void ProcessorNull::cleanup_internal() {
   Processor::cleanup_internal();
 }
 
-Status ProcessorNull::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  return Status::Ok();
-}
-
 Status ProcessorNull::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
   return Status::Ok();
 }

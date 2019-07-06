@@ -97,14 +97,11 @@ protected:
   Status setup_internal() override;
   void cleanup_internal() override;
   Status handle_message_internal(pb::ProcessorMessage* msg) override;
-  Status connect_port_internal(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) override;
   Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) override;
 
 private:
   void note_on(LV2_Atom_Forge* forge, uint32_t sample, uint8_t pitch, uint8_t velocity);
   void note_off(LV2_Atom_Forge* forge, uint32_t sample, uint8_t pitch);
-
-  BufferPtr _out_buffer;
 
   uint8_t _active_notes[128];
 

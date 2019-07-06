@@ -54,7 +54,6 @@ protected:
   void cleanup_internal() override;
   Status handle_message_internal(pb::ProcessorMessage* msg) override;
   Status set_parameters_internal(const pb::NodeParameters& parameters);
-  Status connect_port_internal(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) override;
   Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) override;
 
 private:
@@ -68,8 +67,6 @@ private:
   LV2_URID _recorded_event_urid;
   LV2_Atom_Forge _node_msg_forge;
   LV2_Atom_Forge _out_forge;
-
-  vector<BufferPtr> _buffers;
 
   // Keep this in sync with RecordState in node_ui.py
   enum RecordState {

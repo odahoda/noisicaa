@@ -155,13 +155,6 @@ Status ProcessorPianoRoll::handle_message_internal(pb::ProcessorMessage* msg) {
   return Processor::handle_message_internal(msg);
 }
 
-Status ProcessorPianoRoll::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  assert(port_idx == 0);
-  _out_buffer = buf;
-  return Status::Ok();
-}
-
 void ProcessorPianoRoll::note_on(
     LV2_Atom_Forge* forge, uint32_t sample, uint8_t pitch, uint8_t velocity) {
   lv2_atom_forge_frame_time(forge, sample);
@@ -184,14 +177,13 @@ Status ProcessorPianoRoll::process_block_internal(BlockContext* ctxt, TimeMapper
 
   PianoRoll* pianoroll = _pianoroll_manager.get_current();
 
-  assert(_out_buffer != nullptr);
-  memset(_out_buffer, 0, 10240);
+  memset(_buffers[0], 0, 10240);
 
   LV2_Atom_Forge forge;
   lv2_atom_forge_init(&forge, &_host_system->lv2->urid_map);
 
   LV2_Atom_Forge_Frame frame;
-  lv2_atom_forge_set_buffer(&forge, _out_buffer, 10240);
+  lv2_atom_forge_set_buffer(&forge, _buffers[0], 10240);
 
   lv2_atom_forge_sequence_head(&forge, &frame, _host_system->lv2->urid.atom_frame_time);
 

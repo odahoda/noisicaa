@@ -53,7 +53,6 @@ public:
 protected:
   Status setup_internal() override;
   void cleanup_internal() override;
-  Status connect_port_internal(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) override;
   Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) override;
 
 private:
@@ -61,7 +60,6 @@ private:
   bool _loop;
   bool _playing;
   uint32_t _pos;
-  BufferPtr _buf[2];
 
   LV2_URID _sound_file_complete_urid;
 };

@@ -56,7 +56,6 @@ protected:
   void cleanup_internal() override;
   Status handle_message_internal(pb::ProcessorMessage* msg) override;
   Status set_parameters_internal(const pb::NodeParameters& parameters);
-  Status connect_port_internal(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) override;
   Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) override;
 
 private:
@@ -65,7 +64,6 @@ private:
   LV2_URID _learn_urid;
   LV2_URID _cc_urid;
 
-  vector<BufferPtr> _buffers;
   int16_t _current_value[128];
   atomic<uint32_t> _learn;
 

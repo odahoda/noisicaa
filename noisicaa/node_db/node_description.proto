@@ -104,12 +104,14 @@ message EnumValueDescription {
 
 message PortDescription {
   enum Direction {
+    INTERNAL_DIRECTION = -2;
     INPUT = 1;
     OUTPUT = 2;
   }
   required Direction direction = 1;
 
   enum Type {
+    INTERNAL_TYPE = -2;
     UNSUPPORTED = -1;
     AUDIO = 1;
     ARATE_CONTROL = 2;

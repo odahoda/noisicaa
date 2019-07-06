@@ -97,7 +97,6 @@ Status ProcessorFaust::setup_internal() {
     return ERROR_STATUS("Port mismatch (desc=%d, dsp=%d)", _desc.ports_size(), dsp_ports);
   }
 
-  _buffers.reset(new BufferPtr[_desc.ports_size()]);
   _inputs.reset(new float*[_dsp->getNumInputs()]);
   _outputs.reset(new float*[_dsp->getNumOutputs()]);
   _controls.reset(new float*[controls.num_controls()]);
@@ -157,22 +156,11 @@ Status ProcessorFaust::setup_internal() {
 
 void ProcessorFaust::cleanup_internal() {
   _dsp.reset();
-  _buffers.reset();
   _inputs.reset();
   _outputs.reset();
   _controls.reset();
 
   Processor::cleanup_internal();
-}
-
-Status ProcessorFaust::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= (uint32_t)_desc.ports_size()) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-
-  _buffers.get()[port_idx] = buf;
-  return Status::Ok();
 }
 
 Status ProcessorFaust::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
@@ -185,7 +173,7 @@ Status ProcessorFaust::process_block_internal(BlockContext* ctxt, TimeMapper* ti
   int output_idx = 0;
   int control_idx = 0;
   for (int port_idx = 0 ; port_idx < _desc.ports_size() ; ++port_idx) {
-    BufferPtr buf = _buffers.get()[port_idx];
+    BufferPtr buf = _buffers[port_idx];
     if (buf == nullptr) {
       return ERROR_STATUS("Port %d not connected.", port_idx);
     }

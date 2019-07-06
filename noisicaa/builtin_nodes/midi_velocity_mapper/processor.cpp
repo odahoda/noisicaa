@@ -45,12 +45,7 @@ ProcessorMidiVelocityMapper::ProcessorMidiVelocityMapper(
 }
 
 Status ProcessorMidiVelocityMapper::setup_internal() {
-  RETURN_IF_ERROR(Processor::setup_internal());
-
-  _buffers[0] = nullptr;
-  _buffers[1] = nullptr;
-
-  return Status::Ok();
+  return Processor::setup_internal();
 }
 
 void ProcessorMidiVelocityMapper::cleanup_internal() {
@@ -67,9 +62,6 @@ void ProcessorMidiVelocityMapper::cleanup_internal() {
     delete spec;
   }
 
-  _buffers[0] = nullptr;
-  _buffers[1] = nullptr;
-
   Processor::cleanup_internal();
 }
 
@@ -84,15 +76,6 @@ Status ProcessorMidiVelocityMapper::set_parameters_internal(const pb::NodeParame
   }
 
   return Processor::set_parameters_internal(parameters);
-}
-
-Status ProcessorMidiVelocityMapper::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= 2) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-  _buffers[port_idx] = buf;
-  return Status::Ok();
 }
 
 Status ProcessorMidiVelocityMapper::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {

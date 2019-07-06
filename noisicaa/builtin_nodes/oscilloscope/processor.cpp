@@ -89,15 +89,6 @@ Status ProcessorOscilloscope::set_parameters_internal(const pb::NodeParameters& 
   return Processor::set_parameters_internal(parameters);
 }
 
-Status ProcessorOscilloscope::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= 1) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-  _buffers[port_idx] = buf;
-  return Status::Ok();
-}
-
 Status ProcessorOscilloscope::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
   // If there is a next spec, make it the current. The current spec becomes the old spec, which will
   // eventually be destroyed in the main thread.  It must not happen that a next spec is available,
