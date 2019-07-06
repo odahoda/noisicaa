@@ -88,6 +88,9 @@ cdef class Atom(object):
         elif type_uri == 'http://lv2plug.in/ns/ext/atom#Tuple':
             return tuple(t.as_object for t in self.tuple)
 
+        elif type_uri == 'http://lv2plug.in/ns/ext/atom#Vector':
+            return self.vector
+
         elif type_uri == 'http://lv2plug.in/ns/ext/atom#Float':
             return self.float
 
@@ -134,6 +137,20 @@ cdef class Atom(object):
         while not lv2_atom_tuple_is_end(body, size, it):
             yield Atom.wrap(self.mapper, <uint8_t*>it)
             it = lv2_atom_tuple_next(it)
+
+    @property
+    def vector(self):
+        cdef LV2_Atom_Vector* vec = <LV2_Atom_Vector*>self.atom
+        cdef uint8_t* body = (<uint8_t*>vec) + sizeof(LV2_Atom_Vector)
+
+        num_elems = (vec.atom.size - sizeof(LV2_Atom_Vector_Body)) // vec.body.child_size
+        assert num_elems * vec.body.child_size + sizeof(LV2_Atom_Vector_Body) == vec.atom.size
+
+        if vec.body.child_type == self.mapper.map('http://lv2plug.in/ns/ext/atom#Float'):
+            assert vec.body.child_size == sizeof(float)
+            return [(<float*>body)[i] for i in range(num_elems)]
+        else:
+            raise ValueError(self.mapper.unmap(vec.body.child_type))
 
     @property
     def sequence(self):

@@ -19,6 +19,70 @@
 # @end:license
 
 classes {
+  name: "TransferFunction"
+  super_class: "ObjectBase"
+  proto_ext_name: "transfer_function"
+  properties {
+    name: "input_min"
+    type: FLOAT
+    proto_id: 1
+  }
+  properties {
+    name: "input_max"
+    type: FLOAT
+    proto_id: 2
+  }
+  properties {
+    name: "output_min"
+    type: FLOAT
+    proto_id: 3
+  }
+  properties {
+    name: "output_max"
+    type: FLOAT
+    proto_id: 4
+  }
+  properties {
+    name: "type"
+    type: PROTO_ENUM
+    proto_id: 5
+    proto_enum_name: "Type"
+    proto_enum_fields {
+      name: "FIXED"
+      value: 1
+    }
+    proto_enum_fields {
+      name: "LINEAR"
+      value: 2
+    }
+    proto_enum_fields {
+      name: "GAMMA"
+      value: 3
+    }
+  }
+  properties {
+    name: "fixed_value"
+    type: FLOAT
+    proto_id: 6
+  }
+  properties {
+    name: "linear_left_value"
+    type: FLOAT
+    proto_id: 7
+  }
+  properties {
+    name: "linear_right_value"
+    type: FLOAT
+    proto_id: 8
+  }
+  properties {
+    name: "gamma_value"
+    type: FLOAT
+    proto_id: 9
+  }
+}
+
+classes {
   name: "BaseNode"
   is_abstract: true
   super_class: "ObjectBase"

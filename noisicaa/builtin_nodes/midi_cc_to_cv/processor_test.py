@@ -19,27 +19,25 @@
 # @end:license
 
 from noisidev import unittest
-from noisidev import unittest_mixins
-from noisidev import unittest_engine_mixins
-from noisidev import unittest_engine_utils
-from noisicaa import lv2
+from noisidev import unittest_processor_mixins
+from noisicaa import node_db
 from noisicaa.audioproc.public import node_parameters_pb2
-from noisicaa.audioproc.engine import block_context
-from noisicaa.audioproc.engine import buffers
-from noisicaa.audioproc.engine import processor
 from . import processor_pb2
 
 
 class ProcessorMidiCCtoCVTest(
-        unittest_engine_mixins.HostSystemMixin,
-        unittest_mixins.NodeDBMixin,
+        unittest_processor_mixins.ProcessorTestMixin,
         unittest.TestCase):
 
-    def test_value(self):
-        plugin_uri = 'builtin://midi-cc-to-cv'
-        node_desc = self.node_db[plugin_uri]
-        proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
-        proc.setup()
+    def test_process_block(self):
+        self.node_description = self.node_db['builtin://midi-cc-to-cv']
+        self.node_description.ports.add(
+            name='channel1',
+            direction=node_db.PortDescription.OUTPUT,
+            type=node_db.PortDescription.ARATE_CONTROL,
+        )
+
+        self.create_processor()
 
         params = node_parameters_pb2.NodeParameters()
         spec = params.Extensions[processor_pb2.midi_cc_to_cv_spec]
@@ -50,26 +48,7 @@ class ProcessorMidiCCtoCVTest(
         channel_spec.min_value = 1.0
         channel_spec.max_value = 2.0
         channel_spec.log_scale = False
-        proc.set_parameters(params)
+        self.processor.set_parameters(params)
 
-        buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
-
-        buffer_mgr.allocate('in', buffers.PyAtomDataBuffer())
-        cv_out = buffer_mgr.allocate('out', buffers.PyFloatAudioBlockBuffer())
-
-        ctxt = block_context.PyBlockContext()
-        ctxt.sample_pos = 1024
-
-        proc.connect_port(ctxt, 0, buffer_mgr.data('in'))
-        proc.connect_port(ctxt, 1, buffer_mgr.data('out'))
-
-        forge = lv2.AtomForge(self.urid_mapper)
-        forge.set_buffer(buffer_mgr.data('in'), 10240)
-        with forge.sequence():
-            pass
-        for i in range(self.host_system.block_size):
-            cv_out[i] = 0.0
-
-        proc.process_block(ctxt, None)  # TODO: pass time_mapper
-
-        self.assertTrue(all(v != 1.0 for v in cv_out), [v for v in cv_out[:32]])
+        self.process_block()
+        self.assertBufferAllEqual('channel1', 1.0)

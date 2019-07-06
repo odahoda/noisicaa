@@ -21,7 +21,9 @@
 add_python_package(
   audio_thread_profiler.py
   control_value_connector.py
+  base_dial.py
   control_value_dial.py
+  int_dial.py
   device_list.py
   dynamic_layout.py
   editor_app.py
@@ -62,6 +64,8 @@ add_python_package(
   svg_symbol_filetest.py
   svg_symbol.py
   svg_symbol_test.py
+  transfer_function_editor.py
+  transfer_function_editor_test.py
   ui_base.py
   ui_process.py
   vumeter.py

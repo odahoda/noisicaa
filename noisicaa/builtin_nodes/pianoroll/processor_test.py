@@ -19,142 +19,87 @@
 # @end:license
 
 from noisidev import unittest
-from noisidev import unittest_mixins
-from noisidev import unittest_engine_mixins
-from noisidev import unittest_engine_utils
-from noisicaa import lv2
+from noisidev import unittest_processor_mixins
 from noisicaa.audioproc.public import musical_time
-from noisicaa.audioproc.engine import block_context
-from noisicaa.audioproc.engine import buffers
-from noisicaa.audioproc.engine import processor
 from . import processor_messages
 
 
-class ProcessorPianoRollTestMixin(
-        unittest_engine_mixins.HostSystemMixin,
-        unittest_mixins.NodeDBMixin,
+class ProcessorPianoRollTest(
+        unittest_processor_mixins.ProcessorTestMixin,
         unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.proc = None
-        self.arena = None
-        self.buffer_mgr = None
-        self.ctxt = None
-        self.outbuf = None
-
     def setup_testcase(self):
-        self.host_system.set_block_size(2 * 44100)
+        self.host_system.set_block_size(2 * self.host_system.sample_rate)
 
-        plugin_uri = 'builtin://score-track'
-        node_description = self.node_db[plugin_uri]
-
-        self.proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_description)
-        self.proc.setup()
-
-        self.buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
-
-        self.outbuf = self.buffer_mgr.allocate('out', buffers.PyAtomDataBuffer())
-
-        self.ctxt = block_context.PyBlockContext()
-
-        self.ctxt.clear_time_map(self.host_system.block_size)
-        for s in range(self.host_system.block_size):
-            self.ctxt.set_sample_time(
-                s,
-                musical_time.PyMusicalTime(2 * s, 44100),
-                musical_time.PyMusicalTime(2 * (s + 1), 44100))
-
-        self.proc.connect_port(self.ctxt, 0, self.buffer_mgr.data('out'))
-
-    def cleanup_testcase(self):
-        if self.proc is not None:
-            self.proc.cleanup()
-
-    def get_output(self):
-        seq = lv2.wrap_atom(lv2.DynamicURIDMapper(), self.outbuf)
-        self.assertEqual(seq.type_uri, 'http://lv2plug.in/ns/ext/atom#Sequence')
-        return [(event.frames, [b for b in event.atom.data[0:3]]) for event in seq.sequence]
+        self.node_description = self.node_db['builtin://score-track']
+        self.create_processor()
 
     def test_empty(self):
-        self.proc.process_block(self.ctxt, None)  # TODO: pass time_mapper
-        self.assertEqual(self.get_output(), [])
+        self.process_block()
+        self.assertMidiBufferIsEmpty('out')
 
     def test_add_interval(self):
-        msg = processor_messages.add_interval(
+        self.processor.handle_message(processor_messages.add_interval(
             node_id='123',
             id=0x0001,
             start_time=musical_time.PyMusicalTime(1, 4),
             end_time=musical_time.PyMusicalTime(3, 4),
             pitch=64,
-            velocity=100)
-        self.proc.handle_message(msg)
-
-        msg = processor_messages.add_interval(
+            velocity=100))
+        self.processor.handle_message(processor_messages.add_interval(
             node_id='123',
             id=0x0002,
             start_time=musical_time.PyMusicalTime(2, 4),
             end_time=musical_time.PyMusicalTime(3, 4),
             pitch=80,
-            velocity=103)
-        self.proc.handle_message(msg)
+            velocity=103))
 
-        self.proc.process_block(self.ctxt, None)  # TODO: pass time_mapper
-
-        self.assertEqual(
-            self.get_output(),
-            [(5512, [144, 64, 100]),
-             (11025, [144, 80, 103]),
-             (16537, [128, 64, 0]),
-             (16537, [128, 80, 0])])
+        self.process_block()
+        self.assertMidiBufferEqual(
+            'out',
+            [(11025, [144, 64, 100]),
+             (22050, [144, 80, 103]),
+             (33075, [128, 64, 0]),
+             (33075, [128, 80, 0])])
 
     def test_remove_interval(self):
-        msg = processor_messages.add_interval(
+        self.processor.handle_message(processor_messages.add_interval(
             node_id='123',
             id=0x0001,
             start_time=musical_time.PyMusicalTime(1, 4),
             end_time=musical_time.PyMusicalTime(3, 4),
             pitch=64,
-            velocity=100)
-        self.proc.handle_message(msg)
-
-        msg = processor_messages.remove_interval(
+            velocity=100))
+        self.processor.handle_message(processor_messages.remove_interval(
             node_id='123',
-            id=0x0001)
-        self.proc.handle_message(msg)
+            id=0x0001))
 
-        self.proc.process_block(self.ctxt, None)  # TODO: pass time_mapper
-
-        self.assertEqual(
-            self.get_output(),
-            [])
+        self.process_block()
+        self.assertMidiBufferIsEmpty('out')
 
     def test_pianoroll_buffering(self):
-        msg = processor_messages.add_interval(
+        self.processor.handle_message(processor_messages.add_interval(
             node_id='123',
             id=0x0001,
             start_time=musical_time.PyMusicalTime(1, 4),
             end_time=musical_time.PyMusicalTime(3, 4),
             pitch=64,
-            velocity=100)
-        self.proc.handle_message(msg)
+            velocity=100))
 
-        self.proc.process_block(self.ctxt, None)  # TODO: pass time_mapper
+        self.process_block()
 
-        msg = processor_messages.add_interval(
+        self.processor.handle_message(processor_messages.add_interval(
             node_id='123',
             id=0x0002,
             start_time=musical_time.PyMusicalTime(2, 4),
             end_time=musical_time.PyMusicalTime(3, 4),
             pitch=80,
-            velocity=103)
-        self.proc.handle_message(msg)
+            velocity=103))
 
-        self.proc.process_block(self.ctxt, None)  # TODO: pass time_mapper
-
-        self.assertEqual(
-            self.get_output(),
-            [(5512, [144, 64, 100]),
-             (11025, [144, 80, 103]),
-             (16537, [128, 64, 0]),
-             (16537, [128, 80, 0])])
+        self.ctxt.sample_pos = 0
+        self.process_block()
+        self.assertMidiBufferEqual(
+            'out',
+            [(11025, [144, 64, 100]),
+             (22050, [144, 80, 103]),
+             (33075, [128, 64, 0]),
+             (33075, [128, 80, 0])])

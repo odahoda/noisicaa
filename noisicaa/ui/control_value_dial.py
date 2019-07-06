@@ -22,7 +22,7 @@
 
 import logging
 import math
-from typing import Optional, Callable
+from typing import Optional
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -30,17 +30,17 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from . import slots
+from . import base_dial
 
 logger = logging.getLogger(__name__)
 
 
-class ControlValueDial(slots.SlotContainer, QtWidgets.QWidget):
+class ControlValueDial(base_dial.BaseDial):
     value, setValue, valueChanged = slots.slot(float, 'value', default=0.0)
     default, setDefault, defaultChanged = slots.slot(float, 'default', default=0.0)
     logScale, setLogScale, logScaleChanged = slots.slot(bool, 'logScale', default=False)
     minimum, setMinimum, minimumChanged = slots.slot(float, 'minimum', default=-1.0)
     maximum, setMaximum, maximumChanged = slots.slot(float, 'maximum', default=1.0)
-    readOnly, setReadOnly, readOnlyChanged = slots.slot(bool, 'readOnly', default=False)
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent=parent)
@@ -50,33 +50,10 @@ class ControlValueDial(slots.SlotContainer, QtWidgets.QWidget):
         self.minimumChanged.connect(lambda _: self.update())
         self.logScaleChanged.connect(lambda _: self.update())
 
-        self.__display_func = lambda value: '%.2f' % value
+        self.setDisplayFunc(lambda value: '%.2f' % value)
 
         self.__dragging = False
         self.__drag_pos = None  # type: QtCore.QPoint
-
-    def sizeHint(self) -> QtCore.QSize:
-        return QtCore.QSize(50, 50)
-
-    def minimumSizeHint(self) -> QtCore.QSize:
-        return QtCore.QSize(32, 32)
-
-    def hasHeightForWidth(self) -> bool:
-        return True
-
-    def heightForWidth(self, w: int) -> int:
-        return w
-
-    def setRange(self, minimum: float, maximum: float) -> None:
-        self.setMinimum(minimum)
-        self.setMaximum(maximum)
-
-    def setDisplayFunc(self, func: Callable[[float], str]) -> None:
-        self.__display_func = func
-        self.update()
-
-    def normalizedValue(self) -> float:
-        return self.normalize(self.value())
 
     def normalize(self, value: float) -> float:
         try:
@@ -102,82 +79,11 @@ class ControlValueDial(slots.SlotContainer, QtWidgets.QWidget):
         except ArithmeticError:
             return self.minimum()
 
-    def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
-        value = self.normalizedValue()
-
-        size = min(self.width(), self.height())
-
-        arc_width = int(max(6, min(size / 6, 20)))
-        arc_size = int(size - arc_width - 2)
-
-        painter = QtGui.QPainter(self)
-        try:
-            painter.setRenderHints(
-                QtGui.QPainter.Antialiasing | QtGui.QPainter.TextAntialiasing)
-
-            painter.translate(self.width() / 2, self.height() / 2)
-
-            if self.isEnabled():
-                arc_bg_color = QtGui.QColor(0, 0, 0)
-                arc_fg_color = QtGui.QColor(100, 100, 255)
-                knob_inner_color = QtGui.QColor(0, 0, 0)
-                knob_border_color = QtGui.QColor(255, 255, 255)
-                text_color = QtGui.QColor(0, 0, 0)
-            else:
-                arc_bg_color = QtGui.QColor(80, 80, 80)
-                arc_fg_color = QtGui.QColor(120, 120, 120)
-                knob_inner_color = QtGui.QColor(80, 80, 80)
-                knob_border_color = QtGui.QColor(140, 140, 140)
-                text_color = QtGui.QColor(80, 80, 80)
-
-            pen = QtGui.QPen()
-            pen.setColor(arc_bg_color)
-            pen.setWidth(arc_width)
-            pen.setCapStyle(Qt.RoundCap)
-            painter.setPen(pen)
-            painter.drawArc(
-                -int(arc_size / 2), -int(arc_size / 2), arc_size, arc_size,
-                225 * 16, -270 * 16)
-
-            zero_value = self.normalize(0.0)
-            pen = QtGui.QPen()
-            pen.setColor(arc_fg_color)
-            pen.setWidth(arc_width - 2)
-            pen.setCapStyle(Qt.RoundCap)
-            painter.setPen(pen)
-            painter.drawArc(
-                -int(arc_size / 2), -int(arc_size / 2), arc_size, arc_size,
-                225 * 16 - int(zero_value * 270 * 16), -int((value - zero_value) * 270 * 16))
-
-            knob_pos = QtCore.QPointF(
-                0.5 * arc_size * math.cos(1.5 * math.pi * value - 1.25 * math.pi),
-                0.5 * arc_size * math.sin(1.5 * math.pi * value - 1.25 * math.pi))
-            painter.setPen(Qt.NoPen)
-            painter.setBrush(knob_border_color)
-            painter.drawEllipse(knob_pos, arc_width / 2 + 1, arc_width / 2 + 1)
-            painter.setBrush(knob_inner_color)
-            painter.drawEllipse(knob_pos, arc_width / 2 - 1, arc_width / 2 - 1)
-
-            if size > 40:
-                text = self.__display_func(self.value())
-                if text:
-                    font = QtGui.QFont("Arial")
-                    font.setPixelSize(10)
-                    painter.setFont(font)
-                    pen = QtGui.QPen()
-                    pen.setColor(text_color)
-                    painter.setPen(pen)
-                    painter.drawText(
-                        QtCore.QRectF(-arc_size / 2, -arc_size / 4, arc_size, arc_size / 2),
-                        Qt.AlignCenter,
-                        text)
-
-        finally:
-            painter.end()
-
-    def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
-        if evt.button() == Qt.LeftButton and not self.readOnly():
-            self.setValue(self.default())
+    def _render(self, ctxt: base_dial.RenderContext) -> None:
+        self._renderArc(ctxt)
+        self._renderTrail(ctxt, self.normalize(0.0))
+        self._renderKnob(ctxt)
+        self._renderLabel(ctxt)
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and not self.readOnly():
@@ -206,7 +112,7 @@ class ControlValueDial(slots.SlotContainer, QtWidgets.QWidget):
 
         super().mouseMoveEvent(evt)
 
-    def mouseReleasevent(self, evt: QtGui.QMouseEvent) -> None:
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
         if self.__dragging and evt.button() == Qt.LeftButton:
             self.__dragging = False
             evt.accept()

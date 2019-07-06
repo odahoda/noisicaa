@@ -34,6 +34,11 @@
 #include "noisicaa/builtin_nodes/step_sequencer/processor.h"
 #include "noisicaa/builtin_nodes/midi_cc_to_cv/processor.h"
 #include "noisicaa/builtin_nodes/midi_looper/processor.h"
+#include "noisicaa/builtin_nodes/midi_monitor/processor.h"
+#include "noisicaa/builtin_nodes/metronome/processor.h"
+#include "noisicaa/builtin_nodes/midi_velocity_mapper/processor.h"
+#include "noisicaa/builtin_nodes/cv_mapper/processor.h"
+#include "noisicaa/builtin_nodes/oscilloscope/processor.h"
 
 namespace noisicaa {
 
@@ -81,6 +86,21 @@ StatusOr<Processor*> create_processor(
   } else if (desc.processor().type() == "builtin://midi-looper") {
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
     return new ProcessorMidiLooper(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://midi-monitor") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorMidiMonitor(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://metronome") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorMetronome(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://midi-velocity-mapper") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorMidiVelocityMapper(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://cv-mapper") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorCVMapper(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://oscilloscope") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorOscilloscope(realm_name, node_id, host_system, desc);
   }
 
   return ERROR_STATUS("Invalid processor type %d", desc.processor().type());

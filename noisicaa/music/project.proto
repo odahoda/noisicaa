@@ -47,4 +47,7 @@ extend ObjectBase {
   optional MeasuredTrack measured_track = 400100;
   optional Measure measure = 400101;
   optional MeasureReference measure_reference = 400102;
+
+  // Transfer Function (500xxx)
+  optional TransferFunction transfer_function = 500000;
 }

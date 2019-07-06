@@ -30,6 +30,8 @@ from noisicaa import core
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import device_list
+from noisicaa.ui import int_dial
+from noisicaa.ui import control_value_dial
 
 logger = logging.getLogger(__name__)
 
@@ -100,13 +102,59 @@ class QComboBoxConnector(Generic[V], PropertyConnector[V, QtWidgets.QComboBox]):
 
 
 class QSpinBoxConnector(PropertyConnector[int, QtWidgets.QSpinBox]):
+    def __init__(
+            self,
+            widget: QtWidgets.QSpinBox,
+            obj: music.ObjectBase,
+            prop: str,
+            **kwargs: Any) -> None:
+        self.__ignore_change = False
+        super().__init__(widget, obj, prop, **kwargs)
+
     def _connectToWidget(self) -> None:
         self._widget.setValue(self.value())
-        connection = self._widget.valueChanged.connect(self.setValue)
+        connection = self._widget.valueChanged.connect(self.__valueChanged)
         self.add_cleanup_function(lambda: self._widget.valueChanged.disconnect(connection))
 
+    def __valueChanged(self, value: int) -> None:
+        if self.__ignore_change:
+            return
+        self.setValue(value)
+
     def _propertyChanged(self, change: music.PropertyValueChange) -> None:
-        self._widget.setValue(change.new_value)
+        self.__ignore_change = True
+        try:
+            self._widget.setValue(change.new_value)
+        finally:
+            self.__ignore_change = False
+
+
+class QDoubleSpinBoxConnector(PropertyConnector[float, QtWidgets.QDoubleSpinBox]):
+    def __init__(
+            self,
+            widget: QtWidgets.QDoubleSpinBox,
+            obj: music.ObjectBase,
+            prop: str,
+            **kwargs: Any) -> None:
+        self.__ignore_change = False
+        super().__init__(widget, obj, prop, **kwargs)
+
+    def _connectToWidget(self) -> None:
+        self._widget.setValue(self.value())
+        connection = self._widget.valueChanged.connect(self.__valueChanged)
+        self.add_cleanup_function(lambda: self._widget.valueChanged.disconnect(connection))
+
+    def __valueChanged(self, value: float) -> None:
+        if self.__ignore_change:
+            return
+        self.setValue(value)
+
+    def _propertyChanged(self, change: music.PropertyValueChange) -> None:
+        self.__ignore_change = True
+        try:
+            self._widget.setValue(change.new_value)
+        finally:
+            self.__ignore_change = False
 
 
 class QLineEditConnector(Generic[V], PropertyConnector[V, QtWidgets.QLineEdit]):
@@ -151,3 +199,23 @@ class QCheckBoxConnector(PropertyConnector[bool, QtWidgets.QCheckBox]):
 
     def _propertyChanged(self, change: music.PropertyValueChange) -> None:
         self._widget.setChecked(change.new_value)
+
+
+class IntDialConnector(PropertyConnector[int, int_dial.IntDial]):
+    def _connectToWidget(self) -> None:
+        self._widget.setValue(self.value())
+        connection = self._widget.valueChanged.connect(self.setValue)
+        self.add_cleanup_function(lambda: self._widget.valueChanged.disconnect(connection))
+
+    def _propertyChanged(self, change: music.PropertyValueChange) -> None:
+        self._widget.setValue(change.new_value)
+
+
+class ControlValueDialConnector(PropertyConnector[float, control_value_dial.ControlValueDial]):
+    def _connectToWidget(self) -> None:
+        self._widget.setValue(self.value())
+        connection = self._widget.valueChanged.connect(self.setValue)
+        self.add_cleanup_function(lambda: self._widget.valueChanged.disconnect(connection))
+
+    def _propertyChanged(self, change: music.PropertyValueChange) -> None:
+        self._widget.setValue(change.new_value)

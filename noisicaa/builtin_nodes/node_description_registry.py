@@ -37,6 +37,11 @@ from .noise.node_description import NoiseDescription
 from .step_sequencer.node_description import StepSequencerDescription
 from .midi_cc_to_cv.node_description import MidiCCtoCVDescription
 from .midi_looper.node_description import MidiLooperDescription
+from .midi_monitor.node_description import MidiMonitorDescription
+from .metronome.node_description import MetronomeDescription
+from .midi_velocity_mapper.node_description import MidiVelocityMapperDescription
+from .cv_mapper.node_description import CVMapperDescription
+from .oscilloscope.node_description import OscilloscopeDescription
 
 
 def node_descriptions() -> Iterator[node_db.NodeDescription]:
@@ -54,3 +59,8 @@ def node_descriptions() -> Iterator[node_db.NodeDescription]:
     yield StepSequencerDescription
     yield MidiCCtoCVDescription
     yield MidiLooperDescription
+    yield MidiMonitorDescription
+    yield MetronomeDescription
+    yield MidiVelocityMapperDescription
+    yield CVMapperDescription
+    yield OscilloscopeDescription
