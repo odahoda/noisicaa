@@ -31,28 +31,31 @@ import async_generator
 
 from noisidev import unittest
 from noisidev import unittest_mixins
-from noisidev import unittest_engine_mixins
-from noisidev import unittest_engine_utils
+from noisidev import unittest_processor_mixins
 from noisicaa.constants import TEST_OPTS
 from noisicaa.core import ipc
 from noisicaa.audioproc.public import node_parameters_pb2
 from . import plugin_host_pb2
-from . import block_context
 from . import buffers
 from . import processor
 from . import processor_plugin_pb2
-from . import buffer_arena
 
 logger = logging.getLogger(__name__)
 
 
 class ProcessorPluginTest(
-        unittest_engine_mixins.HostSystemMixin,
-        unittest_mixins.NodeDBMixin,
+        unittest_processor_mixins.ProcessorTestMixin,
         unittest_mixins.ProcessManagerMixin,
         unittest.AsyncTestCase):
     async def setup_testcase(self):
         self.setup_urid_mapper_process(inline=True)
+
+        self.node_description = self.node_db['http://noisicaa.odahoda.de/plugins/test-passthru']
+        self.create_processor()
+        self.buffers.allocate('plugin_cond', buffers.PyPluginCondBuffer())
+        cond_buffer = buffers.PyBuffer(
+            self.host_system, self.buffers.type('plugin_cond'), self.buffers.data('plugin_cond'))
+        self.processor.connect_port(self.ctxt, 4, cond_buffer)
 
     @async_generator.asynccontextmanager
     @async_generator.async_generator
@@ -76,13 +79,10 @@ class ProcessorPluginTest(
 
     async def test_plugin(self):
         async with self.create_process() as plugin_host:
-            plugin_uri = 'http://noisicaa.odahoda.de/plugins/test-passthru'
-            node_desc = self.node_db[plugin_uri]
-
             plugin_spec = plugin_host_pb2.PluginInstanceSpec()
             plugin_spec.realm = 'root'
             plugin_spec.node_id = '1234'
-            plugin_spec.node_description.CopyFrom(node_desc)
+            plugin_spec.node_description.CopyFrom(self.node_description)
 
             create_plugin_request = plugin_host_pb2.CreatePluginRequest(spec=plugin_spec)
             create_plugin_response = plugin_host_pb2.CreatePluginResponse()
@@ -90,37 +90,17 @@ class ProcessorPluginTest(
                 'CREATE_PLUGIN', create_plugin_request, create_plugin_response)
             pipe_address = create_plugin_response.pipe_path
 
-            proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
-            proc.setup()
             params = node_parameters_pb2.NodeParameters()
             plugin_params = params.Extensions[processor_plugin_pb2.processor_plugin_parameters]
             plugin_params.plugin_pipe_path = pipe_address
-            proc.set_parameters(params)
+            self.processor.set_parameters(params)
 
-            arena = buffer_arena.PyBufferArena(2**20)
-            buffer_mgr = unittest_engine_utils.BufferManager(self.host_system, arena)
+            self.fill_buffer('audio_in', 0.5)
 
-            buffer_mgr.allocate_from_node_description(node_desc)
-            buffer_mgr.allocate('plugin_cond', buffers.PyPluginCondBuffer())
+            self.process_block()
+            self.assertBufferAllEqual('audio_out', 0.5)
 
-            ctxt = block_context.PyBlockContext(buffer_arena=arena)
-            ctxt.sample_pos = 1024
-
-            buffer_mgr.connect_ports(proc, ctxt, node_desc)
-            proc.connect_port(ctxt, 4, buffer_mgr.data('plugin_cond'))
-
-            audio_in = buffer_mgr['audio_in']
-            audio_out = buffer_mgr['audio_out']
-            for i in range(self.host_system.block_size):
-                audio_in[i] = 0.5
-                audio_out[i] = 0.0
-
-            proc.process_block(ctxt, None)  # TODO: pass time_mapper
-
-            for i in range(self.host_system.block_size):
-                self.assertAlmostEqual(audio_out[i], 0.5)
-
-            proc.cleanup()
+            self.processor.cleanup()
 
             await plugin_host.call(
                 'DELETE_PLUGIN',
@@ -128,14 +108,6 @@ class ProcessorPluginTest(
                     realm=plugin_spec.realm, node_id=plugin_spec.node_id))
 
     async def test_pipe_closed(self):
-        plugin_uri = 'http://noisicaa.odahoda.de/plugins/test-passthru'
-        node_desc = self.node_db[plugin_uri]
-
-        arena = buffer_arena.PyBufferArena(2**20)
-        buffer_mgr = unittest_engine_utils.BufferManager(self.host_system, arena)
-        buffer_mgr.allocate_from_node_description(node_desc)
-        buffer_mgr.allocate('plugin_cond', buffers.PyPluginCondBuffer())
-
         pipe_address = os.path.join(TEST_OPTS.TMP_DIR, 'pipe.%s' % uuid.uuid4().hex)
         os.mkfifo(pipe_address)
 
@@ -152,8 +124,8 @@ class ProcessorPluginTest(
             os.close(fd)
 
             logger.info("Set plugin condition...")
-            cond_type = cast(buffers.PyPluginCondBuffer, buffer_mgr.type('plugin_cond'))
-            cond_buf = buffer_mgr['plugin_cond']
+            cond_type = cast(buffers.PyPluginCondBuffer, self.buffers.type('plugin_cond'))
+            cond_buf = self.buffers['plugin_cond']
             cond_type.set_cond(cond_buf)
 
             logger.info("Fake host finished.")
@@ -163,47 +135,27 @@ class ProcessorPluginTest(
         try:
             fake_host_ready.wait()
 
-            proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
-            proc.setup()
             params = node_parameters_pb2.NodeParameters()
             plugin_params = params.Extensions[processor_plugin_pb2.processor_plugin_parameters]
             plugin_params.plugin_pipe_path = pipe_address
-            proc.set_parameters(params)
+            self.processor.set_parameters(params)
 
-            ctxt = block_context.PyBlockContext(buffer_arena=arena)
-            ctxt.sample_pos = 1024
-
-            buffer_mgr.connect_ports(proc, ctxt, node_desc)
-            proc.connect_port(ctxt, 4, buffer_mgr.data('plugin_cond'))
-
-            audio_in = buffer_mgr['audio_in']
-            audio_out = buffer_mgr['audio_out']
             for _ in range(10):
-                for i in range(self.host_system.block_size):
-                    audio_in[i] = 0.5
-                    audio_out[i] = 0.0
-
-                proc.process_block(ctxt, None)  # TODO: pass time_mapper
-                if proc.state == processor.State.BROKEN:
+                self.fill_buffer('audio_in', 0.5)
+                self.clear_buffer('audio_out')
+                self.process_block()
+                if self.processor.state == processor.State.BROKEN:
                     break
 
-            self.assertEqual(proc.state, processor.State.BROKEN)
+            self.assertEqual(self.processor.state, processor.State.BROKEN)
 
-            proc.cleanup()
+            self.processor.cleanup()
 
         finally:
             fake_host_stop.set()
             fake_host_thread.join()
 
     async def test_plugin_blocked(self):
-        plugin_uri = 'http://noisicaa.odahoda.de/plugins/test-passthru'
-        node_desc = self.node_db[plugin_uri]
-
-        arena = buffer_arena.PyBufferArena(2**20)
-        buffer_mgr = unittest_engine_utils.BufferManager(self.host_system, arena)
-        buffer_mgr.allocate_from_node_description(node_desc)
-        buffer_mgr.allocate('plugin_cond', buffers.PyPluginCondBuffer())
-
         pipe_address = os.path.join(TEST_OPTS.TMP_DIR, 'pipe.%s' % uuid.uuid4().hex)
         os.mkfifo(pipe_address)
 
@@ -228,33 +180,21 @@ class ProcessorPluginTest(
         try:
             fake_host_ready.wait()
 
-            proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
-            proc.setup()
             params = node_parameters_pb2.NodeParameters()
             plugin_params = params.Extensions[processor_plugin_pb2.processor_plugin_parameters]
             plugin_params.plugin_pipe_path = pipe_address
-            proc.set_parameters(params)
+            self.processor.set_parameters(params)
 
-            ctxt = block_context.PyBlockContext(buffer_arena=arena)
-            ctxt.sample_pos = 1024
-
-            buffer_mgr.connect_ports(proc, ctxt, node_desc)
-            proc.connect_port(ctxt, 4, buffer_mgr.data('plugin_cond'))
-
-            audio_in = buffer_mgr['audio_in']
-            audio_out = buffer_mgr['audio_out']
             for _ in range(10):
-                for i in range(self.host_system.block_size):
-                    audio_in[i] = 0.5
-                    audio_out[i] = 0.0
-
-                proc.process_block(ctxt, None)  # TODO: pass time_mapper
-                if proc.state == processor.State.BROKEN:
+                self.fill_buffer('audio_in', 0.5)
+                self.clear_buffer('audio_out')
+                self.process_block()
+                if self.processor.state == processor.State.BROKEN:
                     break
 
-            self.assertEqual(proc.state, processor.State.BROKEN)
+            self.assertEqual(self.processor.state, processor.State.BROKEN)
 
-            proc.cleanup()
+            self.processor.cleanup()
 
         finally:
             fake_host_quit.set()

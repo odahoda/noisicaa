@@ -220,7 +220,7 @@ Status init_CONNECT_PORT(BlockContext* ctxt, ProgramState* state, const vector<O
   int buf_idx = args[2].int_value();
   Processor* processor = state->program->spec->get_processor(processor_idx);
   Buffer* buf = state->program->buffers[buf_idx].get();
-  processor->connect_port(ctxt, port_idx, buf->data());
+  processor->connect_port(ctxt, port_idx, buf);
   return Status::Ok();
 }
 

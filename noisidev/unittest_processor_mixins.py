@@ -28,6 +28,7 @@ from noisicaa.audioproc.public import time_mapper
 from noisicaa.audioproc.engine import processor
 from noisicaa.audioproc.engine import block_context
 from noisicaa.audioproc.engine import buffers
+from noisicaa.audioproc.engine import buffer_arena
 
 
 class ProcessorTestMixin(
@@ -40,13 +41,16 @@ class ProcessorTestMixin(
         self.node_description = None  # type: node_db.NodeDescription
         self.processor = None  # type: processor.PyProcessor
         self.time_mapper = None  # type: time_mapper.PyTimeMapper
+        self.arena = None  # type: buffer_arena.PyBufferArena
         self.buffers = None  # type: unittest_engine_utils.BufferManager
+        self.__buffers = None  # type: List[buffers.PyBuffer]
         self.ctxt = None  # type: block_context.PyBlockContext
 
     def setup_testcase(self):
-        self.buffers = unittest_engine_utils.BufferManager(self.host_system)
+        self.arena = buffer_arena.PyBufferArena(2**20)
+        self.buffers = unittest_engine_utils.BufferManager(self.host_system, self.arena)
 
-        self.ctxt = block_context.PyBlockContext()
+        self.ctxt = block_context.PyBlockContext(buffer_arena=self.arena)
         self.ctxt.sample_pos = 0
 
         self.time_mapper = time_mapper.PyTimeMapper(self.host_system.sample_rate)
@@ -59,6 +63,10 @@ class ProcessorTestMixin(
 
         if self.time_mapper is not None:
             self.time_mapper.cleanup()
+
+        self.buffers = None
+        self.ctxt = None
+        self.arena = None
 
     def port_desc(self, name):
         for port_desc in self.node_description.ports:
@@ -137,8 +145,12 @@ class ProcessorTestMixin(
         self.buffers.allocate_from_node_description(self.node_description)
         self.clear_buffers()
 
+        self.__buffers = []
         for port_idx, port_desc in enumerate(self.node_description.ports):
-            self.processor.connect_port(self.ctxt, port_idx, self.buffers.data(port_desc.name))
+            buf = buffers.PyBuffer(
+                self.host_system, self.buffers.type(port_desc.name), self.buffers.data(port_desc.name))
+            self.__buffers.append(buf)
+            self.processor.connect_port(self.ctxt, port_idx, buf)
 
     def process_block(self):
         self.ctxt.clear_time_map(self.host_system.block_size)

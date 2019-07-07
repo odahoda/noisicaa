@@ -21,22 +21,15 @@
 import textwrap
 
 from noisidev import unittest
-from noisidev import unittest_mixins
-from noisidev import unittest_engine_mixins
-from noisidev import unittest_engine_utils
-from noisicaa import lv2
+from noisidev import unittest_processor_mixins
 from noisicaa import node_db
-from . import block_context
-from . import buffers
-from . import processor
 
 
-class ProcessorCsoundTestMixin(
-        unittest_engine_mixins.HostSystemMixin,
-        unittest_mixins.NodeDBMixin,
+class ProcessorCsoundTest(
+        unittest_processor_mixins.ProcessorTestMixin,
         unittest.TestCase):
     def test_csound(self):
-        node_description = node_db.NodeDescription(
+        self.node_description = node_db.NodeDescription(
             uri='test://test',
             type=node_db.NodeDescription.PROCESSOR,
             ports=[
@@ -77,36 +70,15 @@ class ProcessorCsoundTestMixin(
                 score='i1 0 -1',
             ),
         )
+        self.create_processor()
+        self.fill_buffer('in', 1.0)
+        self.fill_buffer('gain', 0.5)
 
-        proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_description)
-        proc.setup()
-
-        buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
-
-        gain = buffer_mgr.allocate('gain', buffers.PyFloatControlValueBuffer())
-        audio_in = buffer_mgr.allocate('in', buffers.PyFloatAudioBlockBuffer())
-        audio_out = buffer_mgr.allocate('out', buffers.PyFloatAudioBlockBuffer())
-
-        ctxt = block_context.PyBlockContext()
-        ctxt.sample_pos = 1024
-
-        proc.connect_port(ctxt, 0, buffer_mgr.data('gain'))
-        proc.connect_port(ctxt, 1, buffer_mgr.data('in'))
-        proc.connect_port(ctxt, 2, buffer_mgr.data('out'))
-
-        for i in range(self.host_system.block_size):
-            audio_in[i] = 1.0
-            audio_out[i] = 0.0
-        gain[0] = 0.5
-
-        proc.process_block(ctxt, None)  # TODO: pass time_mapper
-
-        self.assertTrue(all(v == 0.5 for v in audio_out))
-
-        proc.cleanup()
+        self.process_block()
+        self.assertBufferAllEqual('out', 0.5)
 
     def test_event_input_port(self):
-        node_description = node_db.NodeDescription(
+        self.node_description = node_db.NodeDescription(
             uri='test://test',
             type=node_db.NodeDescription.PROCESSOR,
             ports=[
@@ -146,33 +118,11 @@ class ProcessorCsoundTestMixin(
                 score='',
             ),
         )
+        self.create_processor()
+        self.fill_midi_buffer(
+            'in',
+            [(0, [0x90, 60, 100]),
+             (64, [0x80, 60, 0])])
 
-        proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_description)
-        proc.setup()
-
-        buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
-
-        buffer_mgr.allocate('in', buffers.PyAtomDataBuffer())
-        audio_out = buffer_mgr.allocate('out', buffers.PyFloatAudioBlockBuffer())
-
-        ctxt = block_context.PyBlockContext()
-        ctxt.sample_pos = 1024
-
-        proc.connect_port(ctxt, 0, buffer_mgr.data('in'))
-        proc.connect_port(ctxt, 1, buffer_mgr.data('out'))
-
-        urid_mapper = lv2.DynamicURIDMapper()
-        forge = lv2.AtomForge(urid_mapper)
-        forge.set_buffer(buffer_mgr.data('in'), 10240)
-        with forge.sequence():
-            forge.write_midi_event(0, bytes([0x90, 60, 100]), 3)
-            forge.write_midi_event(64, bytes([0x80, 60, 0]), 3)
-
-        for i in range(self.host_system.block_size):
-            audio_out[i] = 0.0
-
-        proc.process_block(ctxt, None)  # TODO: pass time_mapper
-
-        self.assertTrue(any(v != 0.5 for v in audio_out))
-
-        proc.cleanup()
+        self.process_block()
+        self.assertBufferIsNotQuiet('out')

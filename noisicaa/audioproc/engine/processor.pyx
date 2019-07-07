@@ -28,6 +28,7 @@ from noisicaa.core.status cimport check
 from noisicaa.audioproc.public.time_mapper cimport PyTimeMapper
 from noisicaa.host_system.host_system cimport PyHostSystem
 from .block_context cimport PyBlockContext
+from .buffers cimport PyBuffer
 from . cimport rtcheck
 
 
@@ -83,14 +84,13 @@ cdef class PyProcessor(object):
         with nogil:
             self.__processor.cleanup()
 
-    def connect_port(self, PyBlockContext ctxt, port_index, unsigned char[:] data):
+    def connect_port(self, PyBlockContext ctxt, port_index, PyBuffer buf):
         cdef uint32_t c_port_index = port_index
-        cdef BufferPtr c_data = &data[0]
         with nogil:
             rtcheck.reset_rt_checker_violations()
             rtcheck.enable_rt_checker(1)
             try:
-                self.__processor.connect_port(ctxt.get(), c_port_index, c_data)
+                self.__processor.connect_port(ctxt.get(), c_port_index, buf.get())
             finally:
                 rtcheck.enable_rt_checker(0)
         assert rtcheck.rt_checker_violations() == 0

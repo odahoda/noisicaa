@@ -19,6 +19,7 @@
 # @end:license
 
 from noisicaa.core.status cimport check
+from noisicaa.host_system.host_system cimport PyHostSystem
 
 
 cdef class PyBufferType(object):
@@ -101,3 +102,17 @@ cdef class PyPluginCondBuffer(PyBufferType):
         cdef BufferPtr c_buf = <BufferPtr>&buf[0]
         with nogil:
             check(c_type.wait_cond(c_buf))
+
+
+cdef class PyBuffer(object):
+    def __init__(self, PyHostSystem host_system, PyBufferType buf_type, uint8_t[:] buf):
+        self.__type = buf_type
+
+        self.__buffer_ref.reset(new Buffer(host_system.get(), self.__type.get(), <BufferPtr>&buf[0]))
+        self.__buffer = self.__buffer_ref.get()
+
+    cdef Buffer* get(self) nogil:
+        return self.__buffer
+
+    cdef Buffer* release(self) nogil:
+        return self.__buffer_ref.release()

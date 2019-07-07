@@ -22,53 +22,28 @@ import os
 import os.path
 
 from noisidev import unittest
-from noisidev import unittest_mixins
-from noisidev import unittest_engine_mixins
-from noisidev import unittest_engine_utils
-from . import block_context
-from . import buffers
-from . import processor
+from noisidev import unittest_processor_mixins
 
 
-class ProcessorSoundFileTestMixin(
-        unittest_engine_mixins.HostSystemMixin,
-        unittest_mixins.NodeDBMixin,
+class ProcessorSoundFileTest(
+        unittest_processor_mixins.ProcessorTestMixin,
         unittest.TestCase):
     def test_sound_file(self):
-        plugin_uri = 'builtin://sound_file'
-        node_desc = self.node_db[plugin_uri]
-
-        node_desc.sound_file.sound_file_path = os.fsencode(
+        self.node_description = self.node_db['builtin://sound_file']
+        self.node_description.sound_file.sound_file_path = os.fsencode(
             os.path.join(unittest.TESTDATA_DIR, 'snare.wav'))
-
-        proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
-        proc.setup()
-
-        buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
-
-        audio_l_out = buffer_mgr.allocate('out:left', buffers.PyFloatAudioBlockBuffer())
-        audio_r_out = buffer_mgr.allocate('out:right', buffers.PyFloatAudioBlockBuffer())
-
-        ctxt = block_context.PyBlockContext()
-        ctxt.sample_pos = 1024
-
-        proc.connect_port(ctxt, 0, buffer_mgr.data('out:left'))
-        proc.connect_port(ctxt, 1, buffer_mgr.data('out:right'))
+        self.create_processor()
 
         done = False
         while not done:
-            for i in range(self.host_system.block_size):
-                audio_l_out[i] = 0.0
-                audio_r_out[i] = 0.0
+            self.clear_buffer('out:left')
+            self.clear_buffer('out:right')
 
-            proc.process_block(ctxt, None)  # TODO: pass time_mapper
-
-            self.assertTrue(any(v != 0.0 for v in audio_l_out))
-            self.assertTrue(any(v != 0.0 for v in audio_r_out))
+            self.process_block()
+            self.assertBufferIsNotQuiet('out:left')
+            self.assertBufferIsNotQuiet('out:right')
 
             # TODO: parse and verify the NodeMessage.
-            for msg in ctxt.out_messages:
+            for msg in self.ctxt.out_messages:
                 if msg.type == 4:
                     done = True
-
-        proc.cleanup()

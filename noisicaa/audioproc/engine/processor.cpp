@@ -196,7 +196,7 @@ Status Processor::set_description_internal(const pb::NodeDescription& desc) {
   return Status::Ok();
 }
 
-void Processor::connect_port(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
+void Processor::connect_port(BlockContext* ctxt, uint32_t port_idx, Buffer* buf) {
   if (port_idx >= _buffers.size()) {
     _logger->error(
         "Processor %llx: connect_port(%u) failed: Invalid index %u", id(), port_idx, port_idx);
@@ -205,7 +205,7 @@ void Processor::connect_port(BlockContext* ctxt, uint32_t port_idx, BufferPtr bu
     return;
   }
 
-  _buffers[port_idx] = buf;
+  _buffers[port_idx] = buf->data();
   _buffers_changed = true;
 }
 

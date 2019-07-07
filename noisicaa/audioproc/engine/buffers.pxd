@@ -72,3 +72,12 @@ cdef class PyBufferType(object):
 
     cdef BufferType* get(self) nogil
     cdef BufferType* release(self) nogil
+
+
+cdef class PyBuffer(object):
+    cdef PyBufferType __type
+    cdef Buffer* __buffer
+    cdef unique_ptr[Buffer] __buffer_ref
+
+    cdef Buffer* get(self) nogil
+    cdef Buffer* release(self) nogil

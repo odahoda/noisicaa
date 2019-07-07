@@ -87,7 +87,7 @@ public:
   Status set_parameters(const string& parameters_serialized);
   Status set_description(const string& description_serialized);
 
-  void connect_port(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf);
+  void connect_port(BlockContext* ctxt, uint32_t port_idx, Buffer* buf);
   void process_block(BlockContext* ctxt, TimeMapper* time_mapper);
 
   Slot<pb::EngineNotification> notifications;

@@ -20,6 +20,7 @@
 
 from typing import List
 
+from noisicaa import host_system
 
 class PyBufferType(object):
     @property
@@ -55,3 +56,7 @@ class PyPluginCondBuffer(PyBufferType):
     def set_cond(self, buf: List) -> None: ...
     def clear_cond(self, buf: List) -> None: ...
     def wait_cond(self, buf: List) -> None: ...
+
+
+class PyBuffer(object):
+    def __init__(self, host_system: host_system.HostSystem, buf_type: PyBufferType, buf: bytes) -> None: ...
