@@ -205,11 +205,15 @@ void Processor::connect_port(BlockContext* ctxt, uint32_t port_idx, Buffer* buf)
     return;
   }
 
-  _buffers[port_idx] = buf->data();
+  _buffers[port_idx] = buf;
   _buffers_changed = true;
 }
 
 void Processor::process_block(BlockContext* ctxt, TimeMapper* time_mapper) {
+  for (const auto* buf : _buffers) {
+    assert(buf != nullptr);
+  }
+
   if (state() == ProcessorState::RUNNING) {
     Status status = process_block_internal(ctxt, time_mapper);
     if (status.is_error()) {
@@ -247,38 +251,7 @@ void Processor::clear_all_outputs() {
       continue;
     }
 
-    switch (port.type()) {
-    case pb::PortDescription::AUDIO:
-    case pb::PortDescription::ARATE_CONTROL: {
-      float* buf = (float*)_buffers[port_idx];
-      for (uint32_t i = 0 ; i < _host_system->block_size() ; ++i) {
-        *buf++ = 0.0;
-      }
-      break;
-    }
-
-    case pb::PortDescription::KRATE_CONTROL: {
-      float* buf = (float*)_buffers[port_idx];
-      *buf = 0.0;
-      break;
-    }
-
-    case pb::PortDescription::EVENTS: {
-      LV2_Atom_Forge forge;
-      lv2_atom_forge_init(&forge, &_host_system->lv2->urid_map);
-
-      LV2_Atom_Forge_Frame frame;
-      lv2_atom_forge_set_buffer(&forge, _buffers[port_idx], 10240);
-
-      lv2_atom_forge_sequence_head(&forge, &frame, _host_system->lv2->urid.atom_frame_time);
-      lv2_atom_forge_pop(&forge, &frame);
-      break;
-    }
-
-    default:
-      _logger->error("Unsupported port type %d", port.type());
-      abort();
-    }
+    _buffers[port_idx]->clear();
   }
 }
 

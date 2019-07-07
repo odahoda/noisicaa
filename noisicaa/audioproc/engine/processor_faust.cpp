@@ -173,7 +173,7 @@ Status ProcessorFaust::process_block_internal(BlockContext* ctxt, TimeMapper* ti
   int output_idx = 0;
   int control_idx = 0;
   for (int port_idx = 0 ; port_idx < _desc.ports_size() ; ++port_idx) {
-    BufferPtr buf = _buffers[port_idx];
+    BufferPtr buf = _buffers[port_idx]->data();
     if (buf == nullptr) {
       return ERROR_STATUS("Port %d not connected.", port_idx);
     }

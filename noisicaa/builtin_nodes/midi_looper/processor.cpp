@@ -150,7 +150,7 @@ Status ProcessorMidiLooper::process_block_internal(BlockContext* ctxt, TimeMappe
 
   MusicalDuration duration = MusicalDuration(spec->duration());
 
-  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0];
+  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0]->data();
   if (seq->atom.type != _host_system->lv2->urid.atom_sequence) {
     return ERROR_STATUS(
         "Excepted sequence in port 'in', got %d.", seq->atom.type);
@@ -158,7 +158,7 @@ Status ProcessorMidiLooper::process_block_internal(BlockContext* ctxt, TimeMappe
   LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
 
   LV2_Atom_Forge_Frame frame;
-  lv2_atom_forge_set_buffer(&_out_forge, _buffers[1], 10240);
+  lv2_atom_forge_set_buffer(&_out_forge, _buffers[1]->data(), 10240);
 
   lv2_atom_forge_sequence_head(&_out_forge, &frame, _host_system->lv2->urid.atom_frame_time);
 

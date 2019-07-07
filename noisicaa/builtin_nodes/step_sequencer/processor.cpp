@@ -110,8 +110,10 @@ Status ProcessorStepSequencer::process_block_internal(BlockContext* ctxt, TimeMa
     return Status::Ok();
   }
 
+  float* tempo_buf = (float*)_buffers[0]->data();
+
   for (uint32_t s = 0 ; s < _host_system->block_size() ; ++s) {
-    float tempo = ((float*)_buffers[0])[s];
+    float tempo = tempo_buf[s];
 
     if (spec->time_synched()) {
     }
@@ -126,7 +128,7 @@ Status ProcessorStepSequencer::process_block_internal(BlockContext* ctxt, TimeMa
 
     uint32_t buffer_idx = 1;
     for (const auto& channel : spec->channels()) {
-      BufferPtr out = _buffers[buffer_idx];
+      BufferPtr out = _buffers[buffer_idx]->data();
       switch(channel.type()) {
       case pb::StepSequencerChannel::VALUE:
         ((float*)out)[s] = channel.step_value(current_step);

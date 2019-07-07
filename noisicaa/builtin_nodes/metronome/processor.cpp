@@ -107,8 +107,8 @@ Status ProcessorMetronome::process_block_internal(BlockContext* ctxt, TimeMapper
 
   const float* l_in = spec->audio_file->channel_data(0);
   const float* r_in = spec->audio_file->channel_data(1 % spec->audio_file->num_channels());
-  float* l_out = (float*)_buffers[0];
-  float* r_out = (float*)_buffers[1];
+  float* l_out = (float*)_buffers[0]->data();
+  float* r_out = (float*)_buffers[1]->data();
 
   SampleTime* stime = ctxt->time_map.get();
   for (uint32_t pos = 0; pos < _host_system->block_size(); ++pos, ++stime) {

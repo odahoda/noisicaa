@@ -59,7 +59,7 @@ public:
   };
 
   Status setup(const string& orchestra, const string& score, const vector<PortSpec>& ports);
-  Status process_block(BlockContext* ctxt, TimeMapper* time_mapper, vector<BufferPtr>& buffers);
+  Status process_block(BlockContext* ctxt, TimeMapper* time_mapper, vector<Buffer*>& buffers);
 
 private:
   Logger* _logger;

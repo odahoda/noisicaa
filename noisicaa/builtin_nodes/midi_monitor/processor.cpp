@@ -52,7 +52,7 @@ void ProcessorMidiMonitor::cleanup_internal() {
 Status ProcessorMidiMonitor::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
   SampleTime* tmap = ctxt->time_map.get();
 
-  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0];
+  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0]->data();
   if (seq->atom.type != _host_system->lv2->urid.atom_sequence) {
     return ERROR_STATUS(
         "Excepted sequence in port 'in', got %d.", seq->atom.type);

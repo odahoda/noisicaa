@@ -83,8 +83,8 @@ Status ProcessorSoundFile::process_block_internal(BlockContext* ctxt, TimeMapper
 
   const float* l_in = _audio_file->channel_data(0);
   const float* r_in = _audio_file->channel_data(1 % _audio_file->num_channels());
-  float* l_out = (float*)_buffers[0];
-  float* r_out = (float*)_buffers[1];
+  float* l_out = (float*)_buffers[0]->data();
+  float* r_out = (float*)_buffers[1]->data();
   for (uint32_t i = 0 ; i < _host_system->block_size() ; ++i) {
     if (_pos >= _audio_file->num_samples()) {
       if (_loop) {

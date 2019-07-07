@@ -103,12 +103,6 @@ void ProcessorCSoundBase::cleanup_internal() {
 Status ProcessorCSoundBase::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
   PerfTracker tracker(ctxt->perf.get(), "csound");
 
-  for (size_t port_idx = 0 ; port_idx < _buffers.size() ; ++port_idx) {
-    if (_buffers[port_idx] == nullptr) {
-      return ERROR_STATUS("Port %d not connected.", port_idx);
-    }
-  }
-
   // If there is a next instance, make it the current. The current instance becomes
   // the old instance, which will eventually be destroyed in the main thread.
   // It must not happen that a next instance is available, before an old one has

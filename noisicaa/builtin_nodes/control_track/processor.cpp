@@ -108,7 +108,7 @@ Status ProcessorCVGenerator::process_block_internal(BlockContext* ctxt, TimeMapp
 
   CVRecipe* recipe = _recipe_manager.get_current();
 
-  float* out_ptr = (float*)_buffers[0];
+  float* out_ptr = (float*)_buffers[0]->data();
 
   SampleTime* stime = ctxt->time_map.get();
   for (uint32_t sample = 0 ; sample < _host_system->block_size() ; ++sample, ++stime) {

@@ -115,18 +115,18 @@ Status FluidSynthUtil::setup(const string& path, uint32_t bank, uint32_t preset)
 }
 
 Status FluidSynthUtil::process_block(
-    BlockContext* ctxt, TimeMapper* time_mapper, vector<BufferPtr>& buffers) {
+    BlockContext* ctxt, TimeMapper* time_mapper, vector<Buffer*>& buffers) {
   assert(buffers.size() == 3);
 
-  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)buffers[0];
+  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)buffers[0]->data();
   if (seq->atom.type != _host_system->lv2->urid.atom_sequence) {
     return ERROR_STATUS("Excepted sequence in port 'in', got %d.", seq->atom.type);
   }
   LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
 
   uint32_t segment_start = 0;
-  float* out_left = (float*)buffers[1];
-  float* out_right = (float*)buffers[2];
+  float* out_left = (float*)buffers[1]->data();
+  float* out_right = (float*)buffers[2]->data();
   while (!lv2_atom_sequence_is_end(&seq->body, seq->atom.size, event)) {
     if (event->body.type == _host_system->lv2->urid.midi_event) {
       uint32_t esample_pos;

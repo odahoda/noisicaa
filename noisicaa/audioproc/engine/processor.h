@@ -114,7 +114,7 @@ protected:
   pb::NodeDescription _desc;
   pb::NodeParameters _params;
   atomic<bool> _muted;
-  vector<BufferPtr> _buffers;
+  vector<Buffer*> _buffers;
   bool _buffers_changed;
 
 private:

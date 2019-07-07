@@ -98,7 +98,7 @@ Status ProcessorPlugin::process_block_internal(BlockContext* ctxt, TimeMapper* t
   deadline_timespec.tv_nsec = deadline_nsec % 1000000000;
 
   uint32_t plugin_cond_idx = _desc.ports_size() - 1;
-  PluginCond* plugin_cond = (PluginCond*)_buffers[plugin_cond_idx];
+  PluginCond* plugin_cond = (PluginCond*)_buffers[plugin_cond_idx]->data();
 
   if (plugin_cond->magic != 0x34638a33) {
     return ERROR_STATUS("PluginCondBuffer not initialized.");
@@ -115,16 +115,20 @@ Status ProcessorPlugin::process_block_internal(BlockContext* ctxt, TimeMapper* t
 
     PluginMemoryMapping mapping;
     strcpy(mapping.shmem_path, ctxt->buffer_arena->name().c_str());
-    mapping.cond_offset = _buffers[plugin_cond_idx] - ctxt->buffer_arena->address();
+    mapping.cond_offset = _buffers[plugin_cond_idx]->data() - ctxt->buffer_arena->address();
     mapping.block_size = _host_system->block_size();
     mapping.num_buffers = _desc.ports_size();
 
     RETURN_IF_ERROR(pipe_write((char*)&mapping, sizeof(mapping), deadline));
 
     for (int idx = 0 ; idx < _desc.ports_size() ; ++idx) {
+      BufferPtr data = _buffers[idx]->data();
+      assert(data >= ctxt->buffer_arena->address());
+      assert(data < ctxt->buffer_arena->address() + ctxt->buffer_arena->size());
+
       PluginMemoryMapping::Buffer buf;
       buf.port_index = idx;
-      buf.offset = _buffers[idx] - ctxt->buffer_arena->address();
+      buf.offset = data - ctxt->buffer_arena->address();
       RETURN_IF_ERROR(pipe_write((char*)&buf, sizeof(buf), deadline));
     }
 

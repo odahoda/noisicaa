@@ -47,8 +47,6 @@ ProcessorOscilloscope::ProcessorOscilloscope(
 Status ProcessorOscilloscope::setup_internal() {
   RETURN_IF_ERROR(Processor::setup_internal());
 
-  _buffers[0] = nullptr;
-
   _node_msg_buffer_size = _host_system->block_size() * sizeof(float) + 100;
   _node_msg_buffer.reset(new uint8_t[_node_msg_buffer_size]);
 
@@ -68,8 +66,6 @@ void ProcessorOscilloscope::cleanup_internal() {
   if (spec != nullptr) {
     delete spec;
   }
-
-  _buffers[0] = nullptr;
 
   _node_msg_buffer.reset();
 
@@ -113,7 +109,7 @@ Status ProcessorOscilloscope::process_block_internal(BlockContext* ctxt, TimeMap
   lv2_atom_forge_vector(
       &_node_msg_forge,
       sizeof(float), _host_system->lv2->urid.atom_float,
-      _host_system->block_size(), _buffers[0]);
+      _host_system->block_size(), _buffers[0]->data());
   lv2_atom_forge_pop(&_node_msg_forge, &frame);
 
   NodeMessage::push(ctxt->out_messages, _node_id, (LV2_Atom*)_node_msg_buffer.get());

@@ -137,7 +137,7 @@ Status ProcessorMidiSource::process_block_internal(BlockContext* ctxt, TimeMappe
   lv2_atom_forge_init(&forge, &_host_system->lv2->urid_map);
 
   LV2_Atom_Forge_Frame frame;
-  lv2_atom_forge_set_buffer(&forge, _buffers[0], 10240);
+  lv2_atom_forge_set_buffer(&forge, _buffers[0]->data(), 10240);
   lv2_atom_forge_sequence_head(&forge, &frame, _host_system->lv2->urid.atom_frame_time);
 
   ClientMessage cm;

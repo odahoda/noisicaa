@@ -140,7 +140,7 @@ Status ProcessorMidiCCtoCV::process_block_internal(BlockContext* ctxt, TimeMappe
 
   bool learn = _learn > 0;
 
-  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0];
+  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0]->data();
   if (seq->atom.type != _host_system->lv2->urid.atom_sequence) {
     return ERROR_STATUS(
         "Excepted sequence in port 'in', got %d.", seq->atom.type);
@@ -211,7 +211,7 @@ Status ProcessorMidiCCtoCV::process_block_internal(BlockContext* ctxt, TimeMappe
 
     for (int channel_idx = 0 ; channel_idx < spec->channels_size() ; ++channel_idx) {
       const auto& channel_spec = spec->channels(channel_idx);
-      float* out = (float*)_buffers[channel_idx + 1];
+      float* out = (float*)_buffers[channel_idx + 1]->data();
       int16_t current_value = _current_value[channel_idx];
       if (current_value < 0) {
         current_value = channel_spec.initial_value();

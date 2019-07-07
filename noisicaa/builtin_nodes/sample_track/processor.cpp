@@ -134,8 +134,8 @@ Status ProcessorSampleScript::process_block_internal(BlockContext* ctxt, TimeMap
 
   SampleScript* script = _script_manager.get_current();
 
-  float* out_l_ptr = (float*)_buffers[0];
-  float* out_r_ptr = (float*)_buffers[1];
+  float* out_l_ptr = (float*)_buffers[0]->data();
+  float* out_r_ptr = (float*)_buffers[1]->data();
 
   SampleTime* stime = ctxt->time_map.get();
   for (uint32_t sample_pos = 0 ; sample_pos < _host_system->block_size() ; ++sample_pos, ++stime) {

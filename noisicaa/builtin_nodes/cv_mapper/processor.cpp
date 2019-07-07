@@ -94,8 +94,8 @@ Status ProcessorCVMapper::process_block_internal(BlockContext* ctxt, TimeMapper*
     return Status::Ok();
   }
 
-  float* in = (float*)_buffers[0];
-  float* out = (float*)_buffers[1];
+  float* in = (float*)_buffers[0]->data();
+  float* out = (float*)_buffers[1]->data();
 
   for (uint32_t pos = 0; pos < _host_system->block_size(); ++pos) {
     *out = apply_transfer_function(spec->transfer_function(), *in);
