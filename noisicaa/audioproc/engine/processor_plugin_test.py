@@ -53,9 +53,9 @@ class ProcessorPluginTest(
         self.node_description = self.node_db['http://noisicaa.odahoda.de/plugins/test-passthru']
         self.create_processor()
         self.buffers.allocate('plugin_cond', buffers.PyPluginCondBuffer())
-        cond_buffer = buffers.PyBuffer(
+        self.cond_buffer = buffers.PyBuffer(
             self.host_system, self.buffers.type('plugin_cond'), self.buffers.data('plugin_cond'))
-        self.processor.connect_port(self.ctxt, 4, cond_buffer)
+        self.processor.connect_port(self.ctxt, 4, self.cond_buffer)
 
     @async_generator.asynccontextmanager
     @async_generator.async_generator
