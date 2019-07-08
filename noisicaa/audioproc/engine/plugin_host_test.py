@@ -41,17 +41,17 @@ class PluginHostMixin(unittest_mixins.NodeDBMixin, unittest_engine_mixins.HostSy
 
             bufp = {}
             for idx, port in enumerate(spec.node_description.ports):
-                if port.type == node_db.PortDescription.AUDIO:
+                if port.types[0] == node_db.PortDescription.AUDIO:
                     bufsize = block_size * 4
                     valuetype = 'f'
-                elif port.type == node_db.PortDescription.KRATE_CONTROL:
+                elif port.types[0] == node_db.PortDescription.KRATE_CONTROL:
                     bufsize = 4
                     valuetype = 'f'
-                elif port.type == node_db.PortDescription.EVENTS:
+                elif port.types[0] == node_db.PortDescription.EVENTS:
                     bufsize = 10240
                     valuetype = 'B'
                 else:
-                    raise ValueError(port.type)
+                    raise ValueError(port.types[0])
 
                 buf = bytearray(bufsize)
                 plugin.connect_port(idx, buf)

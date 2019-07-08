@@ -104,17 +104,19 @@ Status ProcessorFaust::setup_internal() {
   int control_idx = 0;
   for (int port_idx = 0 ; port_idx < _desc.ports_size() ; ++port_idx) {
     const auto& port_desc = _desc.ports(port_idx);
+    assert(port_desc.types_size() == 1);
+
     if (port_idx < _dsp->getNumInputs()) {
       if (port_desc.direction() != pb::PortDescription::INPUT) {
         return ERROR_STATUS(
              "Port %d: Expected INPUT port, got %s",
              port_idx, pb::PortDescription::Direction_Name(port_desc.direction()).c_str());
       }
-      if (port_desc.type() != pb::PortDescription::AUDIO
-          && port_desc.type() != pb::PortDescription::ARATE_CONTROL) {
+      if (port_desc.types(0) != pb::PortDescription::AUDIO
+          && port_desc.types(0) != pb::PortDescription::ARATE_CONTROL) {
         return ERROR_STATUS(
              "Port %d: Expected AUDIO/ARATE_CONTROL port, got %s",
-             port_idx, pb::PortDescription::Type_Name(port_desc.type()).c_str());
+             port_idx, pb::PortDescription::Type_Name(port_desc.types(0)).c_str());
       }
     } else if (port_idx < _dsp->getNumInputs() + _dsp->getNumOutputs()) {
       if (port_desc.direction() != pb::PortDescription::OUTPUT) {
@@ -122,11 +124,11 @@ Status ProcessorFaust::setup_internal() {
              "Port %d: Expected OUTPUT port, got %s",
              port_idx, pb::PortDescription::Direction_Name(port_desc.direction()).c_str());
       }
-      if (port_desc.type() != pb::PortDescription::AUDIO
-          && port_desc.type() != pb::PortDescription::ARATE_CONTROL) {
+      if (port_desc.types(0) != pb::PortDescription::AUDIO
+          && port_desc.types(0) != pb::PortDescription::ARATE_CONTROL) {
         return ERROR_STATUS(
              "Port %d: Expected AUDIO/ARATE_CONTROL port, got %s",
-             port_idx, pb::PortDescription::Type_Name(port_desc.type()).c_str());
+             port_idx, pb::PortDescription::Type_Name(port_desc.types(0)).c_str());
       }
     } else {
       if (port_desc.direction() != pb::PortDescription::INPUT) {
@@ -134,10 +136,10 @@ Status ProcessorFaust::setup_internal() {
              "Port %d: Expected INPUT port, got %s",
              port_idx, pb::PortDescription::Direction_Name(port_desc.direction()).c_str());
       }
-      if (port_desc.type() != pb::PortDescription::KRATE_CONTROL) {
+      if (port_desc.types(0) != pb::PortDescription::KRATE_CONTROL) {
         return ERROR_STATUS(
              "Port %d: Expected KRATE_CONTROL port, got %s",
-             port_idx, pb::PortDescription::Type_Name(port_desc.type()).c_str());
+             port_idx, pb::PortDescription::Type_Name(port_desc.types(0)).c_str());
       }
 
       float* control_ptr = controls.get_control_ptr(port_desc.name());

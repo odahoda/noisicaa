@@ -45,12 +45,12 @@ class Builtins(object):
             node_db.PortDescription(
                 name='in:left',
                 direction=node_db.PortDescription.INPUT,
-                type=node_db.PortDescription.AUDIO,
+                types=[node_db.PortDescription.AUDIO],
             ),
             node_db.PortDescription(
                 name='in:right',
                 direction=node_db.PortDescription.INPUT,
-                type=node_db.PortDescription.AUDIO,
+                types=[node_db.PortDescription.AUDIO],
             ),
         ]
     )
@@ -64,17 +64,17 @@ class Builtins(object):
             node_db.PortDescription(
                 name='in:events',
                 direction=node_db.PortDescription.INPUT,
-                type=node_db.PortDescription.EVENTS,
+                types=[node_db.PortDescription.EVENTS],
             ),
             node_db.PortDescription(
                 name='out:left',
                 direction=node_db.PortDescription.OUTPUT,
-                type=node_db.PortDescription.AUDIO,
+                types=[node_db.PortDescription.AUDIO],
             ),
             node_db.PortDescription(
                 name='out:right',
                 direction=node_db.PortDescription.OUTPUT,
-                type=node_db.PortDescription.AUDIO,
+                types=[node_db.PortDescription.AUDIO],
             ),
         ]
     )
@@ -91,12 +91,12 @@ class Builtins(object):
             node_db.PortDescription(
                 name='out:left',
                 direction=node_db.PortDescription.OUTPUT,
-                type=node_db.PortDescription.AUDIO,
+                types=[node_db.PortDescription.AUDIO],
             ),
             node_db.PortDescription(
                 name='out:right',
                 direction=node_db.PortDescription.OUTPUT,
-                type=node_db.PortDescription.AUDIO,
+                types=[node_db.PortDescription.AUDIO],
             ),
         ]
     )

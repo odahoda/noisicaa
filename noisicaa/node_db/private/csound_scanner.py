@@ -71,12 +71,12 @@ class CSoundScanner(scanner.Scanner):
                     if display_name_elem is not None:
                         port_desc.display_name = ''.join(display_name_elem.itertext())
 
-                    port_desc.type = {
+                    port_desc.types.append({
                         'audio': node_db.PortDescription.AUDIO,
                         'kratecontrol': node_db.PortDescription.KRATE_CONTROL,
                         'aratecontrol': node_db.PortDescription.ARATE_CONTROL,
                         'events': node_db.PortDescription.EVENTS,
-                    }[port_elem.get('type')]
+                    }[port_elem.get('type')])
 
                     port_desc.direction = {
                         'input': node_db.PortDescription.INPUT,
@@ -95,14 +95,14 @@ class CSoundScanner(scanner.Scanner):
                             port_desc.bypass_port = bypass_elem.get('port')
 
                     if (port_desc.direction == node_db.PortDescription.INPUT
-                            and port_desc.type == node_db.PortDescription.EVENTS):
+                            and port_desc.types[0] == node_db.PortDescription.EVENTS):
                         csound_elem = port_elem.find('csound')
                         if csound_elem is not None:
                             port_desc.csound_name = csound_elem.get('instr')
 
                     if (port_desc.direction == node_db.PortDescription.INPUT
-                            and port_desc.type in (node_db.PortDescription.KRATE_CONTROL,
-                                                   node_db.PortDescription.ARATE_CONTROL)):
+                            and port_desc.types[0] in (node_db.PortDescription.KRATE_CONTROL,
+                                                       node_db.PortDescription.ARATE_CONTROL)):
                         float_control_elem = port_elem.find('float-control')
                         if float_control_elem is not None:
                             value_desc = port_desc.float_value

@@ -34,19 +34,19 @@ class ProcessorCustomCSoundTest(
         self.node_description = self.node_db['builtin://custom-csound']
         self.node_description.ports.add(
             name='in',
-            type=node_db.PortDescription.AUDIO,
+            types=[node_db.PortDescription.AUDIO],
             direction=node_db.PortDescription.INPUT)
         self.node_description.ports.add(
             name='out',
-            type=node_db.PortDescription.AUDIO,
+            types=[node_db.PortDescription.AUDIO],
             direction=node_db.PortDescription.OUTPUT)
         self.node_description.ports.add(
             name='ctrl',
-            type=node_db.PortDescription.KRATE_CONTROL,
+            types=[node_db.PortDescription.KRATE_CONTROL],
             direction=node_db.PortDescription.INPUT)
         self.node_description.ports.add(
             name='ev',
-            type=node_db.PortDescription.EVENTS,
+            types=[node_db.PortDescription.EVENTS],
             direction=node_db.PortDescription.INPUT)
 
         self.create_processor()

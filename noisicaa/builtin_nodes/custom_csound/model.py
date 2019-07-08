@@ -162,9 +162,9 @@ class CustomCSound(_model.CustomCSound):
         lines.append('nchnls = 2')
 
         for port_desc in self.description.ports:
-            if port_desc.type in (node_db.PortDescription.AUDIO,
-                                  node_db.PortDescription.KRATE_CONTROL,
-                                  node_db.PortDescription.ARATE_CONTROL):
+            if port_desc.types[0] in (node_db.PortDescription.AUDIO,
+                                      node_db.PortDescription.KRATE_CONTROL,
+                                      node_db.PortDescription.ARATE_CONTROL):
                 if port_desc.direction == node_db.PortDescription.INPUT:
                     lines.append(
                         '%s chnexport "%s", 1' % (port_desc.csound_name, port_desc.name))
@@ -190,7 +190,7 @@ class CustomCSound(_model.CustomCSound):
             port_desc = desc.ports.add(
                 name=port.name,
                 display_name=port.display_name or port.name,
-                type=port.type,
+                types=[port.type],
                 direction=port.direction,
                 csound_name=port.csound_name,
             )

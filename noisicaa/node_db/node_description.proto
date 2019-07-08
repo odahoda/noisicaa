@@ -118,7 +118,7 @@ message PortDescription {
     KRATE_CONTROL = 3;
     EVENTS = 4;
   }
-  required Type type = 2;
+  repeated Type types = 2;
 
   required string name = 3;
   optional string display_name = 4;

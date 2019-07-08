@@ -201,8 +201,9 @@ class GenericNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.Q
 
         for port in self.__node.description.ports:
             if (port.direction == node_db.PortDescription.INPUT
-                    and port.type in (node_db.PortDescription.KRATE_CONTROL,
-                                      node_db.PortDescription.ARATE_CONTROL)):
+                    and self.__node.get_current_port_type(port.name) in (
+                        node_db.PortDescription.KRATE_CONTROL,
+                        node_db.PortDescription.ARATE_CONTROL)):
                 widget = ControlValueWidget(
                     node=self.__node,
                     port=port,

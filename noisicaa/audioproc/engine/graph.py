@@ -295,7 +295,7 @@ class Node(object):
 
     def __create_port(self, port_desc: node_db.PortDescription) -> Port:
         port_cls = port_cls_map[
-            (port_desc.type, port_desc.direction)]
+            (port_desc.types[0], port_desc.direction)]
         kwargs = {}
 
         if port_desc.HasField('bypass_port'):
@@ -377,7 +377,7 @@ class Node(object):
         changed = {
             name for name, port_desc in new.items()
             if (name in old
-                and (port_desc.type != old[name].type
+                and (port_desc.types != old[name].types
                      or port_desc.direction != old[name].direction))
         }
 

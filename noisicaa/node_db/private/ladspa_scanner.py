@@ -83,9 +83,9 @@ class LadspaScanner(scanner.Scanner):
                                 raise ValueError(port)
 
                             if port.type == ladspa.PortType.Control:
-                                port_desc.type = node_db.PortDescription.KRATE_CONTROL
+                                port_desc.types.append(node_db.PortDescription.KRATE_CONTROL)
                             elif port.type == ladspa.PortType.Audio:
-                                port_desc.type = node_db.PortDescription.AUDIO
+                                port_desc.types.append(node_db.PortDescription.AUDIO)
                             else:
                                 raise ValueError(port)
 

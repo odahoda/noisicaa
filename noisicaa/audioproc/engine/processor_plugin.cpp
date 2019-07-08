@@ -46,7 +46,7 @@ ProcessorPlugin::ProcessorPlugin(
       realm_name, node_id, "noisicaa.audioproc.engine.processor.plugin", host_system, desc) {
   auto* port = _desc.add_ports();
   port->set_direction(pb::PortDescription::INTERNAL_DIRECTION);
-  port->set_type(pb::PortDescription::INTERNAL_TYPE);
+  port->add_types(pb::PortDescription::INTERNAL_TYPE);
   port->set_name("<internal cond>");
 }
 

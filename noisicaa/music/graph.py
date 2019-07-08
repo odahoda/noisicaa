@@ -50,10 +50,7 @@ class ControlValueMap(object):
             return self.__control_values[name]
         except KeyError:
             for port in self.__node.description.ports:
-                if (port.name == name
-                        and port.direction == node_db.PortDescription.INPUT
-                        and port.type in (node_db.PortDescription.KRATE_CONTROL,
-                                          node_db.PortDescription.ARATE_CONTROL)):
+                if port.name == name:
                     return value_types.ControlValue(
                         name=port.name, value=port.float_value.default, generation=1)
 
@@ -135,6 +132,16 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
         super().setup()
         self.description_changed.add(self.__description_changed)
 
+    def get_port_description(self, port_name: str) -> node_db.PortDescription:
+        for port_desc in self.description.ports:
+            if port_desc.name == port_name:
+                return port_desc
+        raise ValueError("Invalid port name '%s'" % port_name)
+
+    def get_current_port_type(self, port_name: str) -> node_db.PortDescription.Type:
+        port_desc = self.get_port_description(port_name)
+        return port_desc.types[0]
+
     def get_port_properties(self, port_name: str) -> value_types.NodePortProperties:
         for np in self.port_properties:
             if np.name == port_name:
@@ -143,7 +150,16 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
         return self.default_port_properties(port_name)
 
     def default_port_properties(self, port_name: str) -> value_types.NodePortProperties:
-        return value_types.NodePortProperties(port_name)
+        port_desc = self.get_port_description(port_name)
+
+        exposed = True
+        if (port_desc.direction == node_db.PortDescription.INPUT
+                and self.get_current_port_type(port_name) in (
+                    node_db.PortDescription.KRATE_CONTROL,
+                    node_db.PortDescription.ARATE_CONTROL)):
+            exposed = False
+
+        return value_types.NodePortProperties(port_name, exposed=exposed)
 
     @property
     def pipeline_node_id(self) -> str:
@@ -192,18 +208,14 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
             remove_node=audioproc.RemoveNode(id=self.pipeline_node_id))
 
     def get_initial_parameter_mutations(self) -> Iterator[audioproc.Mutation]:
-        for port in self.description.ports:
-            if (port.direction == node_db.PortDescription.INPUT
-                    and (port.type == node_db.PortDescription.KRATE_CONTROL,
-                         port.type == node_db.PortDescription.ARATE_CONTROL)):
-                for cv in self.control_values:
-                    if cv.name == port.name:
-                        yield audioproc.Mutation(
-                            set_control_value=audioproc.SetControlValue(
-                                name='%s:%s' % (self.pipeline_node_id, cv.name),
-                                value=cv.value,
-                                generation=cv.generation))
+        for cv in self.control_values:
+            yield audioproc.Mutation(
+                set_control_value=audioproc.SetControlValue(
+                    name='%s:%s' % (self.pipeline_node_id, cv.name),
+                    value=cv.value,
+                    generation=cv.generation))
 
+        for port in self.description.ports:
             yield audioproc.Mutation(
                 set_node_port_properties=audioproc.SetNodePortProperties(
                     node_id=self.pipeline_node_id,

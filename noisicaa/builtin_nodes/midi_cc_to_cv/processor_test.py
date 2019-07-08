@@ -34,7 +34,7 @@ class ProcessorMidiCCtoCVTest(
         self.node_description.ports.add(
             name='channel1',
             direction=node_db.PortDescription.OUTPUT,
-            type=node_db.PortDescription.ARATE_CONTROL,
+            types=[node_db.PortDescription.ARATE_CONTROL],
         )
 
         self.create_processor()

@@ -130,7 +130,7 @@ class StepSequencer(_model.StepSequencer):
             node_desc.ports.add(
                 name='channel%d' % (idx + 1),
                 direction=node_db.PortDescription.OUTPUT,
-                type=node_db.PortDescription.ARATE_CONTROL,
+                types=[node_db.PortDescription.ARATE_CONTROL],
             )
 
         return node_desc

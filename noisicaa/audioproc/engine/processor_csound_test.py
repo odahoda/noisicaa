@@ -36,17 +36,17 @@ class ProcessorCsoundTest(
                 node_db.PortDescription(
                     name='gain',
                     direction=node_db.PortDescription.INPUT,
-                    type=node_db.PortDescription.KRATE_CONTROL,
+                    types=[node_db.PortDescription.KRATE_CONTROL],
                 ),
                 node_db.PortDescription(
                     name='in',
                     direction=node_db.PortDescription.INPUT,
-                    type=node_db.PortDescription.AUDIO,
+                    types=[node_db.PortDescription.AUDIO],
                 ),
                 node_db.PortDescription(
                     name='out',
                     direction=node_db.PortDescription.OUTPUT,
-                    type=node_db.PortDescription.AUDIO,
+                    types=[node_db.PortDescription.AUDIO],
                 ),
             ],
             processor=node_db.ProcessorDescription(
@@ -85,12 +85,12 @@ class ProcessorCsoundTest(
                 node_db.PortDescription(
                     name='in',
                     direction=node_db.PortDescription.INPUT,
-                    type=node_db.PortDescription.EVENTS,
+                    types=[node_db.PortDescription.EVENTS],
                 ),
                 node_db.PortDescription(
                     name='out',
                     direction=node_db.PortDescription.OUTPUT,
-                    type=node_db.PortDescription.AUDIO,
+                    types=[node_db.PortDescription.AUDIO],
                 ),
             ],
             processor=node_db.ProcessorDescription(

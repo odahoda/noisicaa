@@ -125,13 +125,13 @@ class LV2Scanner(scanner.Scanner):
                     raise ValueError(port)
 
                 if port.is_a(ns.lv2.ControlPort):
-                    port_desc.type = node_db.PortDescription.KRATE_CONTROL
+                    port_desc.types.append(node_db.PortDescription.KRATE_CONTROL)
                 elif port.is_a(ns.lv2.AudioPort):
-                    port_desc.type = node_db.PortDescription.AUDIO
+                    port_desc.types.append(node_db.PortDescription.AUDIO)
                 elif port.is_a(ns.atom.AtomPort):
-                    port_desc.type = node_db.PortDescription.EVENTS
+                    port_desc.types.append(node_db.PortDescription.EVENTS)
                 else:
-                    port_desc.type = node_db.PortDescription.UNSUPPORTED
+                    port_desc.types.append(node_db.PortDescription.UNSUPPORTED)
 
                 if port.is_a(ns.lv2.ControlPort):
                 #     # if port.has_property(ns.lv2.integer):

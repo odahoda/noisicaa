@@ -38,7 +38,7 @@ MidiSourceDescription = node_db.NodeDescription(
         node_db.PortDescription(
             name='out',
             direction=node_db.PortDescription.OUTPUT,
-            type=node_db.PortDescription.EVENTS,
+            types=[node_db.PortDescription.EVENTS],
         ),
     ]
 )

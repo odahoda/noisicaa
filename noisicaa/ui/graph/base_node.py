@@ -270,6 +270,7 @@ class Port(QtWidgets.QGraphicsPathItem):
         super().__init__(parent)
 
         self.__desc = port_desc
+        self.__node = parent.node()
 
         self.__highlighted = False
 
@@ -293,7 +294,7 @@ class Port(QtWidgets.QGraphicsPathItem):
         return self.__desc.direction
 
     def type(self) -> node_db.PortDescription.Type:
-        return self.__desc.type
+        return self.__node.get_current_port_type(self.__desc.name)
 
     def node(self) -> 'Node':
         return cast(Node, self.parentItem())
@@ -306,7 +307,7 @@ class Port(QtWidgets.QGraphicsPathItem):
         self.__update()
 
     def canConnectTo(self, port: 'Port') -> bool:
-        if self.__desc.type != port.__desc.type:
+        if self.type() != port.type():
             return False
 
         if self.__desc.direction == port.__desc.direction:
@@ -339,7 +340,7 @@ class Port(QtWidgets.QGraphicsPathItem):
         self.__update()
 
     def __update(self) -> None:
-        color = port_colors[self.__desc.type]
+        color = port_colors[self.type()]
 
         if self.__highlighted:
             self.setOpacity(1.0)
@@ -716,10 +717,7 @@ class Node(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QGraphicsItem)
         visible_in_ports = []
         for desc in self.__in_ports:
             port_properties = self.__node.get_port_properties(desc.name)
-            if (desc.direction == node_db.PortDescription.INPUT
-                    and desc.type in (node_db.PortDescription.KRATE_CONTROL,
-                                      node_db.PortDescription.ARATE_CONTROL)
-                    and not port_properties.exposed):
+            if not port_properties.exposed:
                 port = self.__ports[desc.name]
                 port.setVisible(False)
                 continue
