@@ -48,8 +48,8 @@ cdef class PyFloatControlValueBuffer(PyBufferType):
 
 
 cdef class PyFloatAudioBlockBuffer(PyBufferType):
-    def __init__(self):
-        self.__type_ref.reset(new FloatAudioBlockBuffer())
+    def __init__(self, type):
+        self.__type_ref.reset(new FloatAudioBlockBuffer(type))
         self.__type = self.__type_ref.get()
 
     def __str__(self):

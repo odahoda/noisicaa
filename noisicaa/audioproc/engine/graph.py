@@ -127,12 +127,12 @@ class OutputPortMixin(Port):
 
 class AudioPortMixin(Port):
     def get_buf_type(self) -> buffers.PyBufferType:
-        return buffers.PyFloatAudioBlockBuffer()
+        return buffers.PyFloatAudioBlockBuffer(node_db.PortDescription.AUDIO)
 
 
 class ARateControlPortMixin(Port):
     def get_buf_type(self) -> buffers.PyBufferType:
-        return buffers.PyFloatAudioBlockBuffer()
+        return buffers.PyFloatAudioBlockBuffer(node_db.PortDescription.ARATE_CONTROL)
 
 
 class KRateControlPortMixin(Port):

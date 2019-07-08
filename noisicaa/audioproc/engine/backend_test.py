@@ -21,6 +21,7 @@
 from noisidev import unittest
 from noisidev import unittest_engine_mixins
 from noisidev import unittest_engine_utils
+from noisicaa import node_db
 from noisicaa.audioproc.public import backend_settings_pb2
 from . import buffers
 from .realm import PyRealm
@@ -39,7 +40,7 @@ class BackendTest(unittest_engine_mixins.HostSystemMixin, unittest.TestCase):
         backend.setup(realm)
 
         bufmgr = unittest_engine_utils.BufferManager(self.host_system)
-        bufmgr.allocate('samples', buffers.PyFloatAudioBlockBuffer())
+        bufmgr.allocate('samples', buffers.PyFloatAudioBlockBuffer(node_db.PortDescription.AUDIO))
         samples = bufmgr['samples']
 
         ctxt = PyBlockContext()

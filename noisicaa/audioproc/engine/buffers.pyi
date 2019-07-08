@@ -20,6 +20,7 @@
 
 from typing import List
 
+from noisicaa import node_db
 from noisicaa import host_system
 
 class PyBufferType(object):
@@ -35,7 +36,7 @@ class PyFloatControlValueBuffer(PyBufferType):
 
 
 class PyFloatAudioBlockBuffer(PyBufferType):
-    def __init__(self) -> None: ...
+    def __init__(self, type: node_db.PortDescription.Type) -> None: ...
     def __str__(self) -> str: ...
     @property
     def view_type(self) -> str: ...
