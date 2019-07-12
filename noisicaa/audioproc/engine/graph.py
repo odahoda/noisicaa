@@ -71,16 +71,28 @@ class Port(object):
     def buf_name(self) -> str:
         return '%s:%s' % (self.owner.id, self.__description.name)
 
+    @property
+    def current_type(self) -> node_db.PortDescription.Type:
+        return self.__description.types[0]
+
     def get_buf_type(self) -> buffers.PyBufferType:
-        raise NotImplementedError(type(self).__name__)
+        port_type = self.current_type
+        if port_type == node_db.PortDescription.AUDIO:
+            return buffers.PyFloatAudioBlockBuffer(node_db.PortDescription.AUDIO)
+        elif port_type == node_db.PortDescription.ARATE_CONTROL:
+            return buffers.PyFloatAudioBlockBuffer(node_db.PortDescription.ARATE_CONTROL)
+        elif port_type == node_db.PortDescription.KRATE_CONTROL:
+            return buffers.PyFloatControlValueBuffer()
+        elif port_type == node_db.PortDescription.EVENTS:
+            return buffers.PyAtomDataBuffer()
+        else:
+            raise ValueError(port_type)
 
     def set_prop(self, **kwargs: Any) -> None:
         assert not kwargs
 
 
-class InputPortMixin(Port):
-    # pylint: disable=abstract-method
-
+class InputPort(Port):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.inputs = []  # type: List[Port]
@@ -94,13 +106,14 @@ class InputPortMixin(Port):
         self.inputs.remove(port)
 
     def check_port(self, port: Port) -> None:
-        if not isinstance(port, OutputPortMixin):
+        if not isinstance(port, OutputPort):
             raise GraphError("Can only connect to output ports")
 
+        if not set(self.description.types) & set(port.description.types):
+            raise GraphError("Incompatible port types")
 
-class OutputPortMixin(Port):
-    # pylint: disable=abstract-method
 
+class OutputPort(Port):
     def __init__(self, *, bypass_port: Optional[str] = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._bypass = False
@@ -125,111 +138,9 @@ class OutputPortMixin(Port):
             self.bypass = bypass
 
 
-class AudioPortMixin(Port):
-    def get_buf_type(self) -> buffers.PyBufferType:
-        return buffers.PyFloatAudioBlockBuffer(node_db.PortDescription.AUDIO)
-
-
-class ARateControlPortMixin(Port):
-    def get_buf_type(self) -> buffers.PyBufferType:
-        return buffers.PyFloatAudioBlockBuffer(node_db.PortDescription.ARATE_CONTROL)
-
-
-class KRateControlPortMixin(Port):
-    def get_buf_type(self) -> buffers.PyBufferType:
-        return buffers.PyFloatControlValueBuffer()
-
-
-class EventPortMixin(Port):
-    def get_buf_type(self) -> buffers.PyBufferType:
-        return buffers.PyAtomDataBuffer()
-
-
-class AudioInputPort(AudioPortMixin, InputPortMixin, Port):
-    def check_port(self, port: Port) -> None:
-        super().check_port(port)
-        if not isinstance(port, AudioOutputPort):
-            raise GraphError("Can only connect to AudioOutputPort")
-
-
-class AudioOutputPort(AudioPortMixin, OutputPortMixin, Port):
-    def __init__(self, *, drywet_port: Optional[str] = None, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self._drywet = 0.0
-        self._drywet_port = drywet_port
-
-    @property
-    def drywet_port(self) -> str:
-        return self._drywet_port
-
-    @property
-    def drywet(self) -> float:
-        return self._drywet
-
-    @drywet.setter
-    def drywet(self, value: float) -> None:
-        value = float(value)
-        if value < -100.0 or value > 100.0:
-            raise ValueError("Invalid dry/wet value.")
-        self._drywet = float(value)
-
-    def set_prop(self, *, drywet: Optional[float] = None, **kwargs: Any) -> None:
-        super().set_prop(**kwargs)
-        if drywet is not None:
-            self.drywet = drywet
-
-
-class ARateControlInputPort(ARateControlPortMixin, InputPortMixin, Port):
-    def check_port(self, port: Port) -> None:
-        super().check_port(port)
-        if not isinstance(port, ARateControlOutputPort):
-            raise GraphError("Can only connect to ARateControlOutputPort")
-
-
-class ARateControlOutputPort(ARateControlPortMixin, OutputPortMixin, Port):
-    pass
-
-
-class KRateControlInputPort(KRateControlPortMixin, InputPortMixin, Port):
-    def check_port(self, port: Port) -> None:
-        super().check_port(port)
-        if not isinstance(port, KRateControlOutputPort):
-            raise GraphError("Can only connect to KRateControlOutputPort")
-
-
-class KRateControlOutputPort(KRateControlPortMixin, OutputPortMixin, Port):
-    pass
-
-
-class EventInputPort(EventPortMixin, InputPortMixin, Port):
-    def check_port(self, port: Port) -> None:
-        super().check_port(port)
-        if not isinstance(port, EventOutputPort):
-            raise GraphError("Can only connect to EventOutputPort")
-
-
-class EventOutputPort(EventPortMixin, OutputPortMixin, Port):
-    pass
-
-
 port_cls_map = {
-    (node_db.PortDescription.AUDIO,
-     node_db.PortDescription.INPUT): AudioInputPort,
-    (node_db.PortDescription.AUDIO,
-     node_db.PortDescription.OUTPUT): AudioOutputPort,
-    (node_db.PortDescription.ARATE_CONTROL,
-     node_db.PortDescription.INPUT): ARateControlInputPort,
-    (node_db.PortDescription.ARATE_CONTROL,
-     node_db.PortDescription.OUTPUT): ARateControlOutputPort,
-    (node_db.PortDescription.KRATE_CONTROL,
-     node_db.PortDescription.INPUT): KRateControlInputPort,
-    (node_db.PortDescription.KRATE_CONTROL,
-     node_db.PortDescription.OUTPUT): KRateControlOutputPort,
-    (node_db.PortDescription.EVENTS,
-     node_db.PortDescription.INPUT): EventInputPort,
-    (node_db.PortDescription.EVENTS,
-     node_db.PortDescription.OUTPUT): EventOutputPort,
+    node_db.PortDescription.INPUT: InputPort,
+    node_db.PortDescription.OUTPUT: OutputPort,
 }
 
 
@@ -252,8 +163,8 @@ class Node(object):
         self.__realm = None  # type: realm_lib.PyRealm
         self.broken = False
         self.ports = []  # type: List[Port]
-        self.inputs = {}  # type: Dict[str, InputPortMixin]
-        self.outputs = {}  # type: Dict[str, OutputPortMixin]
+        self.inputs = {}  # type: Dict[str, InputPort]
+        self.outputs = {}  # type: Dict[str, OutputPort]
 
         self.__control_values = {}  # type: Dict[str, control_value.PyControlValue]
         self.__port_properties = {}  # type: Dict[str, node_port_properties_pb2.NodePortProperties]
@@ -294,8 +205,7 @@ class Node(object):
         return self.__realm is realm
 
     def __create_port(self, port_desc: node_db.PortDescription) -> Port:
-        port_cls = port_cls_map[
-            (port_desc.types[0], port_desc.direction)]
+        port_cls = port_cls_map[port_desc.direction]
         kwargs = {}
 
         if port_desc.HasField('bypass_port'):
@@ -310,10 +220,10 @@ class Node(object):
 
     def __add_port(self, port: Port) -> None:
         self.ports.append(port)
-        if isinstance(port, InputPortMixin):
+        if isinstance(port, InputPort):
             self.inputs[port.name] = port
         else:
-            assert isinstance(port, OutputPortMixin)
+            assert isinstance(port, OutputPort)
             self.outputs[port.name] = port
 
     @property
@@ -332,7 +242,8 @@ class Node(object):
         logger.info("%s: setup()", self.name)
 
         for port in self.ports:
-            if isinstance(port, (KRateControlInputPort, ARateControlInputPort)):
+            if set(port.description.types) & {node_db.PortDescription.KRATE_CONTROL,
+                                              node_db.PortDescription.ARATE_CONTROL}:
                 if port.buf_name not in self.__control_values:
                     logger.info("New float control value '%s'", port.buf_name)
                     cv = control_value.PyFloatControlValue(
@@ -435,17 +346,17 @@ class Node(object):
             spec.append_buffer(port.buf_name, port.get_buf_type())
 
             if port.buf_name in self.__control_values and not port_properties.exposed:
-                if isinstance(port, KRateControlPortMixin):
+                if port.current_type == node_db.PortDescription.KRATE_CONTROL:
                     spec.append_opcode(
                         'FETCH_CONTROL_VALUE',
                         self.__control_values[port.buf_name], port.buf_name)
                 else:
-                    assert isinstance(port, ARateControlPortMixin)
+                    assert port.current_type == node_db.PortDescription.ARATE_CONTROL
                     spec.append_opcode(
                         'FETCH_CONTROL_VALUE_TO_AUDIO',
                         self.__control_values[port.buf_name], port.buf_name)
 
-            elif isinstance(port, InputPortMixin):
+            elif isinstance(port, InputPort):
                 spec.append_opcode('CLEAR', port.buf_name)
                 for upstream_port in port.inputs:
                     spec.append_opcode('MIX', upstream_port.buf_name, port.buf_name)
