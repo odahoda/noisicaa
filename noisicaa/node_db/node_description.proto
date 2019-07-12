@@ -111,8 +111,17 @@ message PortDescription {
   required Direction direction = 1;
 
   enum Type {
+    // The 'current' type of a port might appear as undefined in the UI, if there are no connections
+    // to that port.
+    UNDEFINED = -3;
+
+    // Ports which are only used internally for special purposes and never visible to users.
     INTERNAL_TYPE = -2;
+
+    // Ports of e.g. a plugin, which have no matching type in noisicaä.
     UNSUPPORTED = -1;
+
+    // Actual port types
     AUDIO = 1;
     ARATE_CONTROL = 2;
     KRATE_CONTROL = 3;

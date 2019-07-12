@@ -42,7 +42,8 @@ logger = logging.getLogger(__name__)
 
 
 port_colors = {
-    node_db.PortDescription.AUDIO: QtGui.QColor(150, 150, 150),
+    node_db.PortDescription.UNDEFINED: QtGui.QColor(150, 150, 150),
+    node_db.PortDescription.AUDIO: QtGui.QColor(100, 255, 100),
     node_db.PortDescription.ARATE_CONTROL: QtGui.QColor(100, 255, 180),
     node_db.PortDescription.KRATE_CONTROL: QtGui.QColor(100, 180, 255),
     node_db.PortDescription.EVENTS: QtGui.QColor(255, 180, 100),
@@ -240,18 +241,21 @@ class PortLabel(QtWidgets.QGraphicsRectItem):
 
         self.__text = QtWidgets.QGraphicsSimpleTextItem(self)
         tooltip = '%s: ' % port.name()
+
+        tooltip += '/'.join(
+            {
+                node_db.PortDescription.AUDIO: "audio",
+                node_db.PortDescription.KRATE_CONTROL: "k-rate control",
+                node_db.PortDescription.ARATE_CONTROL: "a-rate control",
+                node_db.PortDescription.EVENTS: "event",
+            }[port_type]
+            for port_type in port.possible_types())
+
         tooltip += {
-            (node_db.PortDescription.AUDIO, node_db.PortDescription.INPUT): "audio input",
-            (node_db.PortDescription.AUDIO, node_db.PortDescription.OUTPUT): "audio output",
-            (node_db.PortDescription.KRATE_CONTROL, node_db.PortDescription.INPUT): "control input",
-            (node_db.PortDescription.KRATE_CONTROL, node_db.PortDescription.OUTPUT):
-                "control output",
-            (node_db.PortDescription.ARATE_CONTROL, node_db.PortDescription.INPUT): "control input",
-            (node_db.PortDescription.ARATE_CONTROL, node_db.PortDescription.OUTPUT):
-                "control output",
-            (node_db.PortDescription.EVENTS, node_db.PortDescription.INPUT): "event input",
-            (node_db.PortDescription.EVENTS, node_db.PortDescription.OUTPUT): "event output",
-        }[(port.type(), port.direction())]
+            node_db.PortDescription.INPUT: " input",
+            node_db.PortDescription.OUTPUT: " output",
+        }[port.direction()]
+
         self.__text.setText(tooltip)
         self.__text.setPos(4, 2)
 
@@ -272,6 +276,12 @@ class Port(QtWidgets.QGraphicsPathItem):
         self.__desc = port_desc
         self.__node = parent.node()
 
+        self.__listeners = core.ListenerList()
+
+        self.__listeners.add(
+            self.__node.connections_changed.add(lambda _: self.__update()))
+
+        self.__target_type = None  # type: node_db.PortDescription.Type
         self.__highlighted = False
 
         self.__tooltip = None  # type: PortLabel
@@ -287,14 +297,19 @@ class Port(QtWidgets.QGraphicsPathItem):
             self.scene().removeItem(self.__tooltip)
             self.__tooltip = None
 
+        self.__listeners.cleanup()
+
     def name(self) -> str:
         return self.__desc.name
 
     def direction(self) -> node_db.PortDescription.Direction:
         return self.__desc.direction
 
-    def type(self) -> node_db.PortDescription.Type:
+    def current_type(self) -> node_db.PortDescription.Type:
         return self.__node.get_current_port_type(self.__desc.name)
+
+    def possible_types(self) -> List['node_db.PortDescription.Type']:
+        return self.__node.get_possible_port_types(self.__desc.name)
 
     def node(self) -> 'Node':
         return cast(Node, self.parentItem())
@@ -306,26 +321,29 @@ class Port(QtWidgets.QGraphicsPathItem):
         self.__highlighted = highlighted
         self.__update()
 
+    def setTargetType(self, target_type: node_db.PortDescription.Type) -> None:
+        if self.__target_type == target_type:
+            return
+
+        self.__target_type = target_type
+        self.__update()
+
+    def clearTargetType(self) -> None:
+        if self.__target_type is None:
+            return
+
+        self.__target_type = None
+        self.__update()
+
     def canConnectTo(self, port: 'Port') -> bool:
-        if self.type() != port.type():
-            return False
+        return music.can_connect_ports(
+            self.__node, self.__desc.name,
+            port.__node, port.__desc.name)
 
-        if self.__desc.direction == port.__desc.direction:
-            return False
-
-        if self.__desc.direction == node_db.PortDescription.INPUT:
-            src = port
-            dest = self
-        else:
-            src = self
-            dest = port
-
-        upstream_nodes = {node.id for node in src.node().upstream_nodes()}
-        upstream_nodes.add(src.node().id())
-        if dest.node().id() in upstream_nodes:
-            return False
-
-        return True
+    def preferredConnectionType(self, port: 'Port') -> node_db.PortDescription.Type:
+        return music.get_preferred_connection_type(
+            self.__node, self.__desc.name,
+            port.__node, port.__desc.name)
 
     def handleScenePos(self) -> QtCore.QPointF:
         if not self.isVisible():
@@ -340,7 +358,7 @@ class Port(QtWidgets.QGraphicsPathItem):
         self.__update()
 
     def __update(self) -> None:
-        color = port_colors[self.type()]
+        color = port_colors[self.__target_type or self.current_type()]
 
         if self.__highlighted:
             self.setOpacity(1.0)
@@ -358,7 +376,7 @@ class Port(QtWidgets.QGraphicsPathItem):
             self.setOpacity(0.7)
             self.__tooltip.setVisible(False)
 
-        if self.__highlighted:
+        if self.__highlighted or self.__target_type is not None:
             pen = QtGui.QPen()
             pen.setColor(Qt.red)
             pen.setWidth(2)
@@ -569,6 +587,10 @@ class Node(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QGraphicsItem)
 
     def graph_size(self) -> value_types.SizeF:
         return self.__node.graph_size
+
+    def ports(self) -> Iterable[Port]:
+        for port_desc in self.__node.description.ports:
+            yield self.__ports[port_desc.name]
 
     def upstream_nodes(self) -> List[music.BaseNode]:
         return self.__node.upstream_nodes()
@@ -939,7 +961,7 @@ class Connection(ui_base.ProjectMixin, QtWidgets.QGraphicsPathItem):
         self.__update()
 
     def __update(self) -> None:
-        color = port_colors[self.src_port().type()]
+        color = port_colors[self.src_port().current_type()]
 
         if self.__highlighted:
             pen = QtGui.QPen()

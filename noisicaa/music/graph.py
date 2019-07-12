@@ -106,6 +106,55 @@ class ControlValueMap(object):
             raise TypeError(type(change))
 
 
+def get_preferred_connection_type(
+        source_node: 'BaseNode', source_port: str,
+        dest_node: 'BaseNode', dest_port: str
+) -> node_db.PortDescription.Type:
+    possible_types = (
+        set(source_node.get_possible_port_types(source_port))
+        & set(dest_node.get_possible_port_types(dest_port)))
+    if not possible_types:
+        return node_db.PortDescription.UNDEFINED
+
+    sorted_types = sorted(
+        possible_types,
+        key=lambda port_type: {
+            node_db.PortDescription.AUDIO: 4,
+            node_db.PortDescription.ARATE_CONTROL: 3,
+            node_db.PortDescription.KRATE_CONTROL: 2,
+            node_db.PortDescription.EVENTS: 1,
+        },
+        reverse=True)
+    return sorted_types[0]
+
+
+def can_connect_ports(
+        source_node: 'BaseNode', source_port: str,
+        dest_node: 'BaseNode', dest_port: str
+) -> bool:
+    source_port_desc = source_node.get_port_description(source_port)
+    dest_port_desc = dest_node.get_port_description(dest_port)
+
+    if source_port_desc.direction == dest_port_desc.direction:
+        return False
+
+    if get_preferred_connection_type(
+            source_node, source_port, dest_node, dest_port) == node_db.PortDescription.UNDEFINED:
+        return False
+
+    if source_port_desc.direction == node_db.PortDescription.INPUT:
+        source_node, dest_node = dest_node, source_node
+        source_port, dest_port = dest_port, source_port
+        source_port_desc, dest_port_desc = dest_port_desc, source_port_desc
+
+    upstream_nodes = {node.id for node in source_node.upstream_nodes()}
+    upstream_nodes.add(source_node.id)
+    if dest_node.id in upstream_nodes:
+        return False
+
+    return True
+
+
 class BaseNode(_model.BaseNode, model_base.ProjectChild):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -143,8 +192,16 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
         raise ValueError("Invalid port name '%s'" % port_name)
 
     def get_current_port_type(self, port_name: str) -> node_db.PortDescription.Type:
+        connections = self.connections_to(port_name)
+        if not connections:
+            return node_db.PortDescription.UNDEFINED
+
         port_desc = self.get_port_description(port_name)
         return port_desc.types[0]
+
+    def get_possible_port_types(self, port_name: str) -> List['node_db.PortDescription.Type']:
+        port_desc = self.get_port_description(port_name)
+        return list(port_desc.types)
 
     def get_port_properties(self, port_name: str) -> value_types.NodePortProperties:
         for np in self.port_properties:
@@ -158,9 +215,9 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
 
         exposed = True
         if (port_desc.direction == node_db.PortDescription.INPUT
-                and self.get_current_port_type(port_name) in (
+                and set(port_desc.types) & {
                     node_db.PortDescription.KRATE_CONTROL,
-                    node_db.PortDescription.ARATE_CONTROL)):
+                    node_db.PortDescription.ARATE_CONTROL}):
             exposed = False
 
         return value_types.NodePortProperties(port_name, exposed=exposed)
@@ -177,7 +234,8 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
     def description(self) -> node_db.NodeDescription:
         raise NotImplementedError
 
-    def __connections_changed(self, change: model_base.PropertyListChange['NodeConnection']) -> None:
+    def __connections_changed(
+            self, change: model_base.PropertyListChange['NodeConnection']) -> None:
         if isinstance(change, model_base.PropertyListInsert):
             conn = change.new_value
             assert conn.id not in self.__connections
@@ -192,6 +250,12 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
     @property
     def connections(self) -> Sequence['NodeConnection']:
         return list(sorted(self.__connections.values(), key=lambda conn: conn.id))
+
+    def connections_to(self, port_name: str) -> Sequence['NodeConnection']:
+        return [
+            conn for conn in self.connections
+            if ((conn.source_node is self and conn.source_port == port_name)
+                or (conn.dest_node is self and conn.dest_port == port_name))]
 
     def upstream_nodes(self) -> List['BaseNode']:
         node_ids = set()  # type: Set[int]
