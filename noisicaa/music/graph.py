@@ -111,8 +111,11 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
         super().__init__(**kwargs)
 
         self.description_changed = core.Callback[model_base.PropertyChange]()
+        self.connections_changed = core.Callback[model_base.PropertyListChange[NodeConnection]]()
 
         self.control_value_map = ControlValueMap(self)
+
+        self.__connections = {}  # type: Dict[int, NodeConnection]
 
     def create(
             self, *,
@@ -131,6 +134,7 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
     def setup(self) -> None:
         super().setup()
         self.description_changed.add(self.__description_changed)
+        self.connections_changed.add(self.__connections_changed)
 
     def get_port_description(self, port_name: str) -> node_db.PortDescription:
         for port_desc in self.description.ports:
@@ -173,14 +177,21 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
     def description(self) -> node_db.NodeDescription:
         raise NotImplementedError
 
+    def __connections_changed(self, change: model_base.PropertyListChange['NodeConnection']) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
+            conn = change.new_value
+            assert conn.id not in self.__connections
+            self.__connections[conn.id] = conn
+        elif isinstance(change, model_base.PropertyListDelete):
+            conn = change.old_value
+            assert conn.id in self.__connections
+            del self.__connections[conn.id]
+        else:
+            raise ValueError(change)
+
     @property
     def connections(self) -> Sequence['NodeConnection']:
-        result = []
-        for conn in self.project.get_property_value('node_connections'):
-            if conn.source_node is self or conn.dest_node is self:
-                result.append(conn)
-
-        return result
+        return list(sorted(self.__connections.values(), key=lambda conn: conn.id))
 
     def upstream_nodes(self) -> List['BaseNode']:
         node_ids = set()  # type: Set[int]
@@ -188,7 +199,7 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
         return [cast(BaseNode, self._pool[node_id]) for node_id in sorted(node_ids)]
 
     def __upstream_nodes(self, seen: Set[int]) -> None:
-        for connection in self.project.get_property_value('node_connections'):
+        for connection in self.__connections.values():
             if connection.dest_node is self and connection.source_node.id not in seen:
                 seen.add(connection.source_node.id)
                 connection.source_node.__upstream_nodes(seen)
