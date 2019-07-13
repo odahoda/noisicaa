@@ -84,6 +84,30 @@ Status Program::setup(Realm* realm, HostSystem* host_system, const Spec* s) {
   return Status::Ok();
 }
 
+Stack::Stack(size_t size) {
+  _size = size;
+  _data.reset(new uint8_t[_size]);
+  _top = 0;
+}
+
+Status Stack::_pop(void* value, size_t size) {
+  if (_top <  size) {
+    return ERROR_STATUS("Buffer underflow.");
+  }
+  _top -= size;
+  memmove(value, _data.get() + _top, size);
+  return Status::Ok();
+}
+
+Status Stack::_push(void* value, size_t size) {
+  if (_top + size >= _size) {
+    return ERROR_STATUS("Buffer overflow.");
+  }
+  memmove(_data.get() + _top, value, size);
+  _top += size;
+  return Status::Ok();
+}
+
 ActiveProcessor::ActiveProcessor(
     Processor* processor, Slot<pb::EngineNotification>::Callback notification_callback)
   : processor(processor),
@@ -153,6 +177,8 @@ Status Realm::setup() {
       *it = SampleTime{ MusicalTime(-1, 1), MusicalTime(0, 1) };
     }
 
+  _stack.reset(new Stack(1 << 16));
+
   return Status::Ok();
 }
 
@@ -176,6 +202,7 @@ void Realm::cleanup() {
 
   _buffer_arenas.clear();
   _block_context.reset();
+  _stack.reset();
 }
 
 string Realm::dump() const {
@@ -477,9 +504,10 @@ Status Realm::process_block(Program* program) {
   }
 
   const Spec* spec = program->spec.get();
-  ProgramState state = { _logger, _host_system, program, 0, false };
+  ProgramState state = { _logger, _host_system, program, _stack.get(), 0, false };
 
   if (run_init) {
+    _stack->reset();
     while (state.p < spec->num_ops()) {
       int p = state.p++;
 
@@ -494,6 +522,7 @@ Status Realm::process_block(Program* program) {
     state.p = 0;
   }
 
+  _stack->reset();
   while (!state.end) {
     if (state.p == spec->num_ops()) {
       break;

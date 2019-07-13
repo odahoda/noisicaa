@@ -73,10 +73,33 @@ private:
   Logger* _logger;
 };
 
+class Stack {
+public:
+  Stack(size_t size);
+
+  void reset() { _top = 0; }
+
+  Status pop_float(float* value) {
+    return _pop(value, sizeof(float));
+  }
+  Status push_float(float value) {
+    return _push(&value, sizeof(float));
+  };
+
+private:
+  size_t _top;
+  size_t _size;
+  unique_ptr<uint8_t> _data;
+
+  Status _pop(void* value, size_t size);
+  Status _push(void* value, size_t size);
+};
+
 struct ProgramState {
   Logger* logger;
   HostSystem* host_system;
   Program* program;
+  Stack* stack;
   int p;
   bool end;
 };
@@ -154,6 +177,7 @@ private:
   HostSystem* _host_system = nullptr;
   Player* _player = nullptr;
   unique_ptr<BlockContext> _block_context;
+  unique_ptr<Stack> _stack;
   vector<unique_ptr<BufferArena>> _buffer_arenas;
   atomic<Program*> _next_program;
   atomic<Program*> _current_program;
