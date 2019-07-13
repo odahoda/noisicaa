@@ -322,7 +322,8 @@ class AudioProcProcess(core.ProcessBase):
                     "Node %s (%s) has no port %s"
                     % (node2.id, type(node2).__name__, connect_ports.dest_port)
                 ).with_traceback(sys.exc_info()[2]) from None
-            port2.connect(port1)
+
+            port2.connect(port1, connect_ports.type)
             realm.update_spec()
 
         elif mutation_type == 'disconnect_ports':
@@ -439,8 +440,8 @@ class AudioProcProcess(core.ProcessBase):
         await realm.setup_node(node)
 
         sink = realm.graph.find_node('sink')
-        sink.inputs['in:left'].connect(node.outputs['out:left'])
-        sink.inputs['in:right'].connect(node.outputs['out:right'])
+        sink.inputs['in:left'].connect(node.outputs['out:left'], node_db.PortDescription.AUDIO)
+        sink.inputs['in:right'].connect(node.outputs['out:right'], node_db.PortDescription.AUDIO)
         realm.update_spec()
 
         sound_file_complete_urid = self.__urid_mapper.map(

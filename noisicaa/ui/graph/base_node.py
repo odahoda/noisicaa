@@ -961,7 +961,7 @@ class Connection(ui_base.ProjectMixin, QtWidgets.QGraphicsPathItem):
         self.__update()
 
     def __update(self) -> None:
-        color = port_colors[self.src_port().current_type()]
+        color = port_colors[self.__connection.type]
 
         if self.__highlighted:
             pen = QtGui.QPen()

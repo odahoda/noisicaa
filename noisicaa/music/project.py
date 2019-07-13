@@ -231,11 +231,19 @@ class BaseProject(_model.Project, model_base.ObjectBase):
             source_port: str,
             dest_node: graph.BaseNode,
             dest_port: str,
+            type: node_db_lib.PortDescription.Type = node_db_lib.PortDescription.UNDEFINED,
     ) -> graph.NodeConnection:
+        if type == node_db_lib.PortDescription.UNDEFINED:
+            type = graph.get_preferred_connection_type(
+                source_node, source_port, dest_node, dest_port)
+        assert type in source_node.get_possible_port_types(source_port)
+        assert type in dest_node.get_possible_port_types(dest_port)
+
         connection = self._pool.create(
             graph.NodeConnection,
             source_node=source_node, source_port=source_port,
-            dest_node=dest_node, dest_port=dest_port)
+            dest_node=dest_node, dest_port=dest_port,
+            type=type)
         self.add_node_connection(connection)
         return connection
 

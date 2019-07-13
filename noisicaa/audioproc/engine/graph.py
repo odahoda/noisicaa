@@ -51,7 +51,9 @@ class GraphError(Exception):
 class Port(object):
     def __init__(self, *, description: node_db.PortDescription) -> None:
         self.__description = description
+        self.__current_type = None  # type: node_db.PortDescription.Type
         self.owner = None  # type: Node
+        self.connections = []  # type: List[Port]
 
     def __str__(self) -> str:
         return '<%s %s:%s>' % (
@@ -73,7 +75,22 @@ class Port(object):
 
     @property
     def current_type(self) -> node_db.PortDescription.Type:
-        return self.__description.types[0]
+        if self.__current_type is None:
+            return self.__description.types[0]
+        return self.__current_type
+
+    def connect(self, port: 'Port', conn_type: node_db.PortDescription.Type) -> None:
+        if self.__current_type is None:
+            self.__current_type = conn_type
+        else:
+            assert conn_type == self.__current_type
+        self.connections.append(port)
+
+    def disconnect(self, port: 'Port') -> None:
+        assert port in self.connections
+        self.connections.remove(port)
+        if not self.connections:
+            self.__current_type = None
 
     def get_buf_type(self) -> buffers.PyBufferType:
         port_type = self.current_type
@@ -93,24 +110,19 @@ class Port(object):
 
 
 class InputPort(Port):
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self.inputs = []  # type: List[Port]
-
-    def connect(self, port: Port) -> None:
-        self.check_port(port)
-        self.inputs.append(port)
-
-    def disconnect(self, port: Port) -> None:
-        assert port in self.inputs, port
-        self.inputs.remove(port)
-
-    def check_port(self, port: Port) -> None:
+    def connect(self, port: Port, conn_type: node_db.PortDescription.Type) -> None:
         if not isinstance(port, OutputPort):
             raise GraphError("Can only connect to output ports")
 
         if not set(self.description.types) & set(port.description.types):
             raise GraphError("Incompatible port types")
+
+        super().connect(port, conn_type)
+        port.connect(self, conn_type)
+
+    def disconnect(self, port: Port) -> None:
+        super().disconnect(port)
+        port.disconnect(self)
 
 
 class OutputPort(Port):
@@ -230,7 +242,7 @@ class Node(object):
     def parent_nodes(self) -> List['Node']:
         parents = []  # type: List[Node]
         for port in self.inputs.values():
-            for upstream_port in port.inputs:
+            for upstream_port in port.connections:
                 parents.append(upstream_port.owner)
         return parents
 
@@ -358,7 +370,7 @@ class Node(object):
 
             elif isinstance(port, InputPort):
                 spec.append_opcode('CLEAR', port.buf_name)
-                for upstream_port in port.inputs:
+                for upstream_port in port.connections:
                     spec.append_opcode('MIX', upstream_port.buf_name, port.buf_name)
 
     def add_to_spec_post(self, spec: spec_lib.PySpec) -> None:

@@ -196,10 +196,20 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
         if not connections:
             return node_db.PortDescription.UNDEFINED
 
-        port_desc = self.get_port_description(port_name)
-        return port_desc.types[0]
+        conn_type = None
+        for conn in connections:
+            if conn_type is None:
+                conn_type = conn.type
+            else:
+                assert conn.type == conn_type
+
+        return conn_type
 
     def get_possible_port_types(self, port_name: str) -> List['node_db.PortDescription.Type']:
+        current_type = self.get_current_port_type(port_name)
+        if current_type != node_db.PortDescription.UNDEFINED:
+            return [current_type]
+
         port_desc = self.get_port_description(port_name)
         return list(port_desc.types)
 
@@ -442,6 +452,7 @@ class NodeConnection(_model.NodeConnection, model_base.ProjectChild):
             source_port: Optional[str] = None,
             dest_node: Optional[BaseNode] = None,
             dest_port: Optional[str] = None,
+            type: node_db.PortDescription.Type = None,
             **kwargs: Any) -> None:
         super().create(**kwargs)
 
@@ -449,6 +460,7 @@ class NodeConnection(_model.NodeConnection, model_base.ProjectChild):
         self.source_port = source_port
         self.dest_node = dest_node
         self.dest_port = dest_port
+        self.type = type
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.Mutation(
@@ -456,7 +468,8 @@ class NodeConnection(_model.NodeConnection, model_base.ProjectChild):
                 src_node_id=self.source_node.pipeline_node_id,
                 src_port=self.source_port,
                 dest_node_id=self.dest_node.pipeline_node_id,
-                dest_port=self.dest_port))
+                dest_port=self.dest_port,
+                type=self.type))
 
     def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.Mutation(
