@@ -112,15 +112,6 @@ Status ProcessorMidiSource::update_config() {
   return Status::Ok();
 }
 
-Status ProcessorMidiSource::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx != 0) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-  _out = buf;
-  return Status::Ok();
-}
-
 Status ProcessorMidiSource::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
   Config* config = _next_config.exchange(nullptr);
   if (config != nullptr) {
@@ -146,7 +137,7 @@ Status ProcessorMidiSource::process_block_internal(BlockContext* ctxt, TimeMappe
   lv2_atom_forge_init(&forge, &_host_system->lv2->urid_map);
 
   LV2_Atom_Forge_Frame frame;
-  lv2_atom_forge_set_buffer(&forge, _out, 10240);
+  lv2_atom_forge_set_buffer(&forge, _buffers[0]->data(), 10240);
   lv2_atom_forge_sequence_head(&forge, &frame, _host_system->lv2->urid.atom_frame_time);
 
   ClientMessage cm;

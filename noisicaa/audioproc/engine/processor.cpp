@@ -138,6 +138,7 @@ Status Processor::setup_internal() {
   for (int port_idx = 0 ; port_idx < _desc.ports_size() ; ++port_idx) {
     _buffers[port_idx] = nullptr;
   }
+  _buffers_changed = true;
 
   return Status::Ok();
 }
@@ -151,6 +152,7 @@ void Processor::cleanup() {
 }
 
 void Processor::cleanup_internal() {
+  _buffers.clear();
 }
 
 Status Processor::handle_message(const string& msg_serialized) {
@@ -194,24 +196,24 @@ Status Processor::set_description_internal(const pb::NodeDescription& desc) {
   return Status::Ok();
 }
 
-void Processor::connect_port(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  // Some processors might have additional ports, which are not in the NodeDescription.
-  if (port_idx < _buffers.size()) {
-    _buffers[port_idx] = buf;
+void Processor::connect_port(BlockContext* ctxt, uint32_t port_idx, Buffer* buf) {
+  if (port_idx >= _buffers.size()) {
+    _logger->error(
+        "Processor %llx: connect_port(%u) failed: Invalid index %u", id(), port_idx, port_idx);
+    RTUnsafe rtu;  // We just crashed... doesn't matter we're now calling unsafe callbacks.
+    set_state(ProcessorState::BROKEN);
+    return;
   }
 
-  if (state() == ProcessorState::RUNNING) {
-    Status status = connect_port_internal(ctxt, port_idx, buf);
-    if (status.is_error()) {
-      _logger->error(
-          "Processor %llx: connect_port(%u) failed: %s", id(), port_idx, status.message());
-      RTUnsafe rtu;  // We just crashed... doesn't matter we're now calling unsafe callbacks.
-      set_state(ProcessorState::BROKEN);
-    }
-  }
+  _buffers[port_idx] = buf;
+  _buffers_changed = true;
 }
 
 void Processor::process_block(BlockContext* ctxt, TimeMapper* time_mapper) {
+  for (const auto* buf : _buffers) {
+    assert(buf != nullptr);
+  }
+
   if (state() == ProcessorState::RUNNING) {
     Status status = process_block_internal(ctxt, time_mapper);
     if (status.is_error()) {
@@ -220,6 +222,8 @@ void Processor::process_block(BlockContext* ctxt, TimeMapper* time_mapper) {
       set_state(ProcessorState::BROKEN);
     }
   }
+
+  _buffers_changed = false;
 
   if (state() != ProcessorState::RUNNING || _muted.load()) {
     // Processor is muted or broken, just clear all outputs.
@@ -247,38 +251,7 @@ void Processor::clear_all_outputs() {
       continue;
     }
 
-    switch (port.type()) {
-    case pb::PortDescription::AUDIO:
-    case pb::PortDescription::ARATE_CONTROL: {
-      float* buf = (float*)_buffers[port_idx];
-      for (uint32_t i = 0 ; i < _host_system->block_size() ; ++i) {
-        *buf++ = 0.0;
-      }
-      break;
-    }
-
-    case pb::PortDescription::KRATE_CONTROL: {
-      float* buf = (float*)_buffers[port_idx];
-      *buf = 0.0;
-      break;
-    }
-
-    case pb::PortDescription::EVENTS: {
-      LV2_Atom_Forge forge;
-      lv2_atom_forge_init(&forge, &_host_system->lv2->urid_map);
-
-      LV2_Atom_Forge_Frame frame;
-      lv2_atom_forge_set_buffer(&forge, _buffers[port_idx], 10240);
-
-      lv2_atom_forge_sequence_head(&forge, &frame, _host_system->lv2->urid.atom_frame_time);
-      lv2_atom_forge_pop(&forge, &frame);
-      break;
-    }
-
-    default:
-      _logger->error("Unsupported port type %d", port.type());
-      abort();
-    }
+    _buffers[port_idx]->clear();
   }
 }
 

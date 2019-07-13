@@ -27,6 +27,7 @@ from libc.stdint cimport int64_t
 
 from noisidev import unittest
 from noisicaa.core.status cimport check
+from noisicaa import node_db
 from .buffers cimport FloatAudioBlockBuffer, FloatControlValueBuffer
 from .spec cimport Spec
 from .opcodes cimport OpCode, OpArg, OpArgType
@@ -35,7 +36,7 @@ from .opcodes cimport OpCode, OpArg, OpArgType
 class TestSpec(unittest.TestCase):
     def test_buffers(self):
         cdef Spec spec
-        check(spec.append_buffer(b'buf1', new FloatAudioBlockBuffer()))
+        check(spec.append_buffer(b'buf1', new FloatAudioBlockBuffer(node_db.PortDescription.AUDIO)))
         check(spec.append_buffer(b'buf2', new FloatControlValueBuffer()))
         self.assertEqual(spec.num_buffers(), 2)
         self.assertEqual(spec.get_buffer_idx(b'buf1').result(), 0)
@@ -43,9 +44,9 @@ class TestSpec(unittest.TestCase):
 
     def test_opcodes(self):
         cdef Spec spec
-        check(spec.append_buffer(b'buf1', new FloatAudioBlockBuffer()))
-        check(spec.append_buffer(b'buf2', new FloatAudioBlockBuffer()))
-        check(spec.append_buffer(b'buf3', new FloatAudioBlockBuffer()))
+        check(spec.append_buffer(b'buf1', new FloatAudioBlockBuffer(node_db.PortDescription.AUDIO)))
+        check(spec.append_buffer(b'buf2', new FloatAudioBlockBuffer(node_db.PortDescription.AUDIO)))
+        check(spec.append_buffer(b'buf3', new FloatAudioBlockBuffer(node_db.PortDescription.AUDIO)))
 
         check(spec.append_opcode(OpCode.NOOP))
         check(spec.append_opcode(OpCode.COPY, b'buf1', b'buf2'))

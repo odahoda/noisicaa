@@ -53,7 +53,6 @@ ProcessorMidiCCtoCV::ProcessorMidiCCtoCV(
 Status ProcessorMidiCCtoCV::setup_internal() {
   RETURN_IF_ERROR(Processor::setup_internal());
 
-  _buffers.resize(_desc.ports_size());
   for (int idx = 0; idx < 128 ; ++idx) {
     _current_value[idx] = -1;
   }
@@ -75,8 +74,6 @@ void ProcessorMidiCCtoCV::cleanup_internal() {
   if (spec != nullptr) {
     delete spec;
   }
-
-  _buffers.clear();
 
   Processor::cleanup_internal();
 }
@@ -114,15 +111,6 @@ Status ProcessorMidiCCtoCV::set_parameters_internal(const pb::NodeParameters& pa
   return Processor::set_parameters_internal(parameters);
 }
 
-Status ProcessorMidiCCtoCV::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= _buffers.size()) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-  _buffers[port_idx] = buf;
-  return Status::Ok();
-}
-
 Status ProcessorMidiCCtoCV::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
   // If there is a next sequence, make it the current. The current sequence becomes
   // the old sequence, which will eventually be destroyed in the main thread.
@@ -152,7 +140,7 @@ Status ProcessorMidiCCtoCV::process_block_internal(BlockContext* ctxt, TimeMappe
 
   bool learn = _learn > 0;
 
-  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0];
+  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0]->data();
   if (seq->atom.type != _host_system->lv2->urid.atom_sequence) {
     return ERROR_STATUS(
         "Excepted sequence in port 'in', got %d.", seq->atom.type);
@@ -223,7 +211,7 @@ Status ProcessorMidiCCtoCV::process_block_internal(BlockContext* ctxt, TimeMappe
 
     for (int channel_idx = 0 ; channel_idx < spec->channels_size() ; ++channel_idx) {
       const auto& channel_spec = spec->channels(channel_idx);
-      float* out = (float*)_buffers[channel_idx + 1];
+      float* out = (float*)_buffers[channel_idx + 1]->data();
       int16_t current_value = _current_value[channel_idx];
       if (current_value < 0) {
         current_value = channel_spec.initial_value();

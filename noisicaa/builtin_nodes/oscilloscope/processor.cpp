@@ -47,8 +47,6 @@ ProcessorOscilloscope::ProcessorOscilloscope(
 Status ProcessorOscilloscope::setup_internal() {
   RETURN_IF_ERROR(Processor::setup_internal());
 
-  _buffers[0] = nullptr;
-
   _node_msg_buffer_size = _host_system->block_size() * sizeof(float) + 100;
   _node_msg_buffer.reset(new uint8_t[_node_msg_buffer_size]);
 
@@ -69,8 +67,6 @@ void ProcessorOscilloscope::cleanup_internal() {
     delete spec;
   }
 
-  _buffers[0] = nullptr;
-
   _node_msg_buffer.reset();
 
   Processor::cleanup_internal();
@@ -87,15 +83,6 @@ Status ProcessorOscilloscope::set_parameters_internal(const pb::NodeParameters& 
   }
 
   return Processor::set_parameters_internal(parameters);
-}
-
-Status ProcessorOscilloscope::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= 1) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-  _buffers[port_idx] = buf;
-  return Status::Ok();
 }
 
 Status ProcessorOscilloscope::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
@@ -119,12 +106,34 @@ Status ProcessorOscilloscope::process_block_internal(BlockContext* ctxt, TimeMap
   LV2_Atom_Forge_Frame frame;
   lv2_atom_forge_object(&_node_msg_forge, &frame, _host_system->lv2->urid.core_nodemsg, 0);
   lv2_atom_forge_key(&_node_msg_forge, _signal_urid);
-  lv2_atom_forge_vector(
-      &_node_msg_forge,
-      sizeof(float), _host_system->lv2->urid.atom_float,
-      _host_system->block_size(), _buffers[0]);
-  lv2_atom_forge_pop(&_node_msg_forge, &frame);
+  LV2_Atom_Forge_Frame tframe;
+  lv2_atom_forge_tuple(&_node_msg_forge, &tframe);
 
+  pb::PortDescription::Type input_type = _buffers[0]->type()->type();
+  switch (input_type) {
+  case pb::PortDescription::AUDIO:
+  case pb::PortDescription::ARATE_CONTROL:
+    lv2_atom_forge_int(&_node_msg_forge, 1);
+    lv2_atom_forge_vector(
+        &_node_msg_forge,
+        sizeof(float), _host_system->lv2->urid.atom_float,
+        _host_system->block_size(), _buffers[0]->data());
+    break;
+
+  case pb::PortDescription::KRATE_CONTROL:
+    lv2_atom_forge_int(&_node_msg_forge, _host_system->block_size());
+    lv2_atom_forge_vector(
+        &_node_msg_forge,
+        sizeof(float), _host_system->lv2->urid.atom_float,
+        1, _buffers[0]->data());
+    break;
+
+  default:
+    return ERROR_STATUS("Invalid input port type %s", pb::PortDescription::Type_Name(input_type).c_str());
+  }
+
+  lv2_atom_forge_pop(&_node_msg_forge, &tframe);
+  lv2_atom_forge_pop(&_node_msg_forge, &frame);
   NodeMessage::push(ctxt->out_messages, _node_id, (LV2_Atom*)_node_msg_buffer.get());
 
   return Status::Ok();

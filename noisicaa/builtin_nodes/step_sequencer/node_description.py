@@ -38,7 +38,7 @@ StepSequencerDescription = node_db.NodeDescription(
         node_db.PortDescription(
             name='tempo',
             direction=node_db.PortDescription.INPUT,
-            type=node_db.PortDescription.ARATE_CONTROL,
+            types=[node_db.PortDescription.ARATE_CONTROL],
             float_value=node_db.FloatValueDescription(
                 min=0.01,
                 max=100.0,

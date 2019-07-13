@@ -38,27 +38,27 @@ MixerDescription = node_db.NodeDescription(
         node_db.PortDescription(
             name='in:left',
             direction=node_db.PortDescription.INPUT,
-            type=node_db.PortDescription.AUDIO,
+            types=[node_db.PortDescription.AUDIO],
         ),
         node_db.PortDescription(
             name='in:right',
             direction=node_db.PortDescription.INPUT,
-            type=node_db.PortDescription.AUDIO,
+            types=[node_db.PortDescription.AUDIO],
         ),
         node_db.PortDescription(
             name='out:left',
             direction=node_db.PortDescription.OUTPUT,
-            type=node_db.PortDescription.AUDIO,
+            types=[node_db.PortDescription.AUDIO],
         ),
         node_db.PortDescription(
             name='out:right',
             direction=node_db.PortDescription.OUTPUT,
-            type=node_db.PortDescription.AUDIO,
+            types=[node_db.PortDescription.AUDIO],
         ),
         node_db.PortDescription(
             name='gain',
             direction=node_db.PortDescription.INPUT,
-            type=node_db.PortDescription.KRATE_CONTROL,
+            types=[node_db.PortDescription.KRATE_CONTROL],
             float_value=node_db.FloatValueDescription(
                 default=0.0,
                 min=-50.0,
@@ -67,7 +67,7 @@ MixerDescription = node_db.NodeDescription(
         node_db.PortDescription(
             name='pan',
             direction=node_db.PortDescription.INPUT,
-            type=node_db.PortDescription.KRATE_CONTROL,
+            types=[node_db.PortDescription.KRATE_CONTROL],
             float_value=node_db.FloatValueDescription(
                 default=0.0,
                 min=-1.0,
@@ -76,7 +76,7 @@ MixerDescription = node_db.NodeDescription(
         node_db.PortDescription(
             name='lp_cutoff',
             direction=node_db.PortDescription.INPUT,
-            type=node_db.PortDescription.KRATE_CONTROL,
+            types=[node_db.PortDescription.KRATE_CONTROL],
             float_value=node_db.FloatValueDescription(
                 default=20000.0,
                 min=1.0,
@@ -85,7 +85,7 @@ MixerDescription = node_db.NodeDescription(
         node_db.PortDescription(
             name='hp_cutoff',
             direction=node_db.PortDescription.INPUT,
-            type=node_db.PortDescription.KRATE_CONTROL,
+            types=[node_db.PortDescription.KRATE_CONTROL],
             float_value=node_db.FloatValueDescription(
                 default=1.0,
                 min=1.0,

@@ -49,8 +49,6 @@ ProcessorMetronome::ProcessorMetronome(
 Status ProcessorMetronome::setup_internal() {
   RETURN_IF_ERROR(Processor::setup_internal());
 
-  _out_buffers[0] = nullptr;
-  _out_buffers[1] = nullptr;
   _pos = -1;
 
   return Status::Ok();
@@ -73,9 +71,6 @@ void ProcessorMetronome::cleanup_internal() {
     delete spec;
   }
 
-  _out_buffers[0] = nullptr;
-  _out_buffers[1] = nullptr;
-
   Processor::cleanup_internal();
 }
 
@@ -90,15 +85,6 @@ Status ProcessorMetronome::set_parameters_internal(const pb::NodeParameters& par
   }
 
   return Processor::set_parameters_internal(parameters);
-}
-
-Status ProcessorMetronome::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= 2) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-  _out_buffers[port_idx] = buf;
-  return Status::Ok();
 }
 
 Status ProcessorMetronome::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
@@ -121,8 +107,8 @@ Status ProcessorMetronome::process_block_internal(BlockContext* ctxt, TimeMapper
 
   const float* l_in = spec->audio_file->channel_data(0);
   const float* r_in = spec->audio_file->channel_data(1 % spec->audio_file->num_channels());
-  float* l_out = (float*)_out_buffers[0];
-  float* r_out = (float*)_out_buffers[1];
+  float* l_out = (float*)_buffers[0]->data();
+  float* r_out = (float*)_buffers[1]->data();
 
   SampleTime* stime = ctxt->time_map.get();
   for (uint32_t pos = 0; pos < _host_system->block_size(); ++pos, ++stime) {

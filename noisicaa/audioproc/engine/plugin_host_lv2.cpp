@@ -94,9 +94,10 @@ Status PluginHostLV2::setup() {
   _portmap.resize(_spec.node_description().ports_size());
   for (int idx = 0 ; idx < _spec.node_description().ports_size() ; ++idx ) {
     const auto& port = _spec.node_description().ports(idx);
+    assert(port.types_size() == 1);
 
     if (port.direction() == pb::PortDescription::INPUT
-        and port.type() == pb::PortDescription::KRATE_CONTROL) {
+        and port.types(0) == pb::PortDescription::KRATE_CONTROL) {
       _rt_control_values[idx] = ControlValue{0.0, 0};
       _control_values[idx] = ControlValue{0.0, 1};
     }

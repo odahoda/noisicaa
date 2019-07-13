@@ -45,7 +45,9 @@ def _set_port_attr(port_desc: node_description_pb2.PortDescription, key: str, va
     elif key == 'display_name':
         port_desc.display_name = value
     elif key == 'type':
-        port_desc.type = node_description_pb2.PortDescription.Type.Value(value)
+        port_desc.types[:] = [
+            node_description_pb2.PortDescription.Type.Value(t)
+            for t in value.split(',')]
     elif key == 'scale':
         if value == 'log':
             port_desc.float_value.scale = node_description_pb2.FloatValueDescription.LOG
@@ -86,7 +88,7 @@ def _list_controls(items: Iterable[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
             raise ValueError("Unsupported UI item type '%s'" % item['type'])
 
 
-REQUIRED_PORT_FIELDS = ['name', 'type']
+REQUIRED_PORT_FIELDS = ['name', 'direction']
 
 def faust_json_to_node_description(path: str) -> node_description_pb2.NodeDescription:
     node_desc = node_description_pb2.NodeDescription(
@@ -141,7 +143,7 @@ def faust_json_to_node_description(path: str) -> node_description_pb2.NodeDescri
                 port_desc = node_desc.ports.add()
                 port_desc.name = control['label']
                 port_desc.direction = node_description_pb2.PortDescription.INPUT
-                port_desc.type = node_description_pb2.PortDescription.KRATE_CONTROL
+                port_desc.types[:] = [node_description_pb2.PortDescription.KRATE_CONTROL]
                 for key, value in control_meta.items():
                     _set_port_attr(port_desc, key, value)
 

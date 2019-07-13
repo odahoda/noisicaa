@@ -105,10 +105,10 @@ class FauseJsonToNodeDescriptionTest(unittest.TestCase):
         }
         self.assertEqual(set(ports), {'waveform', 'out', 'freq'})
         self.assertEqual(ports['out'].display_name, "Output")
-        self.assertEqual(ports['out'].type, node_description_pb2.PortDescription.AUDIO)
+        self.assertEqual(ports['out'].types, [node_description_pb2.PortDescription.AUDIO])
         self.assertEqual(ports['out'].direction, node_description_pb2.PortDescription.OUTPUT)
         self.assertEqual(ports['freq'].display_name, "Frequency (Hz)")
-        self.assertEqual(ports['freq'].type, node_description_pb2.PortDescription.ARATE_CONTROL)
+        self.assertEqual(ports['freq'].types, [node_description_pb2.PortDescription.ARATE_CONTROL])
         self.assertEqual(ports['freq'].direction, node_description_pb2.PortDescription.INPUT)
         self.assertEqual(ports['freq'].float_value.min, 1.0)
         self.assertEqual(ports['freq'].float_value.max, 20000.0)
@@ -116,7 +116,8 @@ class FauseJsonToNodeDescriptionTest(unittest.TestCase):
         self.assertEqual(
             ports['freq'].float_value.scale, node_description_pb2.FloatValueDescription.LOG)
         self.assertEqual(ports['waveform'].display_name, "Waveform")
-        self.assertEqual(ports['waveform'].type, node_description_pb2.PortDescription.KRATE_CONTROL)
+        self.assertEqual(ports['waveform'].types,
+                         [node_description_pb2.PortDescription.KRATE_CONTROL])
         self.assertEqual(ports['waveform'].direction, node_description_pb2.PortDescription.INPUT)
         self.assertEqual(ports['waveform'].enum_value.default, 0.0)
         self.assertEqual(ports['waveform'].enum_value.items[0].name, 'Sine')

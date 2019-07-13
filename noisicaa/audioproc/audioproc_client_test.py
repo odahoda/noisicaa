@@ -50,22 +50,22 @@ class AudioProcClientTest(
                 node_db.PortDescription(
                     name='in:left',
                     direction=node_db.PortDescription.INPUT,
-                    type=node_db.PortDescription.AUDIO,
+                    types=[node_db.PortDescription.AUDIO],
                 ),
                 node_db.PortDescription(
                     name='in:right',
                     direction=node_db.PortDescription.INPUT,
-                    type=node_db.PortDescription.AUDIO,
+                    types=[node_db.PortDescription.AUDIO],
                 ),
                 node_db.PortDescription(
                     name='out:left',
                     direction=node_db.PortDescription.OUTPUT,
-                    type=node_db.PortDescription.AUDIO,
+                    types=[node_db.PortDescription.AUDIO],
                 ),
                 node_db.PortDescription(
                     name='out:right',
                     direction=node_db.PortDescription.OUTPUT,
-                    type=node_db.PortDescription.AUDIO,
+                    types=[node_db.PortDescription.AUDIO],
                 ),
             ],
             processor=node_db.ProcessorDescription(
@@ -107,8 +107,10 @@ class AudioProcClientTest(
             await client.add_node(
                 'root',
                 id='child', child_realm='test', description=node_db.Builtins.ChildRealmDescription)
-            await client.connect_ports('root', 'child', 'out:left', 'sink', 'in:left')
-            await client.connect_ports('root', 'child', 'out:right', 'sink', 'in:right')
+            await client.connect_ports(
+                'root', 'child', 'out:left', 'sink', 'in:left', node_db.PortDescription.AUDIO)
+            await client.connect_ports(
+                'root', 'child', 'out:right', 'sink', 'in:right', node_db.PortDescription.AUDIO)
 
             await client.disconnect_ports('root', 'child', 'out:left', 'sink', 'in:left')
             await client.disconnect_ports('root', 'child', 'out:right', 'sink', 'in:right')
@@ -125,13 +127,15 @@ class AudioProcClientTest(
         async with self.create_process() as client:
             await client.add_node('root', id='node1', description=self.passthru_description)
             await client.add_node('root', id='node2', description=self.passthru_description)
-            await client.connect_ports('root', 'node1', 'out:left', 'node2', 'in:left')
+            await client.connect_ports(
+                'root', 'node1', 'out:left', 'node2', 'in:left', node_db.PortDescription.AUDIO)
 
     async def test_disconnect_ports(self):
         async with self.create_process() as client:
             await client.add_node('root', id='node1', description=self.passthru_description)
             await client.add_node('root', id='node2', description=self.passthru_description)
-            await client.connect_ports('root', 'node1', 'out:left', 'node2', 'in:left')
+            await client.connect_ports(
+                'root', 'node1', 'out:left', 'node2', 'in:left', node_db.PortDescription.AUDIO)
             await client.disconnect_ports('root', 'node1', 'out:left', 'node2', 'in:left')
 
     async def test_plugin_node(self):

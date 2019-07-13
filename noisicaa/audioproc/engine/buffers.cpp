@@ -31,12 +31,20 @@
 
 namespace noisicaa {
 
+BufferType::BufferType(pb::PortDescription::Type type)
+  : _type(type) {}
+
+BufferType::~BufferType() {}
+
 Status BufferType::setup(HostSystem* host_system, BufferPtr buf) const {
   return Status::Ok();
 }
 
 void BufferType::cleanup(HostSystem* host_system, BufferPtr buf) const {
 }
+
+FloatControlValueBuffer::FloatControlValueBuffer()
+  : BufferType(pb::PortDescription::KRATE_CONTROL) {}
 
 uint32_t FloatControlValueBuffer::size(HostSystem* host_system) const {
   return sizeof(ControlValue);
@@ -65,6 +73,9 @@ Status FloatControlValueBuffer::mul_buffer(
   ptr->generation += 1;
   return Status::Ok();
 }
+
+FloatAudioBlockBuffer::FloatAudioBlockBuffer(pb::PortDescription::Type type)
+  : BufferType(type) {}
 
 uint32_t FloatAudioBlockBuffer::size(HostSystem* host_system) const {
   return host_system->block_size() * sizeof(float);
@@ -95,6 +106,9 @@ Status FloatAudioBlockBuffer::mul_buffer(HostSystem* host_system, BufferPtr buf,
   }
   return Status::Ok();
 }
+
+AtomDataBuffer::AtomDataBuffer()
+  : BufferType(pb::PortDescription::EVENTS) {}
 
 uint32_t AtomDataBuffer::size(HostSystem* host_system) const {
   return 10240;
@@ -176,6 +190,9 @@ Status AtomDataBuffer::mix_buffers(
 Status AtomDataBuffer::mul_buffer(HostSystem* host_system, BufferPtr buf, float factor) const {
   return ERROR_STATUS("Operation not supported for AtomDataBuffer");
 }
+
+PluginCondBuffer::PluginCondBuffer()
+  : BufferType(pb::PortDescription::INTERNAL_TYPE) {}
 
 uint32_t PluginCondBuffer::size(HostSystem* host_system) const {
   return sizeof(PluginCond);

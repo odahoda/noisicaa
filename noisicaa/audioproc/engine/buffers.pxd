@@ -25,6 +25,12 @@ from noisicaa.core.status cimport Status
 from noisicaa.host_system.host_system cimport HostSystem
 
 
+cdef extern from "noisicaa/node_db/node_description.pb.h" namespace "noisicaa::pb" nogil:
+    enum PortDescription_Type: pass
+    cppclass PortDescription:
+        ctypedef PortDescription_Type Type
+
+
 cdef extern from "noisicaa/audioproc/engine/buffers.h" namespace "noisicaa" nogil:
     ctypedef uint8_t* BufferPtr
 
@@ -41,7 +47,7 @@ cdef extern from "noisicaa/audioproc/engine/buffers.h" namespace "noisicaa" nogi
         pass
 
     cppclass FloatAudioBlockBuffer(BufferType):
-        pass
+        FloatAudioBlockBuffer(PortDescription.Type type)
 
     cppclass AtomDataBuffer(BufferType):
         pass
@@ -72,3 +78,12 @@ cdef class PyBufferType(object):
 
     cdef BufferType* get(self) nogil
     cdef BufferType* release(self) nogil
+
+
+cdef class PyBuffer(object):
+    cdef PyBufferType __type
+    cdef Buffer* __buffer
+    cdef unique_ptr[Buffer] __buffer_ref
+
+    cdef Buffer* get(self) nogil
+    cdef Buffer* release(self) nogil

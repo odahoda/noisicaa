@@ -32,6 +32,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import instrument_db
+from noisicaa import node_db
 from noisicaa import audioproc
 from noisicaa import value_types
 from noisicaa.builtin_nodes.instrument import processor_messages as instrument
@@ -258,10 +259,14 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
             id=self.__instrument_id)
         await self.audioproc_client.connect_ports(
             'root',
-            self.__instrument_id, 'out:left', 'sink', 'in:left')
+            self.__instrument_id, 'out:left',
+            'sink', 'in:left',
+            node_db.PortDescription.AUDIO)
         await self.audioproc_client.connect_ports(
             'root',
-            self.__instrument_id, 'out:right', 'sink', 'in:right')
+            self.__instrument_id, 'out:right',
+            'sink', 'in:right',
+            node_db.PortDescription.AUDIO)
 
         self.__midi_source_id = uuid.uuid4().hex
         await self.audioproc_client.add_node(
@@ -273,7 +278,9 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         await self.audioproc_client.connect_ports(
             'root',
-            self.__midi_source_id, 'out', self.__instrument_id, 'in')
+            self.__midi_source_id, 'out',
+            self.__instrument_id, 'in',
+            node_db.PortDescription.EVENTS)
 
         self.__instrument_loader_task = self.event_loop.create_task(
             self.__instrumentLoader())

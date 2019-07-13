@@ -103,20 +103,12 @@ Status ProcessorCVGenerator::handle_message_internal(pb::ProcessorMessage* msg) 
   return Processor::handle_message_internal(msg);
 }
 
-Status ProcessorCVGenerator::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  assert(port_idx == 0);
-  _out_buffer = buf;
-  return Status::Ok();
-}
-
 Status ProcessorCVGenerator::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
   PerfTracker tracker(ctxt->perf.get(), "cvgenerator");
 
   CVRecipe* recipe = _recipe_manager.get_current();
 
-  assert(_out_buffer != nullptr);
-  float* out_ptr = (float*)_out_buffer;
+  float* out_ptr = (float*)_buffers[0]->data();
 
   SampleTime* stime = ctxt->time_map.get();
   for (uint32_t sample = 0 ; sample < _host_system->block_size() ; ++sample, ++stime) {

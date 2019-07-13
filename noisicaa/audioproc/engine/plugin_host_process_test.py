@@ -138,24 +138,24 @@ class PluginHostProcessTest(
             bufp = {}
             buffers = []
             for port_index, port_spec in enumerate(spec.node_description.ports):
-                if port_spec.type == node_db.PortDescription.AUDIO:
+                if port_spec.types[0] == node_db.PortDescription.AUDIO:
                     bufsize = block_size * 4
-                elif port_spec.type == node_db.PortDescription.KRATE_CONTROL:
+                elif port_spec.types[0] == node_db.PortDescription.KRATE_CONTROL:
                     bufsize = 4
                 else:
-                    raise ValueError(port_spec.type)
+                    raise ValueError(port_spec.types[0])
 
                 buffers.append((port_index, offset))
 
                 p = shm_data[offset:offset+bufsize]
-                if port_spec.type == node_db.PortDescription.AUDIO:
+                if port_spec.types[0] == node_db.PortDescription.AUDIO:
                     # TODO: mypy doesn't know memoryview.cast
                     bufp[port_spec.name] = p.cast('f')  # type: ignore
-                elif port_spec.type == node_db.PortDescription.KRATE_CONTROL:
+                elif port_spec.types[0] == node_db.PortDescription.KRATE_CONTROL:
                     # TODO: mypy doesn't know memoryview.cast
                     bufp[port_spec.name] = p.cast('f')  # type: ignore
                 else:
-                    raise ValueError(port_spec.type)
+                    raise ValueError(port_spec.types[0])
 
                 offset += bufsize
 

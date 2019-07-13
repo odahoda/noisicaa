@@ -53,6 +53,7 @@ message ConnectPorts {
   required string src_port = 2;
   required string dest_node_id = 3;
   required string dest_port = 4;
+  required noisicaa.pb.PortDescription.Type type = 5;
 }
 
 message DisconnectPorts {

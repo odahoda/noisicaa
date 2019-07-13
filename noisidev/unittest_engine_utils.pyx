@@ -61,12 +61,12 @@ cdef class BufferManager(object):
     def allocate_from_node_description(self, node_description, prefix=''):
         for port in node_description.ports:
             btype = {
-                node_db.PortDescription.AUDIO: buffers.PyFloatAudioBlockBuffer,
-                node_db.PortDescription.ARATE_CONTROL: buffers.PyFloatAudioBlockBuffer,
-                node_db.PortDescription.KRATE_CONTROL: buffers.PyFloatControlValueBuffer,
-                node_db.PortDescription.EVENTS: buffers.PyAtomDataBuffer,
-            }[port.type]
-            self.allocate(prefix + port.name, btype())
+                node_db.PortDescription.AUDIO: buffers.PyFloatAudioBlockBuffer(node_db.PortDescription.AUDIO),
+                node_db.PortDescription.ARATE_CONTROL: buffers.PyFloatAudioBlockBuffer(node_db.PortDescription.ARATE_CONTROL),
+                node_db.PortDescription.KRATE_CONTROL: buffers.PyFloatControlValueBuffer(),
+                node_db.PortDescription.EVENTS: buffers.PyAtomDataBuffer(),
+            }[port.types[0]]
+            self.allocate(prefix + port.name, btype)
 
     def connect_ports(self, proc, ctxt, node_description, prefix=''):
         for idx, port in enumerate(node_description.ports):

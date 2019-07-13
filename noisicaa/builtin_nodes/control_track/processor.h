@@ -72,12 +72,9 @@ protected:
   Status setup_internal() override;
   void cleanup_internal() override;
   Status handle_message_internal(pb::ProcessorMessage* msg) override;
-  Status connect_port_internal(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) override;
   Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) override;
 
 private:
-  BufferPtr _out_buffer;
-
   DoubleBufferedStateManager<CVRecipe, pb::ProcessorMessage> _recipe_manager;
 };
 

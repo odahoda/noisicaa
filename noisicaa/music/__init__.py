@@ -52,6 +52,8 @@ from .metadata import (
 from .graph import (
     BaseNode,
     NodeConnection,
+    get_preferred_connection_type,
+    can_connect_ports,
 )
 from .base_track import (
     Track,

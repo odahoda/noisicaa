@@ -47,7 +47,7 @@ public:
   ~FluidSynthUtil();
 
   Status setup(const string& path, uint32_t bank, uint32_t preset);
-  Status process_block(BlockContext* ctxt, TimeMapper* time_mapper, vector<BufferPtr>& buffers);
+  Status process_block(BlockContext* ctxt, TimeMapper* time_mapper, vector<Buffer*>& buffers);
 
 private:
   Logger* _logger;

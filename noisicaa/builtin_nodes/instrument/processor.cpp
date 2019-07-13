@@ -43,7 +43,6 @@ Status ProcessorInstrument::setup_internal() {
   RETURN_IF_ERROR(Processor::setup_internal());
 
   assert(_desc.ports_size() == 3);
-  _buffers.resize(_desc.ports_size());
 
   return Status::Ok();
 }
@@ -62,8 +61,6 @@ void ProcessorInstrument::cleanup_internal() {
     delete instrument;
   }
 
-  _buffers.clear();
-
   Processor::cleanup_internal();
 }
 
@@ -74,15 +71,6 @@ Status ProcessorInstrument::handle_message_internal(pb::ProcessorMessage* msg) {
   }
 
   return Processor::handle_message_internal(msg);
-}
-
-Status ProcessorInstrument::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= _buffers.size()) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-  _buffers[port_idx] = buf;
-  return Status::Ok();
 }
 
 Status ProcessorInstrument::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {

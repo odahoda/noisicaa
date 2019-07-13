@@ -38,12 +38,12 @@ MidiLooperDescription = node_db.NodeDescription(
         node_db.PortDescription(
             name='in',
             direction=node_db.PortDescription.INPUT,
-            type=node_db.PortDescription.EVENTS,
+            types=[node_db.PortDescription.EVENTS],
         ),
         node_db.PortDescription(
             name='out',
             direction=node_db.PortDescription.OUTPUT,
-            type=node_db.PortDescription.EVENTS,
+            types=[node_db.PortDescription.EVENTS],
         ),
     ]
 )

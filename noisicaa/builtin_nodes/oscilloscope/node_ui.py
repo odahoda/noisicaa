@@ -200,35 +200,53 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
     def formatYScale(cls, y_scale: int) -> str:
         return '%g' % ([1, 2, 5][y_scale % 3] * 10.0 ** (y_scale // 3))
 
-    def addValues(self, values: Iterable[float]) -> None:
+    def addValues(self, samples_per_value: int, values: Iterable[float]) -> None:
         if self.__plot_rect is None:
             return
 
         trigger_value = -self.yOffset() * self.absYScale()
 
         for value in values:
-            if self.__state == State.HOLD and not self.paused():
-                if time.time() - self.__hold_begin > self.absHoldTime():
-                    self.__setState(State.WAIT_FOR_TRIGGER)
+            for _ in range(samples_per_value):
+                if self.__state == State.HOLD and not self.paused():
+                    if time.time() - self.__hold_begin > self.absHoldTime():
+                        self.__setState(State.WAIT_FOR_TRIGGER)
 
-            if self.__state == State.WAIT_FOR_TRIGGER:
-                if self.__prev_sample < trigger_value and value >= trigger_value:
-                    self.__trigger_found = True
-                    self.__setState(State.RECORDING)
-                elif time.time() - self.__trigger_begin > 10 * self.absTimeScale():
-                    self.__setState(State.RECORDING)
-                    self.__trigger_found = False
+                if self.__state == State.WAIT_FOR_TRIGGER:
+                    if self.__prev_sample < trigger_value and value >= trigger_value:
+                        self.__trigger_found = True
+                        self.__setState(State.RECORDING)
+                    elif time.time() - self.__trigger_begin > 10 * self.absTimeScale():
+                        self.__setState(State.RECORDING)
+                        self.__trigger_found = False
 
-            self.__prev_sample = value
+                self.__prev_sample = value
 
-            if self.__state != State.RECORDING:
-                continue
+                if self.__state != State.RECORDING:
+                    continue
 
-            if self.__timePerPixel >= self.__timePerSample:
-                self.__remainder += self.__timePerSample
-                if self.__remainder >= 0.0:
-                    self.__remainder -= self.__timePerPixel
+                if self.__timePerPixel >= self.__timePerSample:
+                    self.__remainder += self.__timePerSample
+                    if self.__remainder >= 0.0:
+                        self.__remainder -= self.__timePerPixel
 
+                        pnt = SignalPoint(self.__screen_pos)
+                        pnt.add_sample(value)
+                        self.__signal.insert(self.__insert_pos, pnt)
+                        self.__insert_pos += 1
+
+                        while (self.__insert_pos < len(self.__signal)
+                               and (self.__signal[self.__insert_pos].screen_pos
+                                    <= self.__screen_pos)):
+                            del self.__signal[self.__insert_pos]
+
+                        self.__screen_pos += self.__density
+
+                    else:
+                        pnt = self.__signal[self.__insert_pos - 1]
+                        pnt.add_sample(value)
+
+                else:
                     pnt = SignalPoint(self.__screen_pos)
                     pnt.add_sample(value)
                     self.__signal.insert(self.__insert_pos, pnt)
@@ -238,30 +256,14 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
                            and self.__signal[self.__insert_pos].screen_pos <= self.__screen_pos):
                         del self.__signal[self.__insert_pos]
 
-                    self.__screen_pos += self.__density
+                    self.__remainder += self.__timePerSample
+                    while self.__remainder >= 0.0:
+                        self.__remainder -= self.__timePerPixel
+                        self.__screen_pos += self.__density
 
-                else:
-                    pnt = self.__signal[self.__insert_pos - 1]
-                    pnt.add_sample(value)
-
-            else:
-                pnt = SignalPoint(self.__screen_pos)
-                pnt.add_sample(value)
-                self.__signal.insert(self.__insert_pos, pnt)
-                self.__insert_pos += 1
-
-                while (self.__insert_pos < len(self.__signal)
-                       and self.__signal[self.__insert_pos].screen_pos <= self.__screen_pos):
-                    del self.__signal[self.__insert_pos]
-
-                self.__remainder += self.__timePerSample
-                while self.__remainder >= 0.0:
-                    self.__remainder -= self.__timePerPixel
-                    self.__screen_pos += self.__density
-
-            if self.__screen_pos >= self.__plot_rect.width() + 10:
-                self.__setState(State.HOLD)
-                del self.__signal[self.__insert_pos:]
+                if self.__screen_pos >= self.__plot_rect.width() + 10:
+                    self.__setState(State.HOLD)
+                    del self.__signal[self.__insert_pos:]
 
     def step(self) -> None:
         if self.paused() and self.__state == State.HOLD:
@@ -609,8 +611,8 @@ class OscilloscopeNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidg
     def __nodeMessage(self, msg: Dict[str, Any]) -> None:
         signal_uri = 'http://noisicaa.odahoda.de/lv2/processor_oscilloscope#signal'
         if signal_uri in msg:
-            signal = msg[signal_uri]
-            self.__plot.addValues(signal)
+            samples_per_value, signal = msg[signal_uri]
+            self.__plot.addValues(samples_per_value, signal)
 
 
 class OscilloscopeNode(base_node.Node):

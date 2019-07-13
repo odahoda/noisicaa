@@ -177,14 +177,14 @@ Status CSoundUtil::setup(
 }
 
 Status CSoundUtil::process_block(
-    BlockContext* ctxt, TimeMapper* time_mapper, vector<BufferPtr>& buffers) {
+    BlockContext* ctxt, TimeMapper* time_mapper, vector<Buffer*>& buffers) {
   assert(buffers.size() == (size_t)_ports.size());
 
   for (size_t port_idx = 0 ; port_idx < _ports.size() ; ++port_idx) {
     const auto& port = _ports[port_idx];
     if (port.direction == pb::PortDescription::INPUT
         && port.type == pb::PortDescription::EVENTS) {
-      LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)buffers[port_idx];
+      LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)buffers[port_idx]->data();
       if (seq->atom.type != _host_system->lv2->urid.atom_sequence) {
         return ERROR_STATUS(
             "Excepted sequence in port '%s', got %d.", port.name.c_str(), seq->atom.type);
@@ -213,7 +213,7 @@ Status CSoundUtil::process_block(
         switch (port.type) {
         case pb::PortDescription::AUDIO:
         case pb::PortDescription::ARATE_CONTROL: {
-          float* buf = (float*)buffers[port_idx];
+          float* buf = (float*)buffers[port_idx]->data();
           buf += pos;
 
           MYFLT* channel_ptr = _channel_ptr[port_idx];
@@ -227,7 +227,7 @@ Status CSoundUtil::process_block(
         }
 
         case pb::PortDescription::KRATE_CONTROL: {
-          float* buf = (float*)buffers[port_idx];
+          float* buf = (float*)buffers[port_idx]->data();
 
           MYFLT* channel_ptr = _channel_ptr[port_idx];
           int *lock = _channel_lock[port_idx];
@@ -334,7 +334,7 @@ Status CSoundUtil::process_block(
         switch (port.type) {
         case pb::PortDescription::AUDIO:
         case pb::PortDescription::ARATE_CONTROL: {
-          float* buf = (float*)buffers[port_idx];
+          float* buf = (float*)buffers[port_idx]->data();
           buf += pos;
 
           MYFLT* channel_ptr = _channel_ptr[port_idx];
@@ -348,7 +348,7 @@ Status CSoundUtil::process_block(
         }
 
         case pb::PortDescription::KRATE_CONTROL: {
-          float* buf = (float*)buffers[port_idx];
+          float* buf = (float*)buffers[port_idx]->data();
 
           MYFLT* channel_ptr = _channel_ptr[port_idx];
           int *lock = _channel_lock[port_idx];

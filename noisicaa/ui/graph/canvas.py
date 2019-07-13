@@ -1218,6 +1218,19 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                 event.accept()
                 return
 
+    def __startConnectionDrag(self, port: base_node.Port) -> None:
+        for target_node in self.__scene.nodes():
+            for target_port in target_node.ports():
+                if not port.canConnectTo(target_port):
+                    continue
+
+                target_port.setTargetType(port.preferredConnectionType(target_port))
+
+    def __endConnectionDrag(self) -> None:
+        for target_node in self.__scene.nodes():
+            for target_port in target_node.ports():
+                target_port.clearTargetType()
+
     def newConnectionEvent(self, event: QtCore.QEvent) -> None:
         state = cast(NewConnection, self.__current_state)
 
@@ -1231,6 +1244,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                     port.direction() == node_db.PortDescription.INPUT)
                 self.__scene.addItem(state.connection)
                 state.src_port = port
+                self.__startConnectionDrag(port)
                 self.__scene.disableHighlights()
                 event.accept()
                 return
@@ -1275,6 +1289,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                     self.__scene.connectPorts(state.src_port, state.dest_port)
 
                 self.__scene.removeItem(state.connection)
+                self.__endConnectionDrag()
                 self.__current_state = None
                 event.accept()
                 return
@@ -1282,6 +1297,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             if mevent.button() == Qt.RightButton:
                 # abort drag
                 self.__scene.removeItem(state.connection)
+                self.__endConnectionDrag()
                 self.__current_state = None
                 event.accept()
                 return
@@ -1314,6 +1330,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                     state.src_port = state.orig_connection.dest_port()
                     state.dest_port = None
                     state.orig_connection.setVisible(False)
+                    self.__startConnectionDrag(state.src_port)
                     self.__scene.disableHighlights()
 
                 elif delta.x() < -10:
@@ -1324,6 +1341,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                     state.src_port = state.orig_connection.src_port()
                     state.dest_port = None
                     state.orig_connection.setVisible(False)
+                    self.__startConnectionDrag(state.src_port)
                     self.__scene.disableHighlights()
 
             if state.connection is not None:
@@ -1386,6 +1404,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                     self.__scene.removeItem(state.connection)
 
                 self.__current_state = None
+                self.__endConnectionDrag()
                 event.accept()
                 return
 
@@ -1395,5 +1414,6 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                 if state.connection is not None:
                     self.__scene.removeItem(state.connection)
                 self.__current_state = None
+                self.__endConnectionDrag()
                 event.accept()
                 return

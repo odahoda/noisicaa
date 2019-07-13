@@ -79,6 +79,28 @@ class BaseProject(_model.Project, model_base.ObjectBase):
             name="System Out", graph_pos=value_types.Pos2F(200, 0))
         self.add_node(system_out_node)
 
+    def setup(self) -> None:
+        super().setup()
+
+        for conn in self.node_connections:
+            change = model_base.PropertyListInsert(self, 'node_connections', -1, conn)
+            conn.source_node.connections_changed.call(change)
+            conn.dest_node.connections_changed.call(change)
+        self.node_connections_changed.add(self.__node_connections_changed)
+
+    def __node_connections_changed(
+            self, change: model_base.PropertyListChange[graph.NodeConnection]
+    ) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
+            conn = change.new_value
+        elif isinstance(change, model_base.PropertyListDelete):
+            conn = change.old_value
+        else:
+            raise ValueError(change)
+
+        conn.source_node.connections_changed.call(change)
+        conn.dest_node.connections_changed.call(change)
+
     @property
     def time_mapper(self) -> audioproc.TimeMapper:
         return self.__time_mapper
@@ -181,8 +203,14 @@ class BaseProject(_model.Project, model_base.ObjectBase):
         return node
 
     def add_node(self, node: graph.BaseNode) -> None:
+        for conn in self.node_connections:
+            if conn.source_node is node or conn.dest_node is node:
+                node.connections_changed.call(
+                    model_base.PropertyListInsert(self, 'node_connections', -1, conn))
+
         for mutation in node.get_add_mutations():
             self.handle_pipeline_mutation(mutation)
+
         self.nodes.append(node)
 
     def remove_node(self, node: graph.BaseNode) -> None:
@@ -206,11 +234,19 @@ class BaseProject(_model.Project, model_base.ObjectBase):
             source_port: str,
             dest_node: graph.BaseNode,
             dest_port: str,
+            type: node_db_lib.PortDescription.Type = node_db_lib.PortDescription.UNDEFINED,  # pylint: disable=redefined-builtin
     ) -> graph.NodeConnection:
+        if type == node_db_lib.PortDescription.UNDEFINED:
+            type = graph.get_preferred_connection_type(
+                source_node, source_port, dest_node, dest_port)
+        assert type in source_node.get_possible_port_types(source_port)
+        assert type in dest_node.get_possible_port_types(dest_port)
+
         connection = self._pool.create(
             graph.NodeConnection,
             source_node=source_node, source_port=source_port,
-            dest_node=dest_node, dest_port=dest_port)
+            dest_node=dest_node, dest_port=dest_port,
+            type=type)
         self.add_node_connection(connection)
         return connection
 

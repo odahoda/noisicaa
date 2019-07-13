@@ -38,7 +38,7 @@ MidiMonitorDescription = node_db.NodeDescription(
         node_db.PortDescription(
             name='in',
             direction=node_db.PortDescription.INPUT,
-            type=node_db.PortDescription.EVENTS,
+            types=[node_db.PortDescription.EVENTS],
         ),
     ]
 )

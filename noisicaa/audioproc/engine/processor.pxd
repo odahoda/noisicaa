@@ -27,7 +27,7 @@ from noisicaa.core.refcount cimport RefCounted
 from noisicaa.host_system.host_system cimport HostSystem
 from noisicaa.audioproc.public.time_mapper cimport TimeMapper
 from noisicaa.audioproc.public.musical_time cimport MusicalTime
-from .buffers cimport BufferPtr
+from .buffers cimport Buffer
 from .block_context cimport BlockContext
 
 
@@ -55,7 +55,7 @@ cdef extern from "noisicaa/audioproc/engine/processor.h" namespace "noisicaa" no
         Status set_parameters(const string& msg)
         Status set_description(const string& msg)
 
-        void connect_port(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf)
+        void connect_port(BlockContext* ctxt, uint32_t port_idx, Buffer* buf)
         void process_block(BlockContext* ctxt, TimeMapper* time_mapper)
 
 

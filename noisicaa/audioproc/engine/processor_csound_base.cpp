@@ -62,10 +62,11 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
 
   vector<CSoundUtil::PortSpec> ports;
   for (const auto& port : _desc.ports()) {
+    assert(port.types_size() == 1);
     ports.emplace_back(
         CSoundUtil::PortSpec {
             port.name(),
-            port.type(),
+            port.types(0),
             port.direction(),
             port.csound_name()
         });
@@ -80,11 +81,7 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
 }
 
 Status ProcessorCSoundBase::setup_internal() {
-  RETURN_IF_ERROR(Processor::setup_internal());
-
-  _buffers.resize(_desc.ports_size());
-
-  return Status::Ok();
+  return Processor::setup_internal();
 }
 
 void ProcessorCSoundBase::cleanup_internal() {
@@ -101,28 +98,11 @@ void ProcessorCSoundBase::cleanup_internal() {
     delete instance;
   }
 
-  _buffers.clear();
-
   Processor::cleanup_internal();
-}
-
-Status ProcessorCSoundBase::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= _buffers.size()) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-  _buffers[port_idx] = buf;
-  return Status::Ok();
 }
 
 Status ProcessorCSoundBase::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
   PerfTracker tracker(ctxt->perf.get(), "csound");
-
-  for (size_t port_idx = 0 ; port_idx < _buffers.size() ; ++port_idx) {
-    if (_buffers[port_idx] == nullptr) {
-      return ERROR_STATUS("Port %d not connected.", port_idx);
-    }
-  }
 
   // If there is a next instance, make it the current. The current instance becomes
   // the old instance, which will eventually be destroyed in the main thread.

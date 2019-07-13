@@ -74,7 +74,9 @@ class {{cls.name}}({{cls.super_class|join(', ')}}):  # pylint: disable=abstract-
     def _set_{{prop.name}}(self, value: {{prop|py_type}}) -> None:
         self.set_property_value('{{prop.name}}', value)
 
-    {{prop.name}} = property(_get_{{prop.name}}, _set_{{prop.name}})
+    {{prop.name}} = property(
+        lambda self: self._get_{{prop.name}}(),
+        lambda self, value: self._set_{{prop.name}}(value))
 {% endif %}
 
     @property

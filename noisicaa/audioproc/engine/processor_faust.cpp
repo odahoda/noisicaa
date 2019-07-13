@@ -97,7 +97,6 @@ Status ProcessorFaust::setup_internal() {
     return ERROR_STATUS("Port mismatch (desc=%d, dsp=%d)", _desc.ports_size(), dsp_ports);
   }
 
-  _buffers.reset(new BufferPtr[_desc.ports_size()]);
   _inputs.reset(new float*[_dsp->getNumInputs()]);
   _outputs.reset(new float*[_dsp->getNumOutputs()]);
   _controls.reset(new float*[controls.num_controls()]);
@@ -105,17 +104,22 @@ Status ProcessorFaust::setup_internal() {
   int control_idx = 0;
   for (int port_idx = 0 ; port_idx < _desc.ports_size() ; ++port_idx) {
     const auto& port_desc = _desc.ports(port_idx);
+
     if (port_idx < _dsp->getNumInputs()) {
       if (port_desc.direction() != pb::PortDescription::INPUT) {
         return ERROR_STATUS(
              "Port %d: Expected INPUT port, got %s",
              port_idx, pb::PortDescription::Direction_Name(port_desc.direction()).c_str());
       }
-      if (port_desc.type() != pb::PortDescription::AUDIO
-          && port_desc.type() != pb::PortDescription::ARATE_CONTROL) {
-        return ERROR_STATUS(
-             "Port %d: Expected AUDIO/ARATE_CONTROL port, got %s",
-             port_idx, pb::PortDescription::Type_Name(port_desc.type()).c_str());
+      assert(port_desc.types_size() > 0);
+      for (int i = 0 ; i < port_desc.types_size() ; ++i) {
+        pb::PortDescription::Type port_type = port_desc.types(i);
+        if (port_type != pb::PortDescription::AUDIO
+            && port_type != pb::PortDescription::ARATE_CONTROL) {
+          return ERROR_STATUS(
+               "Port %d: Expected AUDIO/ARATE_CONTROL port, got %s",
+               port_idx, pb::PortDescription::Type_Name(port_type).c_str());
+        }
       }
     } else if (port_idx < _dsp->getNumInputs() + _dsp->getNumOutputs()) {
       if (port_desc.direction() != pb::PortDescription::OUTPUT) {
@@ -123,11 +127,15 @@ Status ProcessorFaust::setup_internal() {
              "Port %d: Expected OUTPUT port, got %s",
              port_idx, pb::PortDescription::Direction_Name(port_desc.direction()).c_str());
       }
-      if (port_desc.type() != pb::PortDescription::AUDIO
-          && port_desc.type() != pb::PortDescription::ARATE_CONTROL) {
-        return ERROR_STATUS(
-             "Port %d: Expected AUDIO/ARATE_CONTROL port, got %s",
-             port_idx, pb::PortDescription::Type_Name(port_desc.type()).c_str());
+      assert(port_desc.types_size() > 0);
+      for (int i = 0 ; i < port_desc.types_size() ; ++i) {
+        pb::PortDescription::Type port_type = port_desc.types(i);
+        if (port_type != pb::PortDescription::AUDIO
+            && port_type != pb::PortDescription::ARATE_CONTROL) {
+          return ERROR_STATUS(
+               "Port %d: Expected AUDIO/ARATE_CONTROL port, got %s",
+               port_idx, pb::PortDescription::Type_Name(port_type).c_str());
+        }
       }
     } else {
       if (port_desc.direction() != pb::PortDescription::INPUT) {
@@ -135,10 +143,14 @@ Status ProcessorFaust::setup_internal() {
              "Port %d: Expected INPUT port, got %s",
              port_idx, pb::PortDescription::Direction_Name(port_desc.direction()).c_str());
       }
-      if (port_desc.type() != pb::PortDescription::KRATE_CONTROL) {
-        return ERROR_STATUS(
-             "Port %d: Expected KRATE_CONTROL port, got %s",
-             port_idx, pb::PortDescription::Type_Name(port_desc.type()).c_str());
+      assert(port_desc.types_size() > 0);
+      for (int i = 0 ; i < port_desc.types_size() ; ++i) {
+        pb::PortDescription::Type port_type = port_desc.types(i);
+        if (port_type != pb::PortDescription::KRATE_CONTROL) {
+          return ERROR_STATUS(
+               "Port %d: Expected KRATE_CONTROL port, got %s",
+               port_idx, pb::PortDescription::Type_Name(port_type).c_str());
+        }
       }
 
       float* control_ptr = controls.get_control_ptr(port_desc.name());
@@ -157,22 +169,11 @@ Status ProcessorFaust::setup_internal() {
 
 void ProcessorFaust::cleanup_internal() {
   _dsp.reset();
-  _buffers.reset();
   _inputs.reset();
   _outputs.reset();
   _controls.reset();
 
   Processor::cleanup_internal();
-}
-
-Status ProcessorFaust::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= (uint32_t)_desc.ports_size()) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-
-  _buffers.get()[port_idx] = buf;
-  return Status::Ok();
 }
 
 Status ProcessorFaust::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
@@ -185,7 +186,7 @@ Status ProcessorFaust::process_block_internal(BlockContext* ctxt, TimeMapper* ti
   int output_idx = 0;
   int control_idx = 0;
   for (int port_idx = 0 ; port_idx < _desc.ports_size() ; ++port_idx) {
-    BufferPtr buf = _buffers.get()[port_idx];
+    BufferPtr buf = _buffers[port_idx]->data();
     if (buf == nullptr) {
       return ERROR_STATUS("Port %d not connected.", port_idx);
     }

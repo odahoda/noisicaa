@@ -117,9 +117,15 @@ class ProjectView(ui_base.AbstractProjectView):
             child_realm=self.__player_realm,
             description=node_db.Builtins.ChildRealmDescription)
         await self.audioproc_client.connect_ports(
-            'root', self.__player_node_id, 'out:left', 'sink', 'in:left')
+            'root',
+            self.__player_node_id, 'out:left',
+            'sink', 'in:left',
+            node_db.PortDescription.AUDIO)
         await self.audioproc_client.connect_ports(
-            'root', self.__player_node_id, 'out:right', 'sink', 'in:right')
+            'root',
+            self.__player_node_id, 'out:right',
+            'sink', 'in:right',
+            node_db.PortDescription.AUDIO)
 
     async def cleanup(self) -> None:
         if self.__player_node_id is not None:

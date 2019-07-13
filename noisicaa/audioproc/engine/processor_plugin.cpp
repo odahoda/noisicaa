@@ -43,15 +43,20 @@ ProcessorPlugin::ProcessorPlugin(
     const string& realm_name, const string& node_id, HostSystem* host_system,
     const pb::NodeDescription& desc)
   : Processor(
-      realm_name, node_id, "noisicaa.audioproc.engine.processor.plugin", host_system, desc) {}
+      realm_name, node_id, "noisicaa.audioproc.engine.processor.plugin", host_system, desc) {
+  auto* port = _desc.add_ports();
+  port->set_direction(pb::PortDescription::INTERNAL_DIRECTION);
+  port->add_types(pb::PortDescription::INTERNAL_TYPE);
+  port->set_name("<internal cond>");
+}
 
 Status ProcessorPlugin::setup_internal() {
+  _update_memmap = true;
   return Processor::setup_internal();
 }
 
 void ProcessorPlugin::cleanup_internal() {
   pipe_close();
-  _buffer_map.clear();
 
   Processor::cleanup_internal();
 }
@@ -68,20 +73,12 @@ Status ProcessorPlugin::set_parameters_internal(const pb::NodeParameters& parame
   return Status::Ok();
 }
 
-Status ProcessorPlugin::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  assert(buf >= ctxt->buffer_arena->address());
-  assert(buf < ctxt->buffer_arena->address() + ctxt->buffer_arena->size());
-
-  RTUnsafe rtu;  // TODO: preallocation _buffer_map as array in setup
-  _buffer_map[port_idx] = buf - ctxt->buffer_arena->address();
-
-  _update_memmap = true;
-  return Status::Ok();
-}
-
 Status ProcessorPlugin::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
   PerfTracker tracker(ctxt->perf.get(), "plugin");
+
+  if (_buffers_changed) {
+    _update_memmap = true;
+  }
 
   if (_pipe <= 0) {
     clear_all_outputs();
@@ -100,10 +97,8 @@ Status ProcessorPlugin::process_block_internal(BlockContext* ctxt, TimeMapper* t
   deadline_timespec.tv_sec = deadline_nsec / 1000000000;
   deadline_timespec.tv_nsec = deadline_nsec % 1000000000;
 
-  uint32_t plugin_cond_idx = _desc.ports_size();
-  assert(_buffer_map.find(plugin_cond_idx) != _buffer_map.end());
-  PluginCond* plugin_cond =
-    (PluginCond*)(ctxt->buffer_arena->address() + _buffer_map[plugin_cond_idx]);
+  uint32_t plugin_cond_idx = _desc.ports_size() - 1;
+  PluginCond* plugin_cond = (PluginCond*)_buffers[plugin_cond_idx]->data();
 
   if (plugin_cond->magic != 0x34638a33) {
     return ERROR_STATUS("PluginCondBuffer not initialized.");
@@ -120,18 +115,20 @@ Status ProcessorPlugin::process_block_internal(BlockContext* ctxt, TimeMapper* t
 
     PluginMemoryMapping mapping;
     strcpy(mapping.shmem_path, ctxt->buffer_arena->name().c_str());
-    mapping.cond_offset = _buffer_map[plugin_cond_idx];
+    mapping.cond_offset = _buffers[plugin_cond_idx]->data() - ctxt->buffer_arena->address();
     mapping.block_size = _host_system->block_size();
     mapping.num_buffers = _desc.ports_size();
 
     RETURN_IF_ERROR(pipe_write((char*)&mapping, sizeof(mapping), deadline));
 
     for (int idx = 0 ; idx < _desc.ports_size() ; ++idx) {
-      assert(_buffer_map.find(idx) != _buffer_map.end());
+      BufferPtr data = _buffers[idx]->data();
+      assert(data >= ctxt->buffer_arena->address());
+      assert(data < ctxt->buffer_arena->address() + ctxt->buffer_arena->size());
 
       PluginMemoryMapping::Buffer buf;
       buf.port_index = idx;
-      buf.offset = _buffer_map[idx];
+      buf.offset = data - ctxt->buffer_arena->address();
       RETURN_IF_ERROR(pipe_write((char*)&buf, sizeof(buf), deadline));
     }
 

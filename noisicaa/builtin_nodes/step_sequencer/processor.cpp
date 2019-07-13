@@ -47,7 +47,6 @@ ProcessorStepSequencer::ProcessorStepSequencer(
 Status ProcessorStepSequencer::setup_internal() {
   RETURN_IF_ERROR(Processor::setup_internal());
 
-  _buffers.resize(_desc.ports_size());
   _current_step = -1;
   _current_step_d = 0.0;
 
@@ -68,8 +67,6 @@ void ProcessorStepSequencer::cleanup_internal() {
     delete spec;
   }
 
-  _buffers.clear();
-
   Processor::cleanup_internal();
 }
 
@@ -84,15 +81,6 @@ Status ProcessorStepSequencer::set_parameters_internal(const pb::NodeParameters&
   }
 
   return Processor::set_parameters_internal(parameters);
-}
-
-Status ProcessorStepSequencer::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  if (port_idx >= _buffers.size()) {
-    return ERROR_STATUS("Invalid port index %d", port_idx);
-  }
-  _buffers[port_idx] = buf;
-  return Status::Ok();
 }
 
 Status ProcessorStepSequencer::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
@@ -122,8 +110,10 @@ Status ProcessorStepSequencer::process_block_internal(BlockContext* ctxt, TimeMa
     return Status::Ok();
   }
 
+  float* tempo_buf = (float*)_buffers[0]->data();
+
   for (uint32_t s = 0 ; s < _host_system->block_size() ; ++s) {
-    float tempo = ((float*)_buffers[0])[s];
+    float tempo = tempo_buf[s];
 
     if (spec->time_synched()) {
     }
@@ -138,7 +128,7 @@ Status ProcessorStepSequencer::process_block_internal(BlockContext* ctxt, TimeMa
 
     uint32_t buffer_idx = 1;
     for (const auto& channel : spec->channels()) {
-      BufferPtr out = _buffers[buffer_idx];
+      BufferPtr out = _buffers[buffer_idx]->data();
       switch(channel.type()) {
       case pb::StepSequencerChannel::VALUE:
         ((float*)out)[s] = channel.step_value(current_step);

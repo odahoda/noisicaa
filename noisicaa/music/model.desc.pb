@@ -205,6 +205,12 @@ classes {
     type: STRING
     proto_id: 4
   }
+  properties {
+    name: "type"
+    type: INT32  # TODO: PortDescription.Type
+    allow_none: true
+    proto_id: 5
+  }
 }
 
 classes {

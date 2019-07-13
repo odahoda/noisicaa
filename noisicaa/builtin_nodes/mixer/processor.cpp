@@ -125,7 +125,10 @@ Status ProcessorMixer::post_process_block_internal(BlockContext* ctxt, TimeMappe
   static const int OUT_LEFT = 2;
   static const int OUT_RIGHT = 3;
 
-  float* buf[2] = { (float*)_buffers[OUT_LEFT], (float*)_buffers[OUT_RIGHT] };
+  float* buf[2] = {
+    (float*)_buffers[OUT_LEFT]->data(),
+    (float*)_buffers[OUT_RIGHT]->data()
+  };
   for (uint32_t i = 0 ; i < _host_system->block_size() ; ++i) {
     for (int ch = 0 ; ch < 2 ; ++ch) {
       float value = logf(fabsf(*(buf[ch]))) / 0.11512925f;

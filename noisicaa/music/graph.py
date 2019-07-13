@@ -50,10 +50,7 @@ class ControlValueMap(object):
             return self.__control_values[name]
         except KeyError:
             for port in self.__node.description.ports:
-                if (port.name == name
-                        and port.direction == node_db.PortDescription.INPUT
-                        and port.type in (node_db.PortDescription.KRATE_CONTROL,
-                                          node_db.PortDescription.ARATE_CONTROL)):
+                if port.name == name:
                     return value_types.ControlValue(
                         name=port.name, value=port.float_value.default, generation=1)
 
@@ -109,13 +106,65 @@ class ControlValueMap(object):
             raise TypeError(type(change))
 
 
+def get_preferred_connection_type(
+        source_node: 'BaseNode', source_port: str,
+        dest_node: 'BaseNode', dest_port: str
+) -> node_db.PortDescription.Type:
+    possible_types = (
+        set(source_node.get_possible_port_types(source_port))
+        & set(dest_node.get_possible_port_types(dest_port)))
+    if not possible_types:
+        return node_db.PortDescription.UNDEFINED
+
+    sorted_types = sorted(
+        possible_types,
+        key=lambda port_type: {
+            node_db.PortDescription.AUDIO: 4,
+            node_db.PortDescription.ARATE_CONTROL: 3,
+            node_db.PortDescription.KRATE_CONTROL: 2,
+            node_db.PortDescription.EVENTS: 1,
+        }[port_type],
+        reverse=True)
+    return sorted_types[0]
+
+
+def can_connect_ports(
+        source_node: 'BaseNode', source_port: str,
+        dest_node: 'BaseNode', dest_port: str
+) -> bool:
+    source_port_desc = source_node.get_port_description(source_port)
+    dest_port_desc = dest_node.get_port_description(dest_port)
+
+    if source_port_desc.direction == dest_port_desc.direction:
+        return False
+
+    if get_preferred_connection_type(
+            source_node, source_port, dest_node, dest_port) == node_db.PortDescription.UNDEFINED:
+        return False
+
+    if source_port_desc.direction == node_db.PortDescription.INPUT:
+        source_node, dest_node = dest_node, source_node
+        source_port, dest_port = dest_port, source_port
+        source_port_desc, dest_port_desc = dest_port_desc, source_port_desc
+
+    upstream_nodes = {node.id for node in source_node.upstream_nodes()}
+    upstream_nodes.add(source_node.id)
+    if dest_node.id in upstream_nodes:
+        return False
+
+    return True
+
+
 class BaseNode(_model.BaseNode, model_base.ProjectChild):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.description_changed = core.Callback[model_base.PropertyChange]()
+        self.connections_changed = core.Callback[model_base.PropertyListChange[NodeConnection]]()
 
         self.control_value_map = ControlValueMap(self)
+
+        self.__connections = {}  # type: Dict[int, NodeConnection]
 
     def create(
             self, *,
@@ -134,6 +183,35 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
     def setup(self) -> None:
         super().setup()
         self.description_changed.add(self.__description_changed)
+        self.connections_changed.add(self.__connections_changed)
+
+    def get_port_description(self, port_name: str) -> node_db.PortDescription:
+        for port_desc in self.description.ports:
+            if port_desc.name == port_name:
+                return port_desc
+        raise ValueError("Invalid port name '%s'" % port_name)
+
+    def get_current_port_type(self, port_name: str) -> node_db.PortDescription.Type:
+        connections = self.connections_to(port_name)
+        if not connections:
+            return node_db.PortDescription.UNDEFINED
+
+        conn_type = None
+        for conn in connections:
+            if conn_type is None:
+                conn_type = conn.type
+            else:
+                assert conn.type == conn_type
+
+        return conn_type
+
+    def get_possible_port_types(self, port_name: str) -> List['node_db.PortDescription.Type']:
+        current_type = self.get_current_port_type(port_name)
+        if current_type != node_db.PortDescription.UNDEFINED:
+            return [current_type]
+
+        port_desc = self.get_port_description(port_name)
+        return list(port_desc.types)
 
     def get_port_properties(self, port_name: str) -> value_types.NodePortProperties:
         for np in self.port_properties:
@@ -143,7 +221,16 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
         return self.default_port_properties(port_name)
 
     def default_port_properties(self, port_name: str) -> value_types.NodePortProperties:
-        return value_types.NodePortProperties(port_name)
+        port_desc = self.get_port_description(port_name)
+
+        exposed = True
+        if (port_desc.direction == node_db.PortDescription.INPUT
+                and set(port_desc.types) & {
+                    node_db.PortDescription.KRATE_CONTROL,
+                    node_db.PortDescription.ARATE_CONTROL}):
+            exposed = False
+
+        return value_types.NodePortProperties(port_name, exposed=exposed)
 
     @property
     def pipeline_node_id(self) -> str:
@@ -157,14 +244,28 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
     def description(self) -> node_db.NodeDescription:
         raise NotImplementedError
 
+    def __connections_changed(
+            self, change: model_base.PropertyListChange['NodeConnection']) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
+            conn = change.new_value
+            assert conn.id not in self.__connections
+            self.__connections[conn.id] = conn
+        elif isinstance(change, model_base.PropertyListDelete):
+            conn = change.old_value
+            assert conn.id in self.__connections
+            del self.__connections[conn.id]
+        else:
+            raise ValueError(change)
+
     @property
     def connections(self) -> Sequence['NodeConnection']:
-        result = []
-        for conn in self.project.get_property_value('node_connections'):
-            if conn.source_node is self or conn.dest_node is self:
-                result.append(conn)
+        return list(sorted(self.__connections.values(), key=lambda conn: conn.id))
 
-        return result
+    def connections_to(self, port_name: str) -> Sequence['NodeConnection']:
+        return [
+            conn for conn in self.connections
+            if ((conn.source_node is self and conn.source_port == port_name)
+                or (conn.dest_node is self and conn.dest_port == port_name))]
 
     def upstream_nodes(self) -> List['BaseNode']:
         node_ids = set()  # type: Set[int]
@@ -172,7 +273,7 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
         return [cast(BaseNode, self._pool[node_id]) for node_id in sorted(node_ids)]
 
     def __upstream_nodes(self, seen: Set[int]) -> None:
-        for connection in self.project.get_property_value('node_connections'):
+        for connection in self.__connections.values():
             if connection.dest_node is self and connection.source_node.id not in seen:
                 seen.add(connection.source_node.id)
                 connection.source_node.__upstream_nodes(seen)
@@ -192,18 +293,14 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
             remove_node=audioproc.RemoveNode(id=self.pipeline_node_id))
 
     def get_initial_parameter_mutations(self) -> Iterator[audioproc.Mutation]:
-        for port in self.description.ports:
-            if (port.direction == node_db.PortDescription.INPUT
-                    and (port.type == node_db.PortDescription.KRATE_CONTROL,
-                         port.type == node_db.PortDescription.ARATE_CONTROL)):
-                for cv in self.control_values:
-                    if cv.name == port.name:
-                        yield audioproc.Mutation(
-                            set_control_value=audioproc.SetControlValue(
-                                name='%s:%s' % (self.pipeline_node_id, cv.name),
-                                value=cv.value,
-                                generation=cv.generation))
+        for cv in self.control_values:
+            yield audioproc.Mutation(
+                set_control_value=audioproc.SetControlValue(
+                    name='%s:%s' % (self.pipeline_node_id, cv.name),
+                    value=cv.value,
+                    generation=cv.generation))
 
+        for port in self.description.ports:
             yield audioproc.Mutation(
                 set_node_port_properties=audioproc.SetNodePortProperties(
                     node_id=self.pipeline_node_id,
@@ -355,6 +452,7 @@ class NodeConnection(_model.NodeConnection, model_base.ProjectChild):
             source_port: Optional[str] = None,
             dest_node: Optional[BaseNode] = None,
             dest_port: Optional[str] = None,
+            type: node_db.PortDescription.Type = None,  # pylint: disable=redefined-builtin
             **kwargs: Any) -> None:
         super().create(**kwargs)
 
@@ -362,6 +460,7 @@ class NodeConnection(_model.NodeConnection, model_base.ProjectChild):
         self.source_port = source_port
         self.dest_node = dest_node
         self.dest_port = dest_port
+        self.type = type
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.Mutation(
@@ -369,7 +468,8 @@ class NodeConnection(_model.NodeConnection, model_base.ProjectChild):
                 src_node_id=self.source_node.pipeline_node_id,
                 src_port=self.source_port,
                 dest_node_id=self.dest_node.pipeline_node_id,
-                dest_port=self.dest_port))
+                dest_port=self.dest_port,
+                type=self.type))
 
     def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.Mutation(

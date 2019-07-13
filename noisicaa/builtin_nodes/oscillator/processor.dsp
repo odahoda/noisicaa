@@ -26,10 +26,10 @@ declare input0_name "freq";
 declare input0_display_name "Frequency (Hz)";
 declare input0_float_value "1 20000 440";
 declare input0_scale "log";
-declare input0_type "ARATE_CONTROL";
+declare input0_type "ARATE_CONTROL,AUDIO";
 declare output0_name "out";
 declare output0_display_name "Output";
-declare output0_type "AUDIO";
+declare output0_type "ARATE_CONTROL,AUDIO";
 
 import("stdfaust.lib");
 

@@ -30,6 +30,7 @@
 #include "lv2/lv2plug.in/ns/ext/atom/forge.h"
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
 #include "noisicaa/core/status.h"
+#include "noisicaa/node_db/node_description.pb.h"
 
 namespace noisicaa {
 
@@ -42,9 +43,12 @@ typedef BufferData* BufferPtr;
 
 class BufferType {
 public:
-  virtual ~BufferType() {}
+  virtual ~BufferType();
 
   virtual uint32_t size(HostSystem* host_system) const = 0;
+  pb::PortDescription::Type type() const {
+    return _type;
+  }
 
   virtual Status setup(HostSystem* host_system, BufferPtr buf) const;
   virtual void cleanup(HostSystem* host_system, BufferPtr buf) const;
@@ -52,6 +56,12 @@ public:
   virtual Status clear_buffer(HostSystem* host_system, BufferPtr buf) const = 0;
   virtual Status mix_buffers(HostSystem* host_system, const BufferPtr buf1, BufferPtr buf2) const = 0;
   virtual Status mul_buffer(HostSystem* host_system, BufferPtr buf, float factor) const = 0;
+
+protected:
+  BufferType(pb::PortDescription::Type type);
+
+private:
+  pb::PortDescription::Type _type;
 };
 
 class FloatControlValueBuffer : public BufferType {
@@ -60,6 +70,8 @@ public:
     float value;
     uint32_t generation;
   };
+
+  FloatControlValueBuffer();
 
   uint32_t size(HostSystem* host_system) const override;
 
@@ -70,6 +82,8 @@ public:
 
 class FloatAudioBlockBuffer : public BufferType {
 public:
+  FloatAudioBlockBuffer(pb::PortDescription::Type type);
+
   uint32_t size(HostSystem* host_system) const override;
 
   Status clear_buffer(HostSystem* host_system, BufferPtr buf) const override;
@@ -79,6 +93,8 @@ public:
 
 class AtomDataBuffer : public BufferType {
 public:
+  AtomDataBuffer();
+
   uint32_t size(HostSystem* host_system) const override;
 
   Status clear_buffer(HostSystem* host_system, BufferPtr buf) const override;
@@ -88,6 +104,8 @@ public:
 
 class PluginCondBuffer : public BufferType {
 public:
+  PluginCondBuffer();
+
   uint32_t size(HostSystem* host_system) const override;
 
   Status setup(HostSystem* host_system, BufferPtr buf) const override;
