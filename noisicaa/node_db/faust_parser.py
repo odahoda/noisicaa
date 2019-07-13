@@ -45,7 +45,9 @@ def _set_port_attr(port_desc: node_description_pb2.PortDescription, key: str, va
     elif key == 'display_name':
         port_desc.display_name = value
     elif key == 'type':
-        port_desc.types[:] = [node_description_pb2.PortDescription.Type.Value(value)]
+        port_desc.types[:] = [
+            node_description_pb2.PortDescription.Type.Value(t)
+            for t in value.split(',')]
     elif key == 'scale':
         if value == 'log':
             port_desc.float_value.scale = node_description_pb2.FloatValueDescription.LOG

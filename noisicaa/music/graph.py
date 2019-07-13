@@ -123,7 +123,7 @@ def get_preferred_connection_type(
             node_db.PortDescription.ARATE_CONTROL: 3,
             node_db.PortDescription.KRATE_CONTROL: 2,
             node_db.PortDescription.EVENTS: 1,
-        },
+        }[port_type],
         reverse=True)
     return sorted_types[0]
 
