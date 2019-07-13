@@ -88,7 +88,9 @@ class BaseProject(_model.Project, model_base.ObjectBase):
             conn.dest_node.connections_changed.call(change)
         self.node_connections_changed.add(self.__node_connections_changed)
 
-    def __node_connections_changed(self, change: model_base.PropertyListChange[graph.NodeConnection]) -> None:
+    def __node_connections_changed(
+            self, change: model_base.PropertyListChange[graph.NodeConnection]
+    ) -> None:
         if isinstance(change, model_base.PropertyListInsert):
             conn = change.new_value
         elif isinstance(change, model_base.PropertyListDelete):
@@ -203,7 +205,8 @@ class BaseProject(_model.Project, model_base.ObjectBase):
     def add_node(self, node: graph.BaseNode) -> None:
         for conn in self.node_connections:
             if conn.source_node is node or conn.dest_node is node:
-                node.connections_changed.call(model_base.PropertyListInsert(self, 'node_connections', -1, conn))
+                node.connections_changed.call(
+                    model_base.PropertyListInsert(self, 'node_connections', -1, conn))
 
         for mutation in node.get_add_mutations():
             self.handle_pipeline_mutation(mutation)
@@ -231,7 +234,7 @@ class BaseProject(_model.Project, model_base.ObjectBase):
             source_port: str,
             dest_node: graph.BaseNode,
             dest_port: str,
-            type: node_db_lib.PortDescription.Type = node_db_lib.PortDescription.UNDEFINED,
+            type: node_db_lib.PortDescription.Type = node_db_lib.PortDescription.UNDEFINED,  # pylint: disable=redefined-builtin
     ) -> graph.NodeConnection:
         if type == node_db_lib.PortDescription.UNDEFINED:
             type = graph.get_preferred_connection_type(

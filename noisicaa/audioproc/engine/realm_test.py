@@ -319,8 +319,10 @@ class RealmTest(
                 await root_realm.setup_node(child_realm_node)
                 root_realm.update_spec()
 
-                root_sink.inputs['in:left'].connect(child_realm_node.outputs['out:left'])
-                root_sink.inputs['in:right'].connect(child_realm_node.outputs['out:right'])
+                root_sink.inputs['in:left'].connect(
+                    child_realm_node.outputs['out:left'], node_db.PortDescription.AUDIO)
+                root_sink.inputs['in:right'].connect(
+                    child_realm_node.outputs['out:right'], node_db.PortDescription.AUDIO)
                 root_realm.update_spec()
 
                 root_realm.process_block(root_realm.get_active_program())

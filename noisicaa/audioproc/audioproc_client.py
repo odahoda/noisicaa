@@ -84,7 +84,8 @@ class AbstractAudioProcClient(object):
         raise NotImplementedError
 
     async def connect_ports(
-            self, realm: str, node1_id: str, port1_name: str, node2_id: str, port2_name: str
+            self, realm: str, node1_id: str, port1_name: str, node2_id: str, port2_name: str,
+            type: node_db.PortDescription.Type,  # pylint: disable=redefined-builtin
     ) -> None:
         raise NotImplementedError
 
@@ -266,7 +267,7 @@ class AudioProcClient(AbstractAudioProcClient):
             realm: str,
             node1_id: str, port1_name: str,
             node2_id: str, port2_name: str,
-            type: node_db.PortDescription.Type,
+            type: node_db.PortDescription.Type,  # pylint: disable=redefined-builtin
     ) -> None:
         await self.pipeline_mutation(
             realm,

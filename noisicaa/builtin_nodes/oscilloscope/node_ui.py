@@ -34,7 +34,6 @@ from PyQt5 import QtWidgets
 from noisicaa import constants
 from noisicaa import core
 from noisicaa import music
-from noisicaa import node_db
 from noisicaa.ui import slots
 from noisicaa.ui import dynamic_layout
 from noisicaa.ui import int_dial
@@ -237,7 +236,8 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
                         self.__insert_pos += 1
 
                         while (self.__insert_pos < len(self.__signal)
-                               and self.__signal[self.__insert_pos].screen_pos <= self.__screen_pos):
+                               and (self.__signal[self.__insert_pos].screen_pos
+                                    <= self.__screen_pos)):
                             del self.__signal[self.__insert_pos]
 
                         self.__screen_pos += self.__density

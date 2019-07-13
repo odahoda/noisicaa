@@ -108,7 +108,7 @@ class AudioProcClientTest(
                 'root',
                 id='child', child_realm='test', description=node_db.Builtins.ChildRealmDescription)
             await client.connect_ports(
-                'root','child', 'out:left', 'sink', 'in:left', node_db.PortDescription.AUDIO)
+                'root', 'child', 'out:left', 'sink', 'in:left', node_db.PortDescription.AUDIO)
             await client.connect_ports(
                 'root', 'child', 'out:right', 'sink', 'in:right', node_db.PortDescription.AUDIO)
 

@@ -452,7 +452,7 @@ class NodeConnection(_model.NodeConnection, model_base.ProjectChild):
             source_port: Optional[str] = None,
             dest_node: Optional[BaseNode] = None,
             dest_port: Optional[str] = None,
-            type: node_db.PortDescription.Type = None,
+            type: node_db.PortDescription.Type = None,  # pylint: disable=redefined-builtin
             **kwargs: Any) -> None:
         super().create(**kwargs)
 
