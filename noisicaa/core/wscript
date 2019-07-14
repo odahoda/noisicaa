@@ -1,0 +1,84 @@
+# -*- mode: python -*-
+
+# @begin:license
+#
+# Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# @end:license
+
+def build(ctx):
+    ctx.py_module('__init__.py')
+    ctx.py_module('auto_cleanup_mixin.py')
+    ctx.py_module('backend_manager.py')
+    ctx.py_test('backend_manager_test.py')
+    ctx.py_module('callbacks.py')
+    ctx.py_test('callbacks_test.py')
+    ctx.py_module('fileutil.py')
+    ctx.py_test('fileutil_test.py')
+    ctx.py_module('ipc.py')
+    ctx.py_test('ipc_test.py')
+    #ctx.py_module('logging.pyi')
+    ctx.py_test('perf_stats_test.py')
+    ctx.py_module('process_manager.py')
+    ctx.py_test('process_manager_test.py')
+    ctx.py_module('recordfile.py')
+    ctx.py_test('recordfile_test.py')
+    ctx.py_module('stacktrace.pyi')
+    ctx.py_test('stats_test.py')
+    ctx.py_module('storage.py')
+    ctx.py_test('storage_test.py')
+    ctx.py_module('threads.py')
+    ctx.py_test('threads_test.py')
+    ctx.py_module('typing_extra.py')
+
+    # add_cython_module(logging_test CXX)
+    # target_link_libraries(${logging_test.so} PRIVATE noisicaa-core)
+
+    ctx.py_proto('empty_message.proto')
+    ctx.py_proto('storage.proto')
+    ctx.py_proto('ipc.proto')
+    ctx.py_proto('process_manager.proto')
+    ctx.py_proto('ipc_test.proto')
+    ctx.py_proto('session_data.proto')
+
+    # set(LIB_SRCS
+    #   logging.cpp
+    #   perf_stats.cpp
+    #   refcount.cpp
+    #   status.cpp
+    #   stacktrace.cpp
+    # )
+
+    # add_library(noisicaa-core SHARED ${LIB_SRCS})
+    # target_link_libraries(noisicaa-core PRIVATE pthread)
+    # target_include_directories(noisicaa-core PRIVATE ${LIBUNWIND_INCLUDE_DIRS})
+    # target_link_libraries(noisicaa-core PRIVATE ${LIBUNWIND_LIBRARIES})
+
+    # add_cython_module(perf_stats CXX)
+    # target_link_libraries(${perf_stats.so} PRIVATE noisicaa-core)
+
+    # add_cython_module(logging CXX)
+    # target_link_libraries(${logging.so} PRIVATE noisicaa-core)
+
+    # add_cython_module(status CXX)
+    # target_link_libraries(${status.so} PRIVATE noisicaa-core)
+
+    # add_cython_module(stacktrace CXX)
+    # target_link_libraries(${stacktrace.so} PRIVATE noisicaa-core)
+
+    ctx.recurse('stats')
+

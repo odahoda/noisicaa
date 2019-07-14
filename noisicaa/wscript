@@ -1,0 +1,47 @@
+# -*- mode: python -*-
+
+# @begin:license
+#
+# Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# @end:license
+
+def build(ctx):
+    ctx.py_module('__init__.py')
+    ctx.py_module('constants.py')
+    ctx.py_module('debug_console.py')
+    ctx.py_module('editor_main.py')
+    ctx.py_module('exceptions.py')
+    ctx.py_module('logging.py')
+    ctx.py_module('pdb.py')
+    ctx.py_module('runtime_settings.py')
+    ctx.py_module('utils.py')
+    ctx.py_proto('editor_main.proto')
+
+    ctx.recurse('audioproc')
+    ctx.recurse('bindings')
+    ctx.recurse('core')
+    ctx.recurse('host_system')
+    ctx.recurse('instr')
+    ctx.recurse('instrument_db')
+    ctx.recurse('lv2')
+    ctx.recurse('value_types')
+    ctx.recurse('music')
+    ctx.recurse('node_db')
+    ctx.recurse('ui')
+    ctx.recurse('builtin_nodes')
+    ctx.recurse('title_generator')

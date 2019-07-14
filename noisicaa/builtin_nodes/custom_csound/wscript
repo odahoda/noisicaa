@@ -1,0 +1,42 @@
+# -*- mode: python -*-
+
+# @begin:license
+#
+# Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# @end:license
+
+def build(ctx):
+    ctx.model_description('model.desc.pb')
+
+    ctx.py_module('__init__.py')
+    ctx.py_module('node_description.py')
+    ctx.py_module('model.py')
+    ctx.py_test('model_test.py')
+    ctx.py_module('node_ui.py')
+    ctx.py_test('node_ui_test.py')
+    ctx.py_test('processor_test.py')
+    ctx.py_proto('model.proto')
+    ctx.py_proto('processor.proto')
+
+    ctx.cpp_proto('processor.proto')
+
+    # add_library(noisicaa-builtin_nodes-custom_csound-processor SHARED processor.cpp processor.pb.cc)
+    # target_compile_options(noisicaa-builtin_nodes-custom_csound-processor PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)
+    # target_link_libraries(noisicaa-builtin_nodes-custom_csound-processor PRIVATE noisicaa-audioproc-public)
+    # target_link_libraries(noisicaa-builtin_nodes-custom_csound-processor PRIVATE noisicaa-host_system)
+    # target_link_libraries(noisicaa-builtin_nodes-custom_csound-processor PRIVATE noisicaa-builtin_nodes-processor_message_registry)

@@ -1,0 +1,77 @@
+# -*- mode: python -*-
+
+# @begin:license
+#
+# Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# @end:license
+
+def build(ctx):
+    ctx.py_module('__init__.py')
+    ctx.py_module('audio_thread_profiler.py')
+    ctx.py_module('control_value_connector.py')
+    ctx.py_module('base_dial.py')
+    ctx.py_module('control_value_dial.py')
+    ctx.py_module('int_dial.py')
+    ctx.py_module('device_list.py')
+    ctx.py_module('dynamic_layout.py')
+    ctx.py_module('editor_app.py')
+    ctx.py_test('editor_app_test.py')
+    ctx.py_module('editor_window.py')
+    ctx.py_module('flowlayout.py')
+    ctx.py_module('gain_slider.py')
+    ctx.py_module('instrument_library.py')
+    ctx.py_module('instrument_list.py')
+    ctx.py_test('instrument_list_test.py')
+    ctx.py_module('load_history.py')
+    ctx.py_module('misc.py')
+    ctx.py_module('mute_button.py')
+    ctx.py_module('object_list_editor.py')
+    ctx.py_module('open_project_dialog.py')
+    ctx.py_test('open_project_dialog_test.py')
+    ctx.py_module('piano.py')
+    ctx.py_test('piano_test.py')
+    ctx.py_module('pianoroll.py')
+    ctx.py_test('pianoroll_test.py')
+    ctx.py_module('pipeline_perf_monitor.py')
+    ctx.py_module('player_state.py')
+    ctx.py_module('project_registry.py')
+    ctx.py_test('project_registry_test.py')
+    ctx.py_module('project_view.py')
+    ctx.py_test('project_view_test.py')
+    ctx.py_module('project_debugger.py')
+    ctx.py_module('property_connector.py')
+    ctx.py_module('qled.py')
+    ctx.py_module('qprogressindicator.py')
+    ctx.py_module('render_dialog.py')
+    ctx.py_test('render_dialog_test.py')
+    ctx.py_module('selection_set.py')
+    ctx.py_module('session_helpers.py')
+    ctx.py_module('settings_dialog.py')
+    ctx.py_module('slots.py')
+    ctx.py_module('stat_monitor.py')
+    ctx.py_test('svg_symbol_filetest.py')
+    ctx.py_module('svg_symbol.py')
+    ctx.py_test('svg_symbol_test.py')
+    ctx.py_module('transfer_function_editor.py')
+    ctx.py_test('transfer_function_editor_test.py')
+    ctx.py_module('ui_base.py')
+    ctx.py_module('ui_process.py')
+    ctx.py_module('vumeter.py')
+
+    ctx.recurse('track_list')
+    ctx.recurse('graph')
