@@ -30,6 +30,10 @@ from waflib.Configure import conf
 from waflib.Task import Task
 
 
+def configure(ctx):
+    ctx.find_program('protoc')
+
+
 class compile_py_proto(Task):
     def scan(self):
         ctx = self.generator.bld

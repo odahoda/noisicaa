@@ -2,7 +2,7 @@
 
 # @begin:license
 #
-# Copyright (c) 2015-2017, Benjamin Niemann <pink@odahoda.de>
+# Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,6 +20,21 @@
 #
 # @end:license
 
-def build(ctx):
-    ctx.static_file('metronome.wav')
-    ctx.rendered_csound('test_sound.csnd')
+import shutil
+
+from waflib.Configure import conf
+
+
+def copy_file(task):
+    assert len(task.inputs) == 1
+    assert len(task.outputs) == 1
+    shutil.copyfile(task.inputs[0].abspath(), task.outputs[0].abspath())
+    shutil.copymode(task.inputs[0].abspath(), task.outputs[0].abspath())
+
+
+@conf
+def static_file(ctx, source):
+    ctx(rule=copy_file,
+        source=ctx.path.make_node(source),
+        target=ctx.path.get_bld().make_node(source),
+    )

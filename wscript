@@ -32,6 +32,7 @@ from waflib.Task import Task
 top = '.'
 out = 'build'
 
+
 def options(ctx):
     ctx.load('compiler_cxx')
     ctx.load('python')
@@ -43,8 +44,9 @@ def configure(ctx):
     ctx.load('proto', tooldir='waftools')
     ctx.load('python', tooldir='waftools')
     ctx.load('model', tooldir='waftools')
-
-    ctx.find_program('protoc')
+    ctx.load('static', tooldir='waftools')
+    ctx.load('csound', tooldir='waftools')
+    ctx.load('sf2', tooldir='waftools')
 
     ctx.check_python_version(minver=(3, 5))
     ctx.check_python_headers()
@@ -153,14 +155,6 @@ def build(ctx):
 #     DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
 #   )
 # endmacro(static_file)
-
-# macro(render_csound src dest)
-#   add_custom_command(
-#     OUTPUT ${dest}
-#     COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib csound -o${dest} ${CMAKE_CURRENT_LIST_DIR}/${src}
-#     DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
-#   )
-# endmacro(render_csound)
 
 # macro(faust_dsp clsName src)
 #   string(REGEX REPLACE "\\.dsp$" "" base ${src})

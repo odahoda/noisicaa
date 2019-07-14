@@ -21,9 +21,4 @@
 # @end:license
 
 def build(ctx):
-    pass
-
-# install_files(
-#   "data.presets"
-#   light_reverb.preset
-# )
+    ctx.static_file('light_reverb.preset')

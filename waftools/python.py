@@ -29,15 +29,12 @@ import shutil
 from waflib.Configure import conf
 from waflib.Task import Task
 
-def copy_file(task):
-    assert len(task.inputs) == 1
-    assert len(task.outputs) == 1
-    shutil.copyfile(task.inputs[0].abspath(), task.outputs[0].abspath())
 
 def copy_py_module(task):
     assert len(task.inputs) == 1
     assert 1 <= len(task.outputs) <= 2
     shutil.copyfile(task.inputs[0].abspath(), task.outputs[0].abspath())
+    shutil.copymode(task.inputs[0].abspath(), task.outputs[0].abspath())
     if len(task.outputs) > 1:
         py_compile.compile(task.outputs[0].abspath(), task.outputs[1].abspath(), doraise=True, optimize=0)
 

@@ -220,7 +220,7 @@ def main(argv):
         search_paths = [os.path.dirname(args.input)]
 
     with open(args.input, 'r') as fp:
-        definition = yaml.load(fp)
+        definition = yaml.load(fp, Loader=yaml.FullLoader)
 
     with open(args.output, 'wb') as fp:
         with RiffWriter(fp, 'sfbk') as writer:
