@@ -31,7 +31,7 @@ def build(ctx):
         ctx.set_group(old_grp)
 
     old_grp = ctx.current_group
-    ctx.set_group('buildtools')
+    ctx.set_group('tests')
     try:
         ctx.py_module('profutil.py')
         ctx.py_module('perf_stats.py')
