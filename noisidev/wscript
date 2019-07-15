@@ -21,16 +21,27 @@
 # @end:license
 
 def build(ctx):
-    ctx.py_module('__init__.py')
-    ctx.py_module('profutil.py')
-    ctx.py_module('perf_stats.py')
-    ctx.py_module('qttest.py')
-    ctx.py_module('unittest.py')
-    ctx.py_module('unittest_mixins.py')
-    ctx.py_module('unittest_processor_mixins.py')
-    ctx.py_module('uitest.py')
-    ctx.py_module('demo_project.py')
-    ctx.py_module('build_model.py')
-    ctx.py_proto('model_desc.proto')
-    ctx.cy_module('unittest_engine_mixins.pyx', use=['LILV'])
-    ctx.cy_module('unittest_engine_utils.pyx', use=['LILV'])
+    old_grp = ctx.current_group
+    ctx.set_group('buildtools')
+    try:
+        ctx.py_module('__init__.py')
+        ctx.py_module('build_model.py')
+        ctx.py_proto('model_desc.proto')
+    finally:
+        ctx.set_group(old_grp)
+
+    old_grp = ctx.current_group
+    ctx.set_group('buildtools')
+    try:
+        ctx.py_module('profutil.py')
+        ctx.py_module('perf_stats.py')
+        ctx.py_module('qttest.py')
+        ctx.py_module('unittest.py')
+        ctx.py_module('unittest_mixins.py')
+        ctx.py_module('unittest_processor_mixins.py')
+        ctx.cy_module('unittest_engine_mixins.pyx', use=['LILV'])
+        ctx.cy_module('unittest_engine_utils.pyx', use=['LILV'])
+        ctx.py_module('uitest.py')
+        ctx.py_module('demo_project.py')
+    finally:
+        ctx.set_group(old_grp)

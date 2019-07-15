@@ -95,10 +95,13 @@ def build(ctx):
         use=[],
     )
 
-    ctx.add_group('noisidev')
-    ctx.recurse('noisidev')
-
+    ctx.add_group('buildtools')
     ctx.add_group('noisicaa')
+    ctx.add_group('tests')
+
+    ctx.set_group('noisicaa')
+
+    ctx.recurse('noisidev')
     ctx.recurse('noisicaa')
     ctx.recurse('data')
     ctx.recurse('testdata')
