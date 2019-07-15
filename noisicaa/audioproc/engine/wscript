@@ -129,5 +129,6 @@ def build(ctx):
     ctx.shlib(
         target='rtcheck_preload',
         source='rtcheck_preload.c',
+        lib=['c', 'dl'],
         use='rtcheck',
     )
