@@ -21,6 +21,8 @@
 # @end:license
 
 def build(ctx):
+    ctx.model_description('model.desc.pb', template='noisicaa/music/model.py')
+
     ctx.py_module('__init__.py')
     ctx.py_module('base_track.py')
     ctx.py_test('base_track_test.py')
@@ -41,7 +43,7 @@ def build(ctx):
     ctx.py_test('project_test.py')
     ctx.py_module('render.py')
     ctx.py_test('render_test.py')
-    #ctx.py_module('rms.pyi')
+    ctx.cy_module('rms.pyx')
     ctx.py_module('samples.py')
     ctx.py_module('session_value_store.py')
     ctx.py_module('transfer_function.py')
@@ -50,17 +52,10 @@ def build(ctx):
     ctx.py_test('writer_client_test.py')
     ctx.py_module('writer_process.py')
 
-    # add_cython_module(rms CXX)
-
-    ctx.model_description('model.desc.pb', template='noisicaa/music/model.py')
-
-    #ctx.py_proto('model.proto')
-    # add_dependencies(noisicaa.music.model.proto model-noisicaa.music)
+    ctx.py_proto('model.proto')
     ctx.py_proto('project.proto')
-    # add_dependencies(noisicaa.music.project.proto noisicaa.music.model.proto)
     ctx.py_proto('model_base.proto')
     ctx.py_proto('model_base_test.proto')
     ctx.py_proto('writer_process.proto')
     ctx.py_proto('render.proto')
     ctx.py_proto('mutations.proto')
-    # add_dependencies(noisicaa.music.mutations.proto noisicaa.music.model.proto)

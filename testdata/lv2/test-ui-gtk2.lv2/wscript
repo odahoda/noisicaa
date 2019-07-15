@@ -21,28 +21,10 @@
 # @end:license
 
 def build(ctx):
-    pass
-
-# add_library(testdata-lv2-ui-gtk2-plugin MODULE ui-gtk2.c)
-# set_target_properties(testdata-lv2-ui-gtk2-plugin PROPERTIES
-#   PREFIX ""
-#   OUTPUT_NAME ui-gtk2
-# )
-
-# add_library(testdata-lv2-ui-gtk2-ui MODULE ui-gtk2-ui.c)
-# target_include_directories(testdata-lv2-ui-gtk2-ui PRIVATE ${GTK2_INCLUDE_DIRS})
-# target_link_libraries(testdata-lv2-ui-gtk2-ui PRIVATE ${GTK2_LIBRARIES})
-# set_target_properties(testdata-lv2-ui-gtk2-ui PROPERTIES
-#   PREFIX ""
-#   OUTPUT_NAME ui-gtk2-ui
-# )
-
-# static_file(manifest.ttl)
-# static_file(ui-gtk2.ttl)
-
-# add_custom_target(
-#   testdata-lv2-ui-gtk2-data ALL
-#   DEPENDS
-#     manifest.ttl
-#     ui-gtk2.ttl
-# )
+    ctx.lv2_plugin(
+        source='ui-gtk2.c'
+    )
+    ctx.lv2_plugin_ui(
+        source='ui-gtk2-ui.c',
+        use='GTK2',
+    )

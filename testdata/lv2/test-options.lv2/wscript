@@ -21,20 +21,6 @@
 # @end:license
 
 def build(ctx):
-    pass
-
-# add_library(testdata-lv2-options-plugin MODULE options.c)
-# set_target_properties(testdata-lv2-options-plugin PROPERTIES
-#   PREFIX ""
-#   OUTPUT_NAME options
-# )
-
-# static_file(manifest.ttl)
-# static_file(options.ttl)
-
-# add_custom_target(
-#   testdata-lv2-options-data ALL
-#   DEPENDS
-#     manifest.ttl
-#     options.ttl
-# )
+    ctx.lv2_plugin(
+        source='options.c'
+    )

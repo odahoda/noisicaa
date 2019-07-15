@@ -22,28 +22,11 @@
 
 def build(ctx):
     ctx.py_module('__init__.py')
-    #ctx.py_module('ladspa.pyi')
-    #ctx.py_module('lilv.pyi')
-    #ctx.py_module('sndfile.pyi')
+    ctx.cy_module('ladspa.pyx')
+    ctx.cy_test('ladspa_test.pyx')
+    ctx.cy_module('lilv.pyx', use=['LILV'])
+    ctx.cy_test('lilv_test.pyx', use=['LILV'])
+    ctx.cy_module('sndfile.pyx', use=['SNDFILE'])
     ctx.py_test('sndfile_test.py')
-    #ctx.py_module('sratom.pyi')
+    ctx.cy_module('sratom.pyx', use=['SRATOM'])
     ctx.py_test('sratom_test.py')
-
-
-# add_cython_module(ladspa CXX)
-# add_cython_module(ladspa_test CXX)
-
-# add_cython_module(lilv CXX)
-# target_include_directories(${lilv.so} PRIVATE ${LIBLILV_INCLUDE_DIRS})
-# target_link_libraries(${lilv.so} PRIVATE ${LIBLILV_LIBRARIES})
-
-# add_cython_module(lilv_test CXX)
-# target_include_directories(${lilv_test.so} PRIVATE ${LIBLILV_INCLUDE_DIRS})
-
-# add_cython_module(sndfile CXX)
-# target_include_directories(${sndfile.so} PRIVATE ${LIBSNDFILE_INCLUDE_DIRS})
-# target_link_libraries(${sndfile.so} PRIVATE ${LIBSNDFILE_LIBRARIES})
-
-# add_cython_module(sratom CXX)
-# target_include_directories(${sratom.so} PRIVATE ${LIBSRATOM_INCLUDE_DIRS})
-# target_link_libraries(${sratom.so} PRIVATE ${LIBSRATOM_LIBRARIES})

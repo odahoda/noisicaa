@@ -39,12 +39,27 @@ def build(ctx):
     ctx.cpp_proto('processor.proto')
     ctx.cpp_proto('processor_messages.proto')
 
-    # add_library(noisicaa-builtin_nodes-midi_cc_to_cv-processor_messages SHARED processor_messages.pb.cc)
-    # target_link_libraries(noisicaa-builtin_nodes-midi_cc_to_cv-processor_messages PRIVATE noisicaa-audioproc-public)
+    ctx.shlib(
+        target='noisicaa-builtin_nodes-midi_cc_to_cv-processor_messages',
+        source=[
+            'processor.pb.cc',
+        ],
+        use=[
+            'NOISELIB',
+            'noisicaa-audioproc-public',
+        ],
+    )
 
-    # add_library(noisicaa-builtin_nodes-midi_cc_to_cv-processor SHARED processor.cpp processor.pb.cc)
-    # target_compile_options(noisicaa-builtin_nodes-midi_cc_to_cv-processor PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)
-    # target_link_libraries(noisicaa-builtin_nodes-midi_cc_to_cv-processor PRIVATE noisicaa-audioproc-public)
-    # target_link_libraries(noisicaa-builtin_nodes-midi_cc_to_cv-processor PRIVATE noisicaa-host_system)
-    # target_link_libraries(noisicaa-builtin_nodes-midi_cc_to_cv-processor PRIVATE noisicaa-builtin_nodes-processor_message_registry)
-    # target_link_libraries(noisicaa-builtin_nodes-midi_cc_to_cv-processor PRIVATE noisicaa-builtin_nodes-midi_cc_to_cv-processor_messages)
+    ctx.shlib(
+        target='noisicaa-builtin_nodes-midi_looper-processor',
+        source=[
+            'processor.cpp',
+        ],
+        use=[
+            'NOISELIB',
+            'noisicaa-audioproc-public',
+            'noisicaa-host_system',
+            'noisicaa-builtin_nodes-processor_message_registry',
+            'noisicaa-builtin_nodes-midi_cc_to_cv-processor_messages',
+        ]
+    )

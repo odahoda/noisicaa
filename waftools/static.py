@@ -23,6 +23,7 @@
 import shutil
 
 from waflib.Configure import conf
+from waflib.Node import Node
 
 
 def copy_file(task):
@@ -34,7 +35,10 @@ def copy_file(task):
 
 @conf
 def static_file(ctx, source):
+    if not isinstance(source, Node):
+        source = ctx.path.make_node(source)
+
     ctx(rule=copy_file,
-        source=ctx.path.make_node(source),
-        target=ctx.path.get_bld().make_node(source),
+        source=source,
+        target=source.get_bld(),
     )

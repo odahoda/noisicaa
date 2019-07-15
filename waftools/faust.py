@@ -20,44 +20,39 @@
 #
 # @end:license
 
-def build(ctx):
-    ctx.model_description('model.desc.pb')
+from waflib.Configure import conf
 
-    ctx.py_module('__init__.py')
-    ctx.py_proto('model.proto')
-    ctx.py_module('model.py')
-    ctx.py_test('model_test.py')
-    ctx.py_module('node_description.py')
-    ctx.py_module('node_ui.py')
-    ctx.py_test('node_ui_test.py')
-    ctx.py_test('processor_test.py')
-    ctx.py_proto('processor.proto')
 
-    ctx.cpp_proto('model.proto')
-    ctx.cpp_proto('processor.proto')
+def build_dsp(task):
+    ctx = task.generator.bld
+    cmd = [
+        'bin/build-faust-processor',
+        task.generator.cls_name,
+        task.inputs[0].abspath(),
+        task.outputs[0].parent.abspath(),
+    ]
+    task.exec_command(cmd, cwd=ctx.top_dir)
 
-    ctx.shlib(
-        target='noisicaa-builtin_nodes-midi_looper-processor_messages',
-        source=[
-            'processor.pb.cc',
+
+@conf
+def faust_dsp(ctx, cls_name, source='processor.dsp'):
+    source = ctx.path.make_node(source)
+    ctx(rule=build_dsp,
+        source=[source],
+        target=[
+            source.change_ext('.cpp'),
+            source.change_ext('.h'),
+            source.change_ext('.json'),
         ],
-        use=[
-            'NOISELIB',
-            'noisicaa-audioproc-public',
-        ],
+        cls_name=cls_name,
     )
 
     ctx.shlib(
-        target='noisicaa-builtin_nodes-midi_looper-processor',
-        source=[
-            'processor.cpp',
-            'processor.pb.cc',
-        ],
+        target='noisicaa-builtin_nodes-%s-processor' % cls_name.lower(),
+        source='processor.cpp',
         use=[
             'NOISELIB',
             'noisicaa-audioproc-public',
             'noisicaa-host_system',
-            'noisicaa-builtin_nodes-processor_message_registry',
-            'noisicaa-builtin_nodes-midi_looper-processor_messages',
-        ]
+        ],
     )

@@ -21,6 +21,8 @@
 # @end:license
 
 def build(ctx):
+    ctx.model_description('model.desc.pb')
+
     ctx.py_module('__init__.py')
     ctx.py_module('node_description.py')
     ctx.py_module('model.py')
@@ -28,8 +30,4 @@ def build(ctx):
     ctx.py_module('node_ui.py')
     ctx.py_module('track_ui.py')
     ctx.py_test('track_ui_test.py')
-    ctx.model_description('model.desc.pb')
     ctx.py_proto('model.proto')
-
-
-# add_dependencies(noisicaa.builtin_nodes.score_track.model.proto model-noisicaa.builtin_nodes.score_track)

@@ -27,39 +27,21 @@ def build(ctx):
     ctx.py_test('urid_mapper_test.py')
     ctx.py_module('urid_mapper_process.py')
     ctx.py_test('urid_mapper_process_test.py')
-
     ctx.py_proto('urid_mapper.proto')
+    ctx.cy_module('core.pyx', use=['noisicaa-lv2'])
+    ctx.cy_module('urid.pyx', use=['noisicaa-lv2'])
+    ctx.cy_module('options.pyx', use=['noisicaa-lv2'])
+    ctx.cy_module('bufsize.pyx', use=['noisicaa-lv2'])
+    ctx.cy_module('worker.pyx', use=['noisicaa-lv2'])
+    ctx.cy_module('atom.pyx', use=['noisicaa-lv2'])
+    ctx.cy_module('urid_mapper.pyx', use=['noisicaa-lv2'])
+    ctx.cy_module('feature_manager.pyx', use=['noisicaa-lv2'])
 
-
-    # set(LIB_SRCS
-    #   urid_mapper.cpp
-    #   feature_manager.cpp
-    # )
-
-    # add_library(noisicaa-lv2 SHARED ${LIB_SRCS})
-    # target_link_libraries(noisicaa-lv2 PRIVATE noisicaa-core)
-    # target_link_libraries(noisicaa-lv2 PRIVATE noisicaa-host_system)
-
-    # add_cython_module(core CXX)
-    # target_link_libraries(${core.so} PRIVATE noisicaa-lv2)
-
-    # add_cython_module(urid CXX)
-    # target_link_libraries(${urid.so} PRIVATE noisicaa-lv2)
-
-    # add_cython_module(options CXX)
-    # target_link_libraries(${options.so} PRIVATE noisicaa-lv2)
-
-    # add_cython_module(bufsize CXX)
-    # target_link_libraries(${bufsize.so} PRIVATE noisicaa-lv2)
-
-    # add_cython_module(worker CXX)
-    # target_link_libraries(${worker.so} PRIVATE noisicaa-lv2)
-
-    # add_cython_module(atom CXX)
-    # target_link_libraries(${atom.so} PRIVATE noisicaa-lv2)
-
-    # add_cython_module(urid_mapper CXX)
-    # target_link_libraries(${urid_mapper.so} PRIVATE noisicaa-lv2)
-
-    # add_cython_module(feature_manager CXX)
-    # target_link_libraries(${feature_manager.so} PRIVATE noisicaa-lv2)
+    ctx.shlib(
+        target='noisicaa-lv2',
+        source=[
+            'urid_mapper.cpp',
+            'feature_manager.cpp',
+        ],
+        use=['NOISELIB', 'LILV'],
+    )

@@ -31,22 +31,22 @@ def build(ctx):
     ctx.py_test('fileutil_test.py')
     ctx.py_module('ipc.py')
     ctx.py_test('ipc_test.py')
-    #ctx.py_module('logging.pyi')
     ctx.py_test('perf_stats_test.py')
     ctx.py_module('process_manager.py')
     ctx.py_test('process_manager_test.py')
     ctx.py_module('recordfile.py')
     ctx.py_test('recordfile_test.py')
-    ctx.py_module('stacktrace.pyi')
     ctx.py_test('stats_test.py')
     ctx.py_module('storage.py')
     ctx.py_test('storage_test.py')
     ctx.py_module('threads.py')
     ctx.py_test('threads_test.py')
     ctx.py_module('typing_extra.py')
-
-    # add_cython_module(logging_test CXX)
-    # target_link_libraries(${logging_test.so} PRIVATE noisicaa-core)
+    ctx.cy_module('perf_stats.pyx', use=['noisicaa-core'])
+    ctx.cy_module('logging.pyx', use=['noisicaa-core'])
+    ctx.cy_test('logging_test.pyx', use=['noisicaa-core'])
+    ctx.cy_module('status.pyx', use=['noisicaa-core'])
+    ctx.cy_module('stacktrace.pyx', use=['noisicaa-core'])
 
     ctx.py_proto('empty_message.proto')
     ctx.py_proto('storage.proto')
@@ -55,30 +55,17 @@ def build(ctx):
     ctx.py_proto('ipc_test.proto')
     ctx.py_proto('session_data.proto')
 
-    # set(LIB_SRCS
-    #   logging.cpp
-    #   perf_stats.cpp
-    #   refcount.cpp
-    #   status.cpp
-    #   stacktrace.cpp
-    # )
-
-    # add_library(noisicaa-core SHARED ${LIB_SRCS})
-    # target_link_libraries(noisicaa-core PRIVATE pthread)
-    # target_include_directories(noisicaa-core PRIVATE ${LIBUNWIND_INCLUDE_DIRS})
-    # target_link_libraries(noisicaa-core PRIVATE ${LIBUNWIND_LIBRARIES})
-
-    # add_cython_module(perf_stats CXX)
-    # target_link_libraries(${perf_stats.so} PRIVATE noisicaa-core)
-
-    # add_cython_module(logging CXX)
-    # target_link_libraries(${logging.so} PRIVATE noisicaa-core)
-
-    # add_cython_module(status CXX)
-    # target_link_libraries(${status.so} PRIVATE noisicaa-core)
-
-    # add_cython_module(stacktrace CXX)
-    # target_link_libraries(${stacktrace.so} PRIVATE noisicaa-core)
+    ctx.shlib(
+        target='noisicaa-core',
+        source=[
+            'logging.cpp',
+            'perf_stats.cpp',
+            'refcount.cpp',
+            'status.cpp',
+            'stacktrace.cpp',
+        ],
+        use=['NOISELIB', 'UNWIND'],
+    )
 
     ctx.recurse('stats')
 

@@ -20,31 +20,23 @@
 #
 # @end:license
 
-def build(ctx):
-    ctx.model_description('model.desc.pb')
+from waflib.Configure import conf
 
-    ctx.py_module('__init__.py')
-    ctx.py_module('node_description.py')
-    ctx.py_module('model.py')
-    ctx.py_test('model_test.py')
-    ctx.py_module('node_ui.py')
-    ctx.py_test('node_ui_test.py')
-    ctx.py_test('processor_test.py')
-    ctx.py_proto('model.proto')
-    ctx.py_proto('processor.proto')
 
-    ctx.cpp_proto('model.proto')
-    ctx.cpp_proto('processor.proto')
+def strip_svg(task):
+    ctx = task.generator.bld
+    cmd = [
+        ctx.env.PYTHON[0],
+        'noisidev/process_svg.py',
+        '-o', task.outputs[0].abspath(),
+        task.inputs[0].abspath(),
+    ]
+    task.exec_command(cmd, cwd=ctx.top_dir, env={'PYTHONPATH': ctx.out_dir})
 
-    ctx.shlib(
-        target='noisicaa-builtin_nodes-midi_velocity_mapper-processor',
-        source=[
-            'processor.cpp',
-            'processor.pb.cc',
-        ],
-        use=[
-            'NOISELIB',
-            'noisicaa-audioproc-public',
-            'noisicaa-host_system',
-        ]
+
+@conf
+def stripped_svg(ctx, source):
+    ctx(rule=strip_svg,
+        source=ctx.path.make_node(source),
+        target=ctx.path.get_bld().make_node(source),
     )

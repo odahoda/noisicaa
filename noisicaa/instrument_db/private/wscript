@@ -27,4 +27,3 @@ def build(ctx):
     ctx.py_module('sample_scanner.py')
     ctx.py_module('scanner.py')
     ctx.py_module('soundfont_scanner.py')
-# )

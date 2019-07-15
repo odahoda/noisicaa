@@ -34,13 +34,13 @@ def build(ctx):
     ctx.py_proto('node_description.proto')
 
     ctx.cpp_proto('node_description.proto')
-    # set(LIB_SRCS
-    #   node_description.pb.cc
-    # )
 
-
-    # add_library(noisicaa-node_db SHARED ${LIB_SRCS})
-    # target_include_directories(noisicaa-node_db PRIVATE ${LIBPROTOBUF_INCLUDE_DIRS})
-    # target_link_libraries(noisicaa-node_db PRIVATE ${LIBPROTOBUF_LIBRARIES})
+    ctx.shlib(
+        target='noisicaa-node_db',
+        source=[
+            'node_description.pb.cc',
+        ],
+        use=['NOISELIB', 'PROTOBUF'],
+    )
 
     ctx.recurse('private')

@@ -28,15 +28,9 @@ def build(ctx):
     ctx.py_module('unittest.py')
     ctx.py_module('unittest_mixins.py')
     ctx.py_module('unittest_processor_mixins.py')
-    ctx.py_module('unittest_engine_mixins.pyi')
-    ctx.py_module('unittest_engine_utils.pyi')
     ctx.py_module('uitest.py')
     ctx.py_module('demo_project.py')
     ctx.py_module('build_model.py')
     ctx.py_proto('model_desc.proto')
-
-# add_cython_module(unittest_engine_mixins CXX)
-# target_link_libraries(${unittest_engine_mixins.so} PRIVATE noisicaa-audioproc-engine)
-
-# add_cython_module(unittest_engine_utils CXX)
-# target_link_libraries(${unittest_engine_utils.so} PRIVATE noisicaa-audioproc-engine)
+    ctx.cy_module('unittest_engine_mixins.pyx', use=['LILV'])
+    ctx.cy_module('unittest_engine_utils.pyx', use=['LILV'])

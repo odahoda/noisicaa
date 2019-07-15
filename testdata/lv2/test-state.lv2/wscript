@@ -21,20 +21,6 @@
 # @end:license
 
 def build(ctx):
-    pass
-
-# add_library(testdata-lv2-state-plugin MODULE state.c)
-# set_target_properties(testdata-lv2-state-plugin PROPERTIES
-#   PREFIX ""
-#   OUTPUT_NAME state
-# )
-
-# static_file(manifest.ttl)
-# static_file(state.ttl)
-
-# add_custom_target(
-#   testdata-lv2-state-data ALL
-#   DEPENDS
-#     manifest.ttl
-#     state.ttl
-# )
+    ctx.lv2_plugin(
+        source='state.c'
+    )

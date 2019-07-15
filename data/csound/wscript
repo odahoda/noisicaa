@@ -21,17 +21,12 @@
 # @end:license
 
 def build(ctx):
-    pass
-
-# install_files(
-#   "data.csound"
-#   blip.csnd
-#   butterbp.csnd
-#   butterbr.csnd
-#   butterhp.csnd
-#   butterlp.csnd
-#   delay.csnd
-#   lfo-arate.csnd
-#   lfo-krate.csnd
-#   reverb.csnd
-# )
+    ctx.static_file('blip.csnd')
+    ctx.static_file('butterbp.csnd')
+    ctx.static_file('butterbr.csnd')
+    ctx.static_file('butterhp.csnd')
+    ctx.static_file('butterlp.csnd')
+    ctx.static_file('delay.csnd')
+    ctx.static_file('lfo-arate.csnd')
+    ctx.static_file('lfo-krate.csnd')
+    ctx.static_file('reverb.csnd')

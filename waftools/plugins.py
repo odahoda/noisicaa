@@ -25,37 +25,43 @@ import os.path
 import py_compile
 import re
 import shutil
+import subprocess
 
 from waflib.Configure import conf
 from waflib.Task import Task
+from waflib.TaskGen import before_method, after_method, feature
+from waflib import Utils
 
 
-def copy_py_module(task):
-    assert len(task.inputs) == 1
-    assert 1 <= len(task.outputs) <= 2
-    shutil.copyfile(task.inputs[0].abspath(), task.outputs[0].abspath())
-    shutil.copymode(task.inputs[0].abspath(), task.outputs[0].abspath())
-    if len(task.outputs) > 1:
-        py_compile.compile(task.outputs[0].abspath(), task.outputs[1].abspath(), doraise=True, optimize=0)
+def _fix_args(ctx, *, source, **kwargs):
+    kwargs['source'] = [
+        ctx.path.make_node(src) for src in Utils.to_list(source)]
 
+    if 'target' not in kwargs:
+       kwargs['target'] = kwargs['source'][0].get_bld().change_ext('.so')
 
-@conf
-def py_module(ctx, source):
-    assert source.endswith('.py')
+    if 'use' in kwargs:
+        kwargs['use'] = Utils.to_list(kwargs['use'])
 
-    source_node = ctx.path.make_node(source)
-    target_node = ctx.path.get_bld().make_node(source)
-    compiled_node = ctx.path.get_bld().make_node(importlib.util.cache_from_source(source, optimization=''))
-
-    ctx(rule=copy_py_module,
-        source=source_node,
-        target=[
-            target_node,
-            compiled_node,
-        ],
-    )
+    return kwargs
 
 
 @conf
-def py_test(ctx, source):
-    ctx.py_module(source)
+def ladspa_plugin(ctx, **kwargs):
+    kwargs = _fix_args(ctx, **kwargs)
+    ctx.shlib(**kwargs)
+
+
+@conf
+def lv2_plugin(ctx, **kwargs):
+    kwargs = _fix_args(ctx, **kwargs)
+    ctx.shlib(**kwargs)
+
+    ctx.static_file('manifest.ttl')
+    ctx.static_file(kwargs['target'].change_ext('.ttl').get_src())
+
+
+@conf
+def lv2_plugin_ui(ctx, **kwargs):
+    kwargs = _fix_args(ctx, **kwargs)
+    ctx.shlib(**kwargs)
