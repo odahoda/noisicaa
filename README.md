@@ -17,7 +17,7 @@ What's This?
 
 A simple music editor with a focus on classical musical notation.
 
-Follow the development at http://noisicaa.blogspot.com/
+Follow the development at http://noisicaa.odahoda.de/
 
 License: GPL2 (see file COPYING).
 
@@ -53,7 +53,7 @@ And populate it with a bunch of python packages that noisicaä uses:
     pip install $(./listdeps --pip --build)
 Now you should be ready to build it:
 
-    python3 setup.py build
+    ./waf configure build
 There is currently no way to install it, so you can only run it from the build
 directory using
 
