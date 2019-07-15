@@ -46,10 +46,15 @@ def pkg_config(ctx, store, package, minver):
         args=['%s >= %s' % (package, minver), '--cflags', '--libs'],
         uselib_store=store,
         pkg_config_path=os.path.join(
-            os.environ['VIRTUAL_ENV'], 'lib', 'pkgconfig'))
+            ctx.env.VIRTUAL_ENV, 'lib', 'pkgconfig'))
 
 
 def configure(ctx):
+    if 'VIRTUAL_ENV' not in os.environ:
+        ctx.fatal("Not running in a virtual env.")
+
+    ctx.env.VIRTUAL_ENV = os.environ['VIRTUAL_ENV']
+
     ctx.load('compiler_cxx')
     ctx.load('compiler_c')
     ctx.load('python')
@@ -79,8 +84,15 @@ def configure(ctx):
     ctx.pkg_config('AVUTIL', 'libavutil', '55')
     ctx.pkg_config('SWRESAMPLE', 'libswresample', '2.9')
     ctx.pkg_config('PORTAUDIO', 'portaudio-2.0', '19')
+    ctx.pkg_config('PROFILER', 'libprofiler', '2.5')
 
-# find_package(Qt4 4.8 REQUIRED QtGui)
+    ctx.env.LIB_CSOUND = ['csound64']
+
+    ctx.env.append_value('CXXFLAGS', ['-g', '-O2', '-std=c++11'])
+    ctx.env.append_value('CFLAGS', ['-g', '-O2'])
+    ctx.env.append_value('LIBPATH', [os.path.join(ctx.env.VIRTUAL_ENV, 'lib')])
+    ctx.env.append_value('INCLUDES', [os.path.join(ctx.env.VIRTUAL_ENV, 'include')])
+
 
 def build(ctx):
     ctx.add_group('buildtools')
@@ -106,26 +118,3 @@ def build(ctx):
     ctx.recurse('noisicaa')
     ctx.recurse('data')
     ctx.recurse('testdata')
-
-
-# find_package(Cython REQUIRED)
-
-# if("$ENV{VIRTUAL_ENV}" STREQUAL "")
-# message(FATAL_ERROR "Not running in a virtual env.")
-# endif("$ENV{VIRTUAL_ENV}" STREQUAL "")
-
-# find_package(PythonLibs REQUIRED)
-# include_directories(${PYTHON_INCLUDE_DIRS})
-
-
-# set(LIBCSOUND_INCLUDE_DIRS)
-# set(LIBCSOUND_LIBRARIES csound64)
-
-# add_compile_options(-O2 -g -std=c++11)
-# include_directories(${CMAKE_SOURCE_DIR})
-# include_directories(${CMAKE_BINARY_DIR})
-# include_directories($ENV{VIRTUAL_ENV}/include)
-# link_directories($ENV{VIRTUAL_ENV}/lib)
-
-
-

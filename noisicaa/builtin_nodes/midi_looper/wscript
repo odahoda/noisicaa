@@ -51,7 +51,6 @@ def build(ctx):
         target='noisicaa-builtin_nodes-midi_looper-processor',
         source=[
             'processor.cpp',
-            'processor.pb.cc',
         ],
         use=[
             'NOISELIB',

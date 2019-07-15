@@ -41,7 +41,7 @@ class compile_csound(Task):
         cwd = ctx.srcnode
 
         env = {
-            'LIBRARY_PATH': os.path.join(os.environ['VIRTUAL_ENV'], 'lib'),
+            'LD_LIBRARY_PATH': os.path.join(ctx.env.VIRTUAL_ENV, 'lib'),
         }
 
         cmd = [

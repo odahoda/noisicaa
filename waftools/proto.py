@@ -48,7 +48,6 @@ class compile_py_proto(Task):
     def run(self):
         ctx = self.generator.bld
 
-        #LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib
         cmd = [
             ctx.env.PROTOC[0],
             '--python_out=' + ctx.out_dir,

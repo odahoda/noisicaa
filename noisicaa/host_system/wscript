@@ -32,5 +32,6 @@ def build(ctx):
             'host_system_csound.cpp',
             'host_system_audio_file.cpp',
         ],
-        use=['NOISELIB', 'LILV', 'CSOUND', 'SNDFILE', 'AVUTIL', 'SWRESAMPLE'],
+        use=['NOISELIB', 'LILV', 'CSOUND', 'SNDFILE', 'AVUTIL', 'SWRESAMPLE',
+             'noisicaa-core'],
     )

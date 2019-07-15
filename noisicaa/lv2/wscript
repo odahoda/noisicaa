@@ -23,7 +23,6 @@
 def build(ctx):
     ctx.py_module('__init__.py')
     ctx.py_test('atom_test.py')
-    #ctx.py_module('urid_mapper.pyi')
     ctx.py_test('urid_mapper_test.py')
     ctx.py_module('urid_mapper_process.py')
     ctx.py_test('urid_mapper_process_test.py')
@@ -43,5 +42,5 @@ def build(ctx):
             'urid_mapper.cpp',
             'feature_manager.cpp',
         ],
-        use=['NOISELIB', 'LILV'],
+        use=['NOISELIB', 'LILV', 'noisicaa-core'],
     )

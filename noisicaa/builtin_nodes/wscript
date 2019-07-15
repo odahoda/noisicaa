@@ -30,35 +30,47 @@ def build(ctx):
 
     ctx.cpp_proto('processor_message_registry.proto')
 
-    # add_library(noisicaa-builtin_nodes-processor_message_registry SHARED processor_message_registry.pb.cc)
-    # target_link_libraries(noisicaa-builtin_nodes-processor_message_registry PRIVATE noisicaa-audioproc-public)
-    # target_link_libraries(noisicaa-builtin_nodes-processor_message_registry PRIVATE noisicaa-builtin_nodes-control_track-processor_messages)
-    # target_link_libraries(noisicaa-builtin_nodes-processor_message_registry PRIVATE noisicaa-builtin_nodes-sample_track-processor_messages)
-    # target_link_libraries(noisicaa-builtin_nodes-processor_message_registry PRIVATE noisicaa-builtin_nodes-instrument-processor_messages)
-    # target_link_libraries(noisicaa-builtin_nodes-processor_message_registry PRIVATE noisicaa-builtin_nodes-pianoroll-processor_messages)
-    # target_link_libraries(noisicaa-builtin_nodes-processor_message_registry PRIVATE noisicaa-builtin_nodes-midi_source-processor_messages)
-    # target_link_libraries(noisicaa-builtin_nodes-processor_message_registry PRIVATE noisicaa-builtin_nodes-midi_cc_to_cv-processor_messages)
-    # target_link_libraries(noisicaa-builtin_nodes-processor_message_registry PRIVATE noisicaa-builtin_nodes-midi_looper-processor_messages)
+    ctx.shlib(
+        target='noisicaa-builtin_nodes-processor_message_registry',
+        source='processor_message_registry.pb.cc',
+        use=[
+            'NOISELIB',
+            'noisicaa-audioproc-public',
+            'noisicaa-builtin_nodes-control_track-processor_messages',
+            'noisicaa-builtin_nodes-sample_track-processor_messages',
+            'noisicaa-builtin_nodes-instrument-processor_messages',
+            'noisicaa-builtin_nodes-pianoroll-processor_messages',
+            'noisicaa-builtin_nodes-midi_source-processor_messages',
+            'noisicaa-builtin_nodes-midi_cc_to_cv-processor_messages',
+            'noisicaa-builtin_nodes-midi_looper-processor_messages',
+        ],
+    )
 
-    # add_library(noisicaa-builtin_nodes-processors SHARED processor_registry.cpp)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-control_track-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-sample_track-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-instrument-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-pianoroll-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-mixer-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-custom_csound-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-midi_source-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-oscillator-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-vca-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-noise-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-step_sequencer-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-midi_cc_to_cv-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-midi_looper-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-midi_monitor-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-metronome-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-midi_velocity_mapper-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-cv_mapper-processor)
-    # target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-oscilloscope-processor)
+    ctx.shlib(
+        target='noisicaa-builtin_nodes-processors',
+        source='processor_registry.cpp',
+        use=[
+            'NOISELIB',
+            'noisicaa-builtin_nodes-control_track-processor',
+            'noisicaa-builtin_nodes-sample_track-processor',
+            'noisicaa-builtin_nodes-instrument-processor',
+            'noisicaa-builtin_nodes-pianoroll-processor',
+            'noisicaa-builtin_nodes-mixer-processor',
+            'noisicaa-builtin_nodes-custom_csound-processor',
+            'noisicaa-builtin_nodes-midi_source-processor',
+            'noisicaa-builtin_nodes-oscillator-processor',
+            'noisicaa-builtin_nodes-vca-processor',
+            'noisicaa-builtin_nodes-noise-processor',
+            'noisicaa-builtin_nodes-step_sequencer-processor',
+            'noisicaa-builtin_nodes-midi_cc_to_cv-processor',
+            'noisicaa-builtin_nodes-midi_looper-processor',
+            'noisicaa-builtin_nodes-midi_monitor-processor',
+            'noisicaa-builtin_nodes-metronome-processor',
+            'noisicaa-builtin_nodes-midi_velocity_mapper-processor',
+            'noisicaa-builtin_nodes-cv_mapper-processor',
+            'noisicaa-builtin_nodes-oscilloscope-processor',
+        ],
+    )
 
     ctx.recurse('score_track')
     ctx.recurse('beat_track')

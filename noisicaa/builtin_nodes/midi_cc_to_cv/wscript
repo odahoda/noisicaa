@@ -42,7 +42,7 @@ def build(ctx):
     ctx.shlib(
         target='noisicaa-builtin_nodes-midi_cc_to_cv-processor_messages',
         source=[
-            'processor.pb.cc',
+            'processor_messages.pb.cc',
         ],
         use=[
             'NOISELIB',
@@ -51,9 +51,10 @@ def build(ctx):
     )
 
     ctx.shlib(
-        target='noisicaa-builtin_nodes-midi_looper-processor',
+        target='noisicaa-builtin_nodes-midi_cc_to_cv-processor',
         source=[
             'processor.cpp',
+            'processor.pb.cc',
         ],
         use=[
             'NOISELIB',
