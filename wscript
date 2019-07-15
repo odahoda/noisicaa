@@ -53,6 +53,7 @@ def configure(ctx):
     ctx.load('compiler_cxx')
     ctx.load('compiler_c')
     ctx.load('python')
+    ctx.load('local_rpath', tooldir='waftools')
     ctx.load('proto', tooldir='waftools')
     ctx.load('python', tooldir='waftools')
     ctx.load('cython', tooldir='waftools')
