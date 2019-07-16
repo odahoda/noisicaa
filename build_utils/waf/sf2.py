@@ -20,21 +20,15 @@
 #
 # @end:license
 
-import importlib.util
 import os.path
-import py_compile
-import re
-import shutil
 
+import yaml
 from waflib.Configure import conf
 from waflib.Task import Task
-import yaml
 
 
 class mksf2(Task):
     def scan(self):
-        ctx = self.generator.bld
-
         definition = yaml.load(self.inputs[0].read(), Loader=yaml.FullLoader)
 
         deps = []

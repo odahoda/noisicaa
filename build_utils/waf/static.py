@@ -40,5 +40,4 @@ def static_file(ctx, source):
 
     ctx(rule=copy_file,
         source=source,
-        target=source.get_bld(),
-    )
+        target=source.get_bld())

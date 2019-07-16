@@ -21,13 +21,10 @@
 # @end:license
 
 import importlib.util
-import os.path
 import py_compile
-import re
 import shutil
 
 from waflib.Configure import conf
-from waflib.Task import Task
 
 
 def copy_py_module(task):
@@ -36,7 +33,8 @@ def copy_py_module(task):
     shutil.copyfile(task.inputs[0].abspath(), task.outputs[0].abspath())
     shutil.copymode(task.inputs[0].abspath(), task.outputs[0].abspath())
     if len(task.outputs) > 1:
-        py_compile.compile(task.outputs[0].abspath(), task.outputs[1].abspath(), doraise=True, optimize=0)
+        py_compile.compile(
+            task.outputs[0].abspath(), task.outputs[1].abspath(), doraise=True, optimize=0)
 
 
 @conf
@@ -45,15 +43,15 @@ def py_module(ctx, source):
 
     source_node = ctx.path.make_node(source)
     target_node = ctx.path.get_bld().make_node(source)
-    compiled_node = ctx.path.get_bld().make_node(importlib.util.cache_from_source(source, optimization=''))
+    compiled_node = ctx.path.get_bld().make_node(
+        importlib.util.cache_from_source(source, optimization=''))
 
     ctx(rule=copy_py_module,
         source=source_node,
         target=[
             target_node,
             compiled_node,
-        ],
-    )
+        ])
 
 
 @conf

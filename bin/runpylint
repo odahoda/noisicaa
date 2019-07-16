@@ -21,7 +21,5 @@
 # @end:license
 
 BASEDIR=$(readlink -f "$(dirname "$0")/..")
-python setup.py build
-cd $BASEDIR/build/
 
 exec pylint --rcfile=$BASEDIR/bin/pylintrc "$@"

@@ -20,12 +20,7 @@
 #
 # @end:license
 
-import importlib.util
 import os.path
-import py_compile
-import re
-import shutil
-import subprocess
 
 from waflib.Configure import conf
 from waflib.Task import Task

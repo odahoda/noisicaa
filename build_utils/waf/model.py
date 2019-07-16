@@ -20,11 +20,7 @@
 #
 # @end:license
 
-import importlib.util
 import os.path
-import py_compile
-import re
-import shutil
 
 from waflib.Configure import conf
 from waflib.Task import Task
@@ -50,7 +46,8 @@ class build_model(Task):
 
 
 @conf
-def model_description(ctx, source, *, output='_model.py', template='noisicaa/builtin_nodes/model.tmpl.py'):
+def model_description(
+        ctx, source, *, output='_model.py', template='noisicaa/builtin_nodes/model.tmpl.py'):
     task = build_model(env=ctx.env)
     task.set_inputs(ctx.path.make_node(source))
     task.set_inputs(ctx.srcnode.make_node(template))

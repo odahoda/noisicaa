@@ -24,7 +24,6 @@ import importlib.util
 import os.path
 import py_compile
 import re
-import shutil
 
 from waflib.Configure import conf
 from waflib.Task import Task
@@ -64,7 +63,8 @@ class compile_py_proto(Task):
         ]
         self.exec_command(cmd, cwd=ctx.top_dir)
 
-        py_compile.compile(self.outputs[0].abspath(), self.outputs[1].abspath(), doraise=True, optimize=0)
+        py_compile.compile(
+            self.outputs[0].abspath(), self.outputs[1].abspath(), doraise=True, optimize=0)
 
 @conf
 def py_proto(ctx, source):

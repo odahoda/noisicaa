@@ -20,7 +20,10 @@
 #
 # @end:license
 
+
 def build(ctx):
     ctx.py_module('__init__.py')
     ctx.py_module('build_model.py')
     ctx.py_proto('model_desc.proto')
+    ctx.py_module('process_svg.py')
+    ctx.py_module('mksf2.py')

@@ -38,5 +38,4 @@ def strip_svg(task):
 def stripped_svg(ctx, source):
     ctx(rule=strip_svg,
         source=ctx.path.make_node(source),
-        target=ctx.path.get_bld().make_node(source),
-    )
+        target=ctx.path.get_bld().make_node(source))

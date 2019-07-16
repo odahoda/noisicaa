@@ -20,16 +20,7 @@
 #
 # @end:license
 
-import importlib.util
-import os.path
-import py_compile
-import re
-import shutil
-import subprocess
-
 from waflib.Configure import conf
-from waflib.Task import Task
-from waflib.TaskGen import before_method, after_method, feature
 from waflib import Utils
 
 
@@ -38,7 +29,7 @@ def _fix_args(ctx, *, source, **kwargs):
         ctx.path.make_node(src) for src in Utils.to_list(source)]
 
     if 'target' not in kwargs:
-       kwargs['target'] = kwargs['source'][0].get_bld().change_ext('.so')
+        kwargs['target'] = kwargs['source'][0].get_bld().change_ext('.so')
 
     if 'use' in kwargs:
         kwargs['use'] = Utils.to_list(kwargs['use'])

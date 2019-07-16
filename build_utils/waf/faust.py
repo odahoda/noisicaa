@@ -44,8 +44,7 @@ def faust_dsp(ctx, cls_name, source='processor.dsp'):
             source.change_ext('.h'),
             source.change_ext('.json'),
         ],
-        cls_name=cls_name,
-    )
+        cls_name=cls_name)
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-%s-processor' % cls_name.lower(),
