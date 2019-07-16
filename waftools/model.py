@@ -30,28 +30,31 @@ from waflib.Configure import conf
 from waflib.Task import Task
 
 
-def build_model(task):
-    ctx = task.generator.bld
-    cmd = [
-        ctx.env.PYTHON[0],
-        'noisidev/build_model.py',
-        '--output', ctx.out_dir,
-        '--template', task.inputs[1].abspath(),
-        os.path.relpath(task.inputs[0].abspath(), ctx.top_dir),
-    ]
-    task.exec_command(cmd, cwd=ctx.top_dir, env={'PYTHONPATH': ctx.out_dir})
+class build_model(Task):
+    def __str__(self):
+        return self.outputs[0].relpath()
+
+    def keyword(self):
+        return 'Generating'
+
+    def run(self):
+        ctx = self.generator.bld
+        cmd = [
+            ctx.env.PYTHON[0],
+            'noisidev/build_model.py',
+            '--output', ctx.out_dir,
+            '--template', self.inputs[1].abspath(),
+            os.path.relpath(self.inputs[0].abspath(), ctx.top_dir),
+        ]
+        self.exec_command(cmd, cwd=ctx.top_dir, env={'PYTHONPATH': ctx.out_dir})
 
 
 @conf
 def model_description(ctx, source, *, output='_model.py', template='noisicaa/builtin_nodes/model.tmpl.py'):
-    ctx(rule=build_model,
-        source=[
-            ctx.path.make_node(source),
-            ctx.srcnode.make_node(template),
-        ],
-        target=[
-            ctx.path.get_bld().make_node(output),
-            ctx.path.get_bld().make_node(
-                os.path.join(os.path.dirname(output), 'model.proto')),
-        ],
-    )
+    task = build_model(env=ctx.env)
+    task.set_inputs(ctx.path.make_node(source))
+    task.set_inputs(ctx.srcnode.make_node(template))
+    task.set_outputs(ctx.path.get_bld().make_node(output))
+    task.set_outputs(ctx.path.get_bld().make_node(
+        os.path.join(os.path.dirname(output), 'model.proto')))
+    ctx.add_to_group(task)

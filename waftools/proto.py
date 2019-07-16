@@ -35,6 +35,12 @@ def configure(ctx):
 
 
 class compile_py_proto(Task):
+    def __str__(self):
+        return self.outputs[0].relpath()
+
+    def keyword(self):
+        return 'Generating'
+
     def scan(self):
         ctx = self.generator.bld
 
@@ -76,6 +82,12 @@ def py_proto(ctx, source):
 
 
 class compile_cpp_proto(Task):
+    def __str__(self):
+        return self.outputs[0].relpath()
+
+    def keyword(self):
+        return 'Generating'
+
     def scan(self):
         ctx = self.generator.bld
 

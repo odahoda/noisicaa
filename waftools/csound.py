@@ -36,6 +36,12 @@ def configure(ctx):
 
 
 class compile_csound(Task):
+    def __str__(self):
+        return self.outputs[0].relpath()
+
+    def keyword(self):
+        return 'Generating'
+
     def run(self):
         ctx = self.generator.bld
         cwd = ctx.srcnode
