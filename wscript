@@ -110,7 +110,7 @@ def install_venv(ctx):
 
         ctx.start_msg('Install %s' % pkg_name)
         try:
-            #ctx.cmd_and_log(['pip', 'install', '-U', pkg], output=BOTH)
+            ctx.cmd_and_log(['pip', 'install', '-U', pkg], output=BOTH)
             out = ctx.cmd_and_log(['pip', 'show', pkg_name], output=STDOUT)
             msg = email.message_from_string(out)
             version = msg['Version']
