@@ -20,5 +20,21 @@
 #
 # @end:license
 
+if [ -z "$VIRTUAL_ENV" ]; then
+    ROOTDIR=$(readlink -f "$(dirname "$0")/..")
+    if [ ! -f $ROOTDIR/.venv ]; then
+        echo >&2 "No virtual environment found, run './waf install_venv' first."
+        exit 1
+    fi
+
+    ACTIVATE_PATH=$(cat $ROOTDIR/.venv)/bin/activate
+    if [ ! -f "$ACTIVATE_PATH" ]; then
+        echo >&2 "$ACTIVATE_PATH: file not found."
+        exit 1
+    fi
+
+    source $ACTIVATE_PATH
+fi
+
 export LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib
 exec python3 -m noisidev.runtests "$@"
