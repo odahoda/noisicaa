@@ -1,5 +1,3 @@
-# -*- mode: python -*-
-
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -20,23 +18,3 @@
 #
 # @end:license
 
-from waflib.Configure import conf
-
-
-def strip_svg(task):
-    ctx = task.generator.bld
-    cmd = [
-        ctx.env.PYTHON[0],
-        'noisidev/process_svg.py',
-        '-o', task.outputs[0].abspath(),
-        task.inputs[0].abspath(),
-    ]
-    task.exec_command(cmd, cwd=ctx.top_dir, env={'PYTHONPATH': ctx.out_dir})
-
-
-@conf
-def stripped_svg(ctx, source):
-    ctx(rule=strip_svg,
-        source=ctx.path.make_node(source),
-        target=ctx.path.get_bld().make_node(source),
-    )

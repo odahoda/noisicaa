@@ -36,7 +36,6 @@ out = 'build'
 def options(ctx):
     ctx.load('compiler_cxx')
     ctx.load('compiler_c')
-    ctx.load('python')
 
 
 @conf
@@ -58,17 +57,17 @@ def configure(ctx):
     ctx.load('compiler_cxx')
     ctx.load('compiler_c')
     ctx.load('python')
-    ctx.load('local_rpath', tooldir='waftools')
-    ctx.load('proto', tooldir='waftools')
-    ctx.load('python', tooldir='waftools')
-    ctx.load('cython', tooldir='waftools')
-    ctx.load('model', tooldir='waftools')
-    ctx.load('static', tooldir='waftools')
-    ctx.load('csound', tooldir='waftools')
-    ctx.load('sf2', tooldir='waftools')
-    ctx.load('plugins', tooldir='waftools')
-    ctx.load('svg', tooldir='waftools')
-    ctx.load('faust', tooldir='waftools')
+    ctx.load('local_rpath', tooldir='build_utils/waf')
+    ctx.load('proto', tooldir='build_utils/waf')
+    ctx.load('python', tooldir='build_utils/waf')
+    ctx.load('cython', tooldir='build_utils/waf')
+    ctx.load('model', tooldir='build_utils/waf')
+    ctx.load('static', tooldir='build_utils/waf')
+    ctx.load('csound', tooldir='build_utils/waf')
+    ctx.load('sf2', tooldir='build_utils/waf')
+    ctx.load('plugins', tooldir='build_utils/waf')
+    ctx.load('svg', tooldir='build_utils/waf')
+    ctx.load('faust', tooldir='build_utils/waf')
 
     ctx.check_python_version(minver=(3, 5))
     ctx.check_python_headers(features=['pyext'])
@@ -114,7 +113,20 @@ def build(ctx):
         use=[],
     )
 
-    ctx.recurse('noisidev')
+    old_grp = ctx.current_group
+    ctx.set_group('buildtools')
+    try:
+        ctx.recurse('build_utils')
+    finally:
+        ctx.set_group(old_grp)
+
     ctx.recurse('noisicaa')
     ctx.recurse('data')
-    ctx.recurse('testdata')
+
+    old_grp = ctx.current_group
+    ctx.set_group('tests')
+    try:
+        ctx.recurse('noisidev')
+        ctx.recurse('testdata')
+    finally:
+        ctx.set_group(old_grp)

@@ -35,7 +35,7 @@ SRCDIR = ROOTDIR
 LIBDIR = os.path.join(ROOTDIR, 'build')
 sys.path.insert(0, LIBDIR)
 
-from noisidev import model_desc_pb2
+from build_utils import model_desc_pb2
 
 
 class ModelBuilder(object):

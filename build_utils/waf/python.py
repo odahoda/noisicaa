@@ -58,4 +58,9 @@ def py_module(ctx, source):
 
 @conf
 def py_test(ctx, source):
-    ctx.py_module(source)
+    old_grp = ctx.current_group
+    ctx.set_group('tests')
+    try:
+        ctx.py_module(source)
+    finally:
+        ctx.set_group(old_grp)

@@ -41,7 +41,7 @@ class build_model(Task):
         ctx = self.generator.bld
         cmd = [
             ctx.env.PYTHON[0],
-            'noisidev/build_model.py',
+            'build_utils/build_model.py',
             '--output', ctx.out_dir,
             '--template', self.inputs[1].abspath(),
             os.path.relpath(self.inputs[0].abspath(), ctx.top_dir),

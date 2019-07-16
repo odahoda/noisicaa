@@ -20,15 +20,23 @@
 #
 # @end:license
 
-def build(ctx):
-    ctx.py_module('__init__.py')
-    ctx.py_module('profutil.py')
-    ctx.py_module('perf_stats.py')
-    ctx.py_module('qttest.py')
-    ctx.py_module('unittest.py')
-    ctx.py_module('unittest_mixins.py')
-    ctx.py_module('unittest_processor_mixins.py')
-    ctx.cy_module('unittest_engine_mixins.pyx', use=['noisicaa-host_system', 'noisicaa-audioproc-engine'])
-    ctx.cy_module('unittest_engine_utils.pyx', use=['noisicaa-host_system', 'noisicaa-audioproc-engine'])
-    ctx.py_module('uitest.py')
-    ctx.py_module('demo_project.py')
+from waflib.Configure import conf
+
+
+def strip_svg(task):
+    ctx = task.generator.bld
+    cmd = [
+        ctx.env.PYTHON[0],
+        'build_utils/process_svg.py',
+        '-o', task.outputs[0].abspath(),
+        task.inputs[0].abspath(),
+    ]
+    task.exec_command(cmd, cwd=ctx.top_dir, env={'PYTHONPATH': ctx.out_dir})
+
+
+@conf
+def stripped_svg(ctx, source):
+    ctx(rule=strip_svg,
+        source=ctx.path.make_node(source),
+        target=ctx.path.get_bld().make_node(source),
+    )

@@ -47,7 +47,7 @@ class mksf2(Task):
 
         cmd = [
             ctx.env.PYTHON[0],
-            ctx.srcnode.find_resource('noisidev/mksf2.py').abspath(),
+            ctx.srcnode.find_resource('build_utils/mksf2.py').abspath(),
             '--search_paths=.:' + self.inputs[0].parent.get_bld().abspath(),
             '--output=' + self.outputs[0].abspath(),
             self.inputs[0].abspath(),

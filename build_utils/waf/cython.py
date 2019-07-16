@@ -93,4 +93,9 @@ def cy_module(ctx, source, use=None):
 
 @conf
 def cy_test(ctx, source, use=None):
-    ctx.cy_module(source, use=use)
+    old_grp = ctx.current_group
+    ctx.set_group('tests')
+    try:
+        ctx.cy_module(source, use=use)
+    finally:
+        ctx.set_group(old_grp)
