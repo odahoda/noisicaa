@@ -94,9 +94,10 @@ def install_venv(ctx):
     os.environ['PATH'] = os.pathsep.join([os.path.join(venv_path, 'bin')] + os.environ.get('PATH', '').split(os.pathsep))
 
     out = ctx.cmd_and_log(['./listdeps', '--pip', '--dev'], output=STDOUT, quiet=BOTH)
-    packages = ['pip', 'setuptools', 'wheel'] + out.splitlines()
+    packages = ['pip==19.1.1', 'setuptools==41.0.1', 'wheel==0.33.4'] + out.splitlines()
 
     for pkg in packages:
+        required_version = None
         if pkg.startswith('./3rdparty/'):
             pkg_name = pkg.split('/')[2]
         elif pkg.startswith('git+https://github.com/'):
@@ -105,17 +106,25 @@ def install_venv(ctx):
         elif pkg.startswith('bzr+lp:'):
             p = urllib.parse.urlparse(pkg)
             pkg_name = p.path
+        elif '==' in pkg:
+            pkg_name, required_version = pkg.split('==')
         else:
-            pkg_name = pkg.split('==')[0]
+            pkg_name = pkg
 
         ctx.start_msg('Install %s' % pkg_name)
+        need_install = False
         try:
             out = ctx.cmd_and_log(['pip', 'show', pkg_name], output=STDOUT)
             msg = email.message_from_string(out)
             version = msg['Version']
+            if required_version and version != required_version:
+                need_install = True
         except WafError as exc:
+            need_install = True
+
+        if need_install:
             try:
-                ctx.cmd_and_log(['pip', 'install', '-U', pkg], output=BOTH)
+                ctx.cmd_and_log(['pip', '--disable-pip-version-check', 'install', '-U', pkg], output=BOTH)
                 out = ctx.cmd_and_log(['pip', 'show', pkg_name], output=STDOUT)
                 msg = email.message_from_string(out)
                 version = msg['Version']
