@@ -23,22 +23,22 @@
 import os
 import sys
 
-if 'VIRTUAL_ENV' not in os.environ:
-    venv_marker = '.venv'
-    if os.path.isfile(venv_marker):
-        venv_path = open(venv_marker, 'r').readline().strip()
-        py_path = os.path.join(venv_path, 'bin', 'python')
-        if os.path.isfile(py_path):
-            os.environ['VIRTUAL_ENV'] = venv_path
-            os.environ['LD_LIBRARY_PATH'] = os.path.join(venv_path, 'lib')
-            os.environ['PATH'] = os.pathsep.join([os.path.join(venv_path, 'bin')] + os.environ.get('PATH', '').split(os.pathsep))
-            argv = [py_path] + sys.argv
-            os.execv(argv[0], argv)
-
-
 if sys.version_info < (3, 5):
     sys.stderr.write("At least python V3.5 required.\n")
     sys.exit(1)
+
+# if 'VIRTUAL_ENV' not in os.environ:
+#     venv_marker = '.venv'
+#     if os.path.isfile(venv_marker):
+#         venv_path = open(venv_marker, 'r').readline().strip()
+#         py_path = os.path.join(venv_path, 'bin', 'python')
+#         if os.path.isfile(py_path):
+#             os.environ['VIRTUAL_ENV'] = venv_path
+#             os.environ['LD_LIBRARY_PATH'] = os.path.join(venv_path, 'lib')
+#             os.environ['PATH'] = os.pathsep.join([os.path.join(venv_path, 'bin')] + os.environ.get('PATH', '').split(os.pathsep))
+#             argv = [py_path] + sys.argv
+#             os.execv(argv[0], argv)
+
 
 
 import email.parser
@@ -48,7 +48,6 @@ import re
 import shutil
 import sys
 import urllib.parse
-import venv
 
 from waflib.Configure import conf
 from waflib.Task import Task
@@ -60,93 +59,9 @@ top = '.'
 out = 'build'
 
 def options(ctx):
+    ctx.load('virtenv', tooldir='build_utils/waf')
     ctx.load('compiler_cxx')
     ctx.load('compiler_c')
-
-
-def install_venv(ctx):
-    ctx.logger = make_logger('build/install_venv.log', 'install_venv')
-
-    venv_path = '/tmp/foo'
-
-    ctx.start_msg('Create virtual env at %s' % venv_path)
-    if not os.path.isdir(venv_path):
-        try:
-            env_builder = venv.EnvBuilder(
-                system_site_packages=False,
-                with_pip=True)
-            env_builder.create(venv_path)
-        except Exception as exc:
-            shutil.rmtree(venv_path)
-            self.fatal("Failed to create virtual env: %s" % exc)
-        ctx.end_msg('done.')
-    else:
-        ctx.end_msg('already exists.')
-
-    ctx.start_msg('Write .venv sentinel')
-    with open('.venv', 'w') as fp:
-        fp.write(venv_path)
-        fp.write('\n')
-    ctx.end_msg('done.')
-
-    os.environ['VIRTUAL_ENV'] = venv_path
-    os.environ['LD_LIBRARY_PATH'] = os.path.join(venv_path, 'lib')
-    os.environ['PATH'] = os.pathsep.join([os.path.join(venv_path, 'bin')] + os.environ.get('PATH', '').split(os.pathsep))
-
-    out = ctx.cmd_and_log(['./listdeps', '--pip', '--dev'], output=STDOUT, quiet=BOTH)
-    packages = ['pip==19.1.1', 'setuptools==41.0.1', 'wheel==0.33.4'] + out.splitlines()
-
-    for pkg in packages:
-        required_version = None
-        if pkg.startswith('./3rdparty/'):
-            pkg_name = pkg.split('/')[2]
-        elif pkg.startswith('git+https://github.com/'):
-            p = urllib.parse.urlparse(pkg)
-            pkg_name = p.path.split('/')[2][:-4]
-        elif pkg.startswith('bzr+lp:'):
-            p = urllib.parse.urlparse(pkg)
-            pkg_name = p.path
-        elif '==' in pkg:
-            pkg_name, required_version = pkg.split('==')
-        else:
-            pkg_name = pkg
-
-        ctx.start_msg('Install %s' % pkg_name)
-        need_install = False
-        try:
-            out = ctx.cmd_and_log(['pip', 'show', pkg_name], output=STDOUT)
-            msg = email.message_from_string(out)
-            version = msg['Version']
-            if required_version and version != required_version:
-                need_install = True
-        except WafError as exc:
-            need_install = True
-
-        if need_install:
-            try:
-                ctx.cmd_and_log(['pip', '--disable-pip-version-check', 'install', '-U', pkg], output=BOTH)
-                out = ctx.cmd_and_log(['pip', 'show', pkg_name], output=STDOUT)
-                msg = email.message_from_string(out)
-                version = msg['Version']
-            except WafError as exc:
-                ctx.fatal("Failed to install pip package '%s'" % pkg_name)
-        ctx.end_msg(version)
-
-
-@conf
-def check_virtual_env(ctx):
-    ctx.start_msg('Checking for virtual environment')
-
-    if 'VIRTUAL_ENV' not in os.environ:
-        ctx.fatal("Not running in a virtual environment.")
-
-    venv_path = os.environ['VIRTUAL_ENV']
-    if not os.path.isfile(os.path.join(venv_path, 'bin', 'activate')):
-        ctx.fatal("%s: Directory does not look like a virtual environment." % venv_path)
-
-    ctx.env.VIRTUAL_ENV = venv_path
-
-    ctx.end_msg(venv_path)
 
 
 @conf
@@ -160,7 +75,9 @@ def pkg_config(ctx, store, package, minver):
 
 
 def configure(ctx):
-    ctx.check_virtual_env()
+    # This one must come first, because it sets up the virtual environment where everything else
+    # below should search for dependencies.
+    ctx.load('virtenv', tooldir='build_utils/waf')
 
     ctx.load('compiler_cxx')
     ctx.load('compiler_c')
