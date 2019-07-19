@@ -41,7 +41,7 @@ from waflib.Context import BOTH, STDOUT
 Version = distutils.version.LooseVersion
 
 
-DEFAULT_VENVDIR = os.path.expanduser('~/.local/share/virtualenvs/noisicaa')
+DEFAULT_VENVDIR = 'venv'
 
 RUNTIME = 1
 BUILD = 2
@@ -260,6 +260,8 @@ def check_virtual_env(ctx):
 
     if not venvdir:
         venvdir = DEFAULT_VENVDIR
+
+    venvdir = os.path.abspath(venvdir)
 
     ctx.to_log("Using virtual env path %s" % venvdir)
 

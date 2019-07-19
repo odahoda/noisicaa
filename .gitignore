@@ -10,3 +10,4 @@ __pycache__/
 /website/_serve/
 /.waf*
 /.lock-waf*
+/venv/
