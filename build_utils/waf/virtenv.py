@@ -28,7 +28,10 @@ import os.path
 import re
 import shutil
 import subprocess
+import tarfile
+import urllib.request
 import venv
+import zipfile
 
 from waflib.Configure import conf
 from waflib.Errors import ConfigurationError, WafError
@@ -162,8 +165,7 @@ def configure(ctx):
     sys_mgr.check_package(BUILD, 'libboost-dev')
     sys_mgr.check_package(BUILD, 'flex')
     sys_mgr.check_package(BUILD, 'bison')
-    # TODO: install this directly, not via PIP
-    pip_mgr.check_package(RUNTIME, 'csound', source='./3rdparty/csound/')
+    CSoundBuilder(ctx).check(RUNTIME)
 
     # LV2
     sys_mgr.check_package(BUILD, 'libserd-dev')
@@ -172,12 +174,9 @@ def configure(ctx):
     if os_dist == 'ubuntu' and os_release >= Version('17.10'):
         sys_mgr.check_package(BUILD, 'lv2-dev')
     else:
-        # TODO: install this directly, not via PIP
-        pip_mgr.check_package('lv2', source='./3rdparty/lv2/')
-    # TODO: install this directly, not via PIP
-    pip_mgr.check_package(RUNTIME, 'lilv', source='./3rdparty/lilv/')
-    # TODO: install this directly, not via PIP
-    pip_mgr.check_package(RUNTIME, 'suil', source='./3rdparty/suil/')
+        LV2Builder(ctx).check(RUNTIME)
+    LilvBuilder(ctx).check(RUNTIME)
+    SuilBuilder(ctx).check(RUNTIME)
     sys_mgr.check_package(DEV, 'mda-lv2')
 
     # ladspa
@@ -185,9 +184,8 @@ def configure(ctx):
     sys_mgr.check_package(DEV, 'swh-plugins')
 
     # Faust
-    # TODO: install those directly, not via PIP
-    pip_mgr.check_package(BUILD, 'faust', source='./3rdparty/faust/')
-    pip_mgr.check_package(BUILD, 'faustlibraries', source='./3rdparty/faustlibraries/')
+    FaustBuilder(ctx).check(BUILD)
+    FaustLibrariesBuilder(ctx).check(BUILD)
 
     # sndfile
     sys_mgr.check_package(BUILD, 'libsndfile1-dev')
@@ -226,7 +224,7 @@ def configure(ctx):
     sys_mgr.check_package(BUILD, 'make')
     sys_mgr.check_package(BUILD, 'g++')
     sys_mgr.check_package(BUILD, 'unzip')
-    pip_mgr.check_package(BUILD, 'protoc', source='./3rdparty/protoc/')
+    ProtocBuilder(ctx).check(BUILD)
     # TODO: get my changes upstream and use regular mypy-protobuf package from pip.
     pip_mgr.check_package(BUILD, 'mypy-protobuf', source='git+https://github.com/odahoda/mypy-protobuf.git#egg=mypy-protobuf&subdirectory=python')
 
@@ -461,3 +459,339 @@ class DebManager(PackageManager):
 class UnsupportedDistManager(PackageManager):
     def check_package(self, dep_type, name, version=None):
         pass
+
+
+class ThirdPartyBuilder(object):
+    def __init__(self, ctx):
+        self._ctx = ctx
+        self.name = None
+        self.version = None
+        self.download_url = None
+        self.archive_name = None
+
+    def download(self, target_path):
+        total_bytes = 0
+        with urllib.request.urlopen(self.download_url) as fp_in:
+            with open(target_path + '.partial', 'wb') as fp_out:
+                while True:
+                    dat = fp_in.read(10240)
+                    if not dat:
+                        break
+                    fp_out.write(dat)
+                    total_bytes += len(dat)
+
+        os.rename(target_path + '.partial', target_path)
+        return total_bytes
+
+    def unpack(self, archive_path, target_path):
+        if archive_path.endswith('.zip'):
+            base_dir = None
+            with zipfile.ZipFile(archive_path) as fp:
+                for path in fp.namelist():
+                    while path:
+                        path, b = os.path.split(path)
+                        if not path:
+                            if base_dir is None:
+                                base_dir = b
+                            elif b != base_dir:
+                                raise RuntimeError(
+                                    "No common base dir (%s)" % b)
+
+                fp.extractall(os.path.dirname(archive_path))
+
+            os.rename(os.path.join(os.path.dirname(archive_path), base_dir), target_path)
+
+        elif archive_path.endswith('.tar.bz2'):
+            base_dir = None
+            with tarfile.open(archive_path, 'r:bz2') as fp:
+                for path in fp.getnames():
+                    while path:
+                        path, b = os.path.split(path)
+                        if not path:
+                            if base_dir is None:
+                                base_dir = b
+                            elif b != base_dir:
+                                raise RuntimeError(
+                                    "No common base dir (%s)" % b)
+
+                fp.extractall(os.path.dirname(archive_path))
+
+            os.rename(os.path.join(os.path.dirname(archive_path), base_dir), target_path)
+
+        elif archive_path.endswith('.tar.xz'):
+            base_dir = None
+            with tarfile.open(archive_path, 'r:xz') as fp:
+                for path in fp.getnames():
+                    while path:
+                        path, b = os.path.split(path)
+                        if not path:
+                            if base_dir is None:
+                                base_dir = b
+                            elif b != base_dir:
+                                raise RuntimeError(
+                                    "No common base dir (%s)" % b)
+
+                fp.extractall(os.path.dirname(archive_path))
+
+            os.rename(os.path.join(os.path.dirname(archive_path), base_dir), target_path)
+
+        else:
+            self._ctx.fatal("Unsupported archive type %s" % ext)
+
+    def build(self, src_path):
+        raise NotImplementedError
+
+    def install(self, src_path):
+        raise NotImplementedError
+
+    def check(self, dep_type):
+        if dep_type >= DEV and not self._ctx.env.ENABLE_TEST:
+            return
+        if dep_type >= VMTEST and not self._ctx.env.ENABLE_VMTEST:
+            return
+
+        self._ctx.start_msg("Checking '%s'" % self.name)
+        install_sentinel_path = os.path.join(
+            self._ctx.env.VIRTUAL_ENV, '.%s-%s-installed' % (self.name, self.version))
+        if os.path.isfile(install_sentinel_path):
+            self._ctx.end_msg(self.version)
+            return
+        self._ctx.end_msg('not found', 'YELLOW')
+
+        build_path = os.path.join(
+            self._ctx.env.VIRTUAL_ENV, 'build', '%s-%s' % (self.name, self.version))
+        if not os.path.isdir(build_path):
+            os.makedirs(build_path)
+
+        archive_path = os.path.join(build_path, self.archive_name)
+        if not os.path.isfile(archive_path):
+            self._ctx.start_msg("Download '%s'" % self.archive_name)
+            size = self.download(archive_path)
+            self._ctx.end_msg('%d bytes' % size)
+
+        src_path = os.path.join(build_path, 'src')
+        if not os.path.isdir(src_path):
+            self._ctx.start_msg("Unpack '%s'" % self.archive_name)
+            self.unpack(archive_path, src_path)
+            self._ctx.end_msg("ok")
+
+        build_sentinel_path = os.path.join(build_path, '.built-complete')
+        if not os.path.isfile(build_sentinel_path):
+            self._ctx.start_msg("Build '%s'" % self.name)
+            self.build(src_path)
+            open(build_sentinel_path, 'w').close()
+            self._ctx.end_msg("ok")
+
+        self._ctx.start_msg("Install '%s'" % self.name)
+        self.install(src_path)
+        open(install_sentinel_path, 'w').close()
+        self._ctx.end_msg(self.version)
+
+
+class CSoundBuilder(ThirdPartyBuilder):
+    def __init__(self, ctx):
+        super().__init__(ctx)
+
+        self.name = 'csound'
+        self.version = '6.8.0'
+        self.download_url = 'https://github.com/csound/csound/archive/6.08.0.zip'
+        self.archive_name = 'csound-%s.zip' % self.version
+
+    def build(self, src_path):
+        make_path = os.path.join(src_path, 'build')
+        if not os.path.isdir(make_path):
+            os.makedirs(make_path)
+
+        self._ctx.cmd_and_log(
+            ['cmake',
+             '-DBUILD_PYTHON_INTERFACE=0',
+             '-DBUILD_LINEAR_ALGEBRA_OPCODES=0',
+             '-DCMAKE_INSTALL_PREFIX=' + self._ctx.env.VIRTUAL_ENV,
+             os.path.abspath(src_path)
+            ],
+            cwd=make_path)
+        self._ctx.cmd_and_log(
+            ['make', '-j8'],
+            cwd=make_path)
+
+    def install(self, src_path):
+        make_path = os.path.join(src_path, 'build')
+        self._ctx.cmd_and_log(
+            ['make', 'install'],
+            cwd=make_path)
+
+
+class FaustBuilder(ThirdPartyBuilder):
+    def __init__(self, ctx):
+        super().__init__(ctx)
+
+        self.name = 'faust'
+        self.version = '2.15.11'
+        self.download_url = 'https://github.com/grame-cncm/faust/archive/%s.zip' % self.version
+        self.archive_name = 'faust-%s.zip' % self.version
+
+    def build(self, src_path):
+        self._ctx.cmd_and_log(
+            ['make',
+             '-j8',
+             'PREFIX=' + self._ctx.env.VIRTUAL_ENV,
+             'compiler'],
+            cwd=src_path)
+
+    def install(self, src_path):
+        self._ctx.cmd_and_log(
+            ['make',
+             'PREFIX=' + self._ctx.env.VIRTUAL_ENV,
+             'install'],
+            cwd=src_path)
+
+
+class FaustLibrariesBuilder(ThirdPartyBuilder):
+    def __init__(self, ctx):
+        super().__init__(ctx)
+
+        self.name = 'faustlibraries'
+        self.version = '0.20190330'
+        commit_id = '64a57f5693573ed73409f16c0d7ba420cde6111e'
+        self.download_url = 'https://github.com/grame-cncm/faustlibraries/archive/%s.zip' % commit_id
+        self.archive_name = 'faustlibraries-%s.zip' % self.version
+
+    def build(self, src_path):
+        pass
+
+    def install(self, src_path):
+        target_path = os.path.join(self._ctx.env.VIRTUAL_ENV, 'share', 'faustlibraries')
+        if os.path.isdir(target_path):
+            shutil.rmtree(target_path)
+        shutil.copytree(src_path, target_path)
+
+
+class LilvBuilder(ThirdPartyBuilder):
+    def __init__(self, ctx):
+        super().__init__(ctx)
+
+        self.name = 'lilv'
+        self.version = '0.24.3-git'
+        self.download_url = 'https://github.com/odahoda/lilv/archive/master.zip'
+        self.archive_name = 'lilv-%s.zip' % self.version
+        # self.version = '0.24.0'
+        # self.download_uri = 'http://git.drobilla.net/cgit.cgi/lilv.git/snapshot/lilv-%s.tar.bz2' % self.version
+        # self.archive_name = 'lilv-%s.tar.vz2' % self.version
+
+    def build(self, src_path):
+        os.chmod(os.path.join(src_path, 'waf'), 0o755)
+
+        self._ctx.cmd_and_log(
+            ['./waf',
+             'configure',
+             '--prefix=%s' % self._ctx.env.VIRTUAL_ENV,
+             '--bindings',
+             '--no-utils',
+             '--no-bash-completion',
+             '--test',
+            ],
+            cwd=src_path)
+        self._ctx.cmd_and_log(
+            ['./waf',
+             'build',
+            ],
+            cwd=src_path)
+
+    def install(self, src_path):
+        self._ctx.cmd_and_log(
+            ['./waf',
+             'install',
+            ],
+            cwd=src_path)
+
+
+class SuilBuilder(ThirdPartyBuilder):
+    def __init__(self, ctx):
+        super().__init__(ctx)
+
+        self.name = 'suil'
+        self.version = '0.10.0'
+        self.download_url = 'http://git.drobilla.net/cgit.cgi/suil.git/snapshot/suil-%s.tar.bz2' % self.version
+        self.archive_name = 'suil-%s.tar.bz2' % self.version
+
+    def build(self, src_path):
+        os.chmod(os.path.join(src_path, 'waf'), 0o755)
+
+        self._ctx.cmd_and_log(
+            ['./waf',
+             'configure',
+             '--prefix=%s' % self._ctx.env.VIRTUAL_ENV,
+            ],
+            cwd=src_path)
+        self._ctx.cmd_and_log(
+            ['./waf',
+             'build',
+            ],
+            cwd=src_path)
+
+    def install(self, src_path):
+        self._ctx.cmd_and_log(
+            ['./waf',
+             'install',
+            ],
+            cwd=src_path)
+
+
+class LV2Builder(ThirdPartyBuilder):
+    def __init__(self, ctx):
+        super().__init__(ctx)
+
+        self.name = 'lv2'
+        self.version = '1.14.0'
+        self.download_url = 'http://lv2plug.in/git/cgit.cgi/lv2.git/snapshot/lv2-%s.tar.xz' % self.version
+        self.archive_name = 'lv2-%s.tar.xz' % self.version
+
+    def build(self, src_path):
+        os.chmod(os.path.join(src_path, 'waf'), 0o755)
+
+        self._ctx.cmd_and_log(
+            ['./waf',
+             'configure',
+             '--prefix=%s' % self._ctx.env.VIRTUAL_ENV,
+            ],
+            cwd=src_path)
+        self._ctx.cmd_and_log(
+            ['./waf',
+             'build',
+            ],
+            cwd=src_path)
+
+    def install(self, src_path):
+        self._ctx.cmd_and_log(
+            ['./waf',
+             'install',
+            ],
+            cwd=src_path)
+
+
+class ProtocBuilder(ThirdPartyBuilder):
+    def __init__(self, ctx):
+        super().__init__(ctx)
+
+        self.name = 'protoc'
+        self.version = '3.7.1'
+        self.download_url = 'https://github.com/google/protobuf/archive/v%s.zip' % self.version
+        self.archive_name = 'protoc-%s.zip' % self.version
+
+    def build(self, src_path):
+        self._ctx.cmd_and_log(
+            ['bash', 'autogen.sh'],
+            cwd=src_path)
+        self._ctx.cmd_and_log(
+            ['./configure',
+             '--prefix=%s' % self._ctx.env.VIRTUAL_ENV,
+            ],
+            cwd=src_path)
+        self._ctx.cmd_and_log(
+            ['make', '-j8'],
+            cwd=src_path)
+
+    def install(self, src_path):
+        self._ctx.cmd_and_log(
+            ['make', 'install'],
+            cwd=src_path)
