@@ -158,16 +158,12 @@ def configure(ctx):
     pip_mgr.check_package(RUNTIME, 'mypy-extensions')
 
     # csound
-    if os_dist == 'ubuntu' and os_release >= Version('17.10'):
-        sys_mgr.check_package(RUNTIME, 'csound', version='>=1:6.08')
-        sys_mgr.check_package(BUILD, 'libcsound64-dev', version='>=1:6.08')
-    else:
-        # TODO: install this directly, not via PIP
-        sys_mgr.check_package(BUILD, 'libsamplerate0-dev')
-        sys_mgr.check_package(BUILD, 'libboost-dev')
-        sys_mgr.check_package(BUILD, 'flex')
-        sys_mgr.check_package(BUILD, 'bison')
-        pip_mgr.check_package(RUNTIME, 'csound', source='./3rdparty/csound/')
+    sys_mgr.check_package(BUILD, 'libsamplerate0-dev')
+    sys_mgr.check_package(BUILD, 'libboost-dev')
+    sys_mgr.check_package(BUILD, 'flex')
+    sys_mgr.check_package(BUILD, 'bison')
+    # TODO: install this directly, not via PIP
+    pip_mgr.check_package(RUNTIME, 'csound', source='./3rdparty/csound/')
 
     # LV2
     sys_mgr.check_package(BUILD, 'libserd-dev')
