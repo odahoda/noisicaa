@@ -40,6 +40,11 @@ Version = distutils.version.LooseVersion
 
 DEFAULT_VENVDIR = os.path.expanduser('~/.local/share/virtualenvs/noisicaa')
 
+RUNTIME = 1
+BUILD = 2
+DEV = 3
+VMTEST = 4
+
 
 def options(ctx):
     grp = ctx.add_option_group('Virtual Environment options')
@@ -47,10 +52,22 @@ def options(ctx):
     grp.add_option('--download', action='store_true', default=False, help='Download and install missing packages into virtual environment')
     grp.add_option('--install-system-packages', action='store_true', default=False, help='Download and install missing system package (requires `sudo` priviledge)')
     grp.add_option('--os-dist', default=False, help='Override the auto detected OS distribution (format "${name}:${release}", e.g. "ubuntu:18.10")')
+    grp.add_option('--enable-tests', action='store_true', default=False, help='Build test cases')
+    grp.add_option('--enable-vmtests', action='store_true', default=False, help='Build VM test cases (implies --enable-test)')
 
 
 def configure(ctx):
     ctx.check_virtual_env()
+
+    ctx.start_msg("Build with tests")
+    if ctx.options.enable_tests or ctx.options.enable_vmtests:
+        ctx.env.ENABLE_TEST = True
+    ctx.end_msg("Yes" if ctx.env.ENABLE_TEST else "No")
+
+    ctx.start_msg("Build with VM tests")
+    if ctx.options.enable_vmtests:
+        ctx.env.ENABLE_VMTEST = True
+    ctx.end_msg("Yes" if ctx.env.ENABLE_TEST else "No")
 
     ctx.find_program('lsb_release')
 
@@ -94,151 +111,148 @@ def configure(ctx):
             ctx.fatal("Installing system packages is not supported for distribution '%s'" % os_dist)
         sys_mgr = UnsupportedDistManager(ctx)
 
-    ### Basic venv stuff:
-    pip_mgr.check_package('pip', version='>=19.0')
-    pip_mgr.check_package('setuptools', version='>=41.0')
-    pip_mgr.check_package('wheel', version='>=0.33')
+    # Basic venv stuff:
+    pip_mgr.check_package(BUILD, 'pip', version='>=19.0')
+    pip_mgr.check_package(BUILD, 'setuptools', version='>=41.0')
+    pip_mgr.check_package(BUILD, 'wheel', version='>=0.33')
 
-    ### Runtime dependencies:
+    # Misc pip packages:
+    pip_mgr.check_package(RUNTIME, 'eventfd')
+    pip_mgr.check_package(RUNTIME, 'lucky-humanize')
+    pip_mgr.check_package(RUNTIME, 'numpy')
+    pip_mgr.check_package(RUNTIME, 'portalocker')
+    pip_mgr.check_package(RUNTIME, 'posix-ipc')
+    pip_mgr.check_package(RUNTIME, 'psutil')
+    pip_mgr.check_package(RUNTIME, 'pyparsing')
+    pip_mgr.check_package(RUNTIME, 'sortedcontainers')
+    pip_mgr.check_package(RUNTIME, 'toposort')
+    pip_mgr.check_package(RUNTIME, 'urwid')
+    pip_mgr.check_package(RUNTIME, 'PyAudio')
+    pip_mgr.check_package(BUILD, 'cssutils')
+    pip_mgr.check_package(BUILD, 'Cython', version='0.29.6')
+    pip_mgr.check_package(BUILD, 'Jinja2')
+    pip_mgr.check_package(BUILD+1, 'pkgconfig')
+    pip_mgr.check_package(BUILD, 'PyYAML')
+    pip_mgr.check_package(DEV, 'asynctest')
+    pip_mgr.check_package(DEV, 'async-generator')
+    pip_mgr.check_package(DEV, 'coverage')
+    pip_mgr.check_package(DEV, 'mox3')
+    pip_mgr.check_package(DEV, 'py-cpuinfo')
+    pip_mgr.check_package(DEV, 'pyfakefs')
+    pip_mgr.check_package(DEV, 'pylint', version='2.3.1')
+
+    # misc sys packages:
+    sys_mgr.check_package(RUNTIME, 'ffmpeg')
+    sys_mgr.check_package(BUILD, 'cmake')
+    sys_mgr.check_package(BUILD, 'python3-dev')
+    sys_mgr.check_package(BUILD, 'portaudio19-dev')
+    sys_mgr.check_package(BUILD, 'libfluidsynth-dev')
+    sys_mgr.check_package(BUILD, 'inkscape')
+    sys_mgr.check_package(BUILD, 'zlib1g-dev')
+    sys_mgr.check_package(BUILD, 'libunwind-dev')
+    sys_mgr.check_package(DEV, 'gdb')
+    sys_mgr.check_package(DEV, 'xvfb')
+    sys_mgr.check_package(DEV, 'intltool')
+
+    # mypy
+    pip_mgr.check_package(DEV, 'mypy', version='0.701')
+    pip_mgr.check_package(RUNTIME, 'mypy-extensions')
 
     # csound
     if os_dist == 'ubuntu' and os_release >= Version('17.10'):
-        sys_mgr.check_package('csound', version='>=1:6.08')
-        sys_mgr.check_package('libcsound64-dev', version='>=1:6.08')
+        sys_mgr.check_package(RUNTIME, 'csound', version='>=1:6.08')
+        sys_mgr.check_package(BUILD, 'libcsound64-dev', version='>=1:6.08')
     else:
         # TODO: install this directly, not via PIP
-        sys_mgr.check_package('libsamplerate0-dev')
-        sys_mgr.check_package('libboost-dev')
-        sys_mgr.check_package('flex')
-        sys_mgr.check_package('bison')
-        pip_mgr.check_package('csound', source='./3rdparty/csound/')
+        sys_mgr.check_package(BUILD, 'libsamplerate0-dev')
+        sys_mgr.check_package(BUILD, 'libboost-dev')
+        sys_mgr.check_package(BUILD, 'flex')
+        sys_mgr.check_package(BUILD, 'bison')
+        pip_mgr.check_package(RUNTIME, 'csound', source='./3rdparty/csound/')
 
-    # TODO: 'ubuntu', '<17.10')
-    # TODO: install this directly, not via PIP
-    #pip_mgr.check_package('lv2', source='./3rdparty/lv2/')
-    # TODO: install this directly, not via PIP
-    pip_mgr.check_package('lilv', source='./3rdparty/lilv/')
-    # TODO: install this directly, not via PIP
-    pip_mgr.check_package('suil', source='./3rdparty/suil/')
-    pip_mgr.check_package('PyGObject')
-    pip_mgr.check_package('PyQt5')
-    pip_mgr.check_package('eventfd')
-    pip_mgr.check_package('gbulb')
-    pip_mgr.check_package('lucky-humanize')
-    pip_mgr.check_package('numpy')
-    pip_mgr.check_package('portalocker')
-    pip_mgr.check_package('posix-ipc')
-    pip_mgr.check_package('protobuf', version='3.7.1')
-    pip_mgr.check_package('psutil')
-    pip_mgr.check_package('PyAudio')
-    pip_mgr.check_package('pyparsing')
-    # TODO: get my changes upstream and use regular quamash package from pip.
-    pip_mgr.check_package('Quamash', source='git+https://github.com/odahoda/quamash.git#egg=quamash')
-    pip_mgr.check_package('sortedcontainers')
-    pip_mgr.check_package('toposort')
-    pip_mgr.check_package('urwid')
-
-    # sf2
-    sys_mgr.check_package('libfluidsynth1')
-    sys_mgr.check_package('timgm6mb-soundfont')
-    sys_mgr.check_package('fluid-soundfont-gs')
-    sys_mgr.check_package('fluid-soundfont-gm')
-
-    # encoding
-    sys_mgr.check_package('ffmpeg')
-
-    sys_mgr.check_package('libgoogle-perftools4')
-
-    # Build dependencies
-    # TODO: install those directly, not via PIP
-    pip_mgr.check_package('protoc', source='./3rdparty/protoc/')
-    pip_mgr.check_package('faust', source='./3rdparty/faust/')
-    pip_mgr.check_package('faustlibraries', source='./3rdparty/faustlibraries/')
-    pip_mgr.check_package('cssutils')
-    pip_mgr.check_package('Cython', version='0.29.6')
-    pip_mgr.check_package('Jinja2')
-    pip_mgr.check_package('pkgconfig')
-    pip_mgr.check_package('PyYAML')
-    # TODO: get my changes upstream and use regular mypy-protobuf package from pip.
-    pip_mgr.check_package('mypy-protobuf', source='git+https://github.com/odahoda/mypy-protobuf.git#egg=mypy-protobuf&subdirectory=python')
-
-    # qt4
-    sys_mgr.check_package('libqt4-dev')
-
-    # gtk2
-    sys_mgr.check_package('libgtk2.0-dev')
-    sys_mgr.check_package('libgirepository1.0-dev')
-
-    # lv2/lilv
-    sys_mgr.check_package('libserd-dev')
-    sys_mgr.check_package('libsord-dev')
-    sys_mgr.check_package('libsratom-dev')
+    # LV2
+    sys_mgr.check_package(BUILD, 'libserd-dev')
+    sys_mgr.check_package(BUILD, 'libsord-dev')
+    sys_mgr.check_package(BUILD, 'libsratom-dev')
     if os_dist == 'ubuntu' and os_release >= Version('17.10'):
-        sys_mgr.check_package('lv2-dev')
+        sys_mgr.check_package(BUILD, 'lv2-dev')
+    else:
+        # TODO: install this directly, not via PIP
+        pip_mgr.check_package('lv2', source='./3rdparty/lv2/')
+    # TODO: install this directly, not via PIP
+    pip_mgr.check_package(RUNTIME, 'lilv', source='./3rdparty/lilv/')
+    # TODO: install this directly, not via PIP
+    pip_mgr.check_package(RUNTIME, 'suil', source='./3rdparty/suil/')
+    sys_mgr.check_package(DEV, 'mda-lv2')
 
     # ladspa
-    sys_mgr.check_package('ladspa-sdk')
+    sys_mgr.check_package(BUILD, 'ladspa-sdk')
+    sys_mgr.check_package(DEV, 'swh-plugins')
+
+    # Faust
+    # TODO: install those directly, not via PIP
+    pip_mgr.check_package(BUILD, 'faust', source='./3rdparty/faust/')
+    pip_mgr.check_package(BUILD, 'faustlibraries', source='./3rdparty/faustlibraries/')
 
     # sndfile
-    sys_mgr.check_package('libsndfile1-dev')
-
-    # protocol buffers
-    sys_mgr.check_package('autoconf')
-    sys_mgr.check_package('automake')
-    sys_mgr.check_package('libtool')
-    sys_mgr.check_package('curl')
-    sys_mgr.check_package('make')
-    sys_mgr.check_package('g++')
-    sys_mgr.check_package('unzip')
+    sys_mgr.check_package(BUILD, 'libsndfile1-dev')
 
     # libswresample
-    sys_mgr.check_package('libswresample-dev')
+    sys_mgr.check_package(BUILD, 'libswresample-dev')
 
     # libavutil
-    sys_mgr.check_package('libavutil-dev')
+    sys_mgr.check_package(BUILD, 'libavutil-dev')
+
+    # sf2
+    sys_mgr.check_package(RUNTIME, 'libfluidsynth1')
+    sys_mgr.check_package(RUNTIME, 'timgm6mb-soundfont')
+    sys_mgr.check_package(RUNTIME, 'fluid-soundfont-gs')
+    sys_mgr.check_package(RUNTIME, 'fluid-soundfont-gm')
+
+    # Qt
+    pip_mgr.check_package(RUNTIME, 'PyQt5')
+    # TODO: get my changes upstream and use regular quamash package from pip.
+    pip_mgr.check_package(RUNTIME, 'Quamash', source='git+https://github.com/odahoda/quamash.git#egg=quamash')
+    sys_mgr.check_package(BUILD, 'libqt4-dev')
+
+    # GTK
+    sys_mgr.check_package(BUILD, 'libgtk2.0-dev')
+    sys_mgr.check_package(BUILD, 'libgirepository1.0-dev')
+    pip_mgr.check_package(RUNTIME, 'PyGObject')
+    pip_mgr.check_package(DEV, 'PyGObject-stubs')
+    pip_mgr.check_package(RUNTIME, 'gbulb')
+
+    # Protobuf
+    pip_mgr.check_package(RUNTIME, 'protobuf', version='3.7.1')
+    sys_mgr.check_package(BUILD, 'autoconf')
+    sys_mgr.check_package(BUILD, 'automake')
+    sys_mgr.check_package(BUILD, 'libtool')
+    sys_mgr.check_package(BUILD, 'curl')
+    sys_mgr.check_package(BUILD, 'make')
+    sys_mgr.check_package(BUILD, 'g++')
+    sys_mgr.check_package(BUILD, 'unzip')
+    pip_mgr.check_package(BUILD, 'protoc', source='./3rdparty/protoc/')
+    # TODO: get my changes upstream and use regular mypy-protobuf package from pip.
+    pip_mgr.check_package(BUILD, 'mypy-protobuf', source='git+https://github.com/odahoda/mypy-protobuf.git#egg=mypy-protobuf&subdirectory=python')
 
     # profiling
-    sys_mgr.check_package('libgoogle-perftools-dev')
+    sys_mgr.check_package(DEV, 'google-perftools')
+    sys_mgr.check_package(RUNTIME, 'libgoogle-perftools4')
+    sys_mgr.check_package(BUILD, 'libgoogle-perftools-dev')
 
-    # other...
-    sys_mgr.check_package('cmake')
-    sys_mgr.check_package('python3-dev')
-    sys_mgr.check_package('portaudio19-dev')
-    sys_mgr.check_package('libfluidsynth-dev')
-    sys_mgr.check_package('inkscape')
-    sys_mgr.check_package('zlib1g-dev')
-    sys_mgr.check_package('libunwind-dev')
+    # indicator-cpufreq
+    pip_mgr.check_package(DEV, 'dbus-python')
+    sys_mgr.check_package(DEV, 'bzr')
+    pip_mgr.check_package(DEV, 'python-distutils-extra', source='bzr+lp:python-distutils-extra#egg=python-distutils-extra')
+    pip_mgr.check_package(DEV, 'indicator-cpufreq', source='bzr+lp:indicator-cpufreq#egg=indicator-cpufreq')
+    sys_mgr.check_package(DEV, 'indicator-cpufreq')
 
-    # Dev dependencies
-    pip_mgr.check_package('asynctest')
-    pip_mgr.check_package('async-generator')
-    pip_mgr.check_package('coverage')
-    pip_mgr.check_package('mox3')
-    pip_mgr.check_package('py-cpuinfo')
-    pip_mgr.check_package('pyfakefs')
-    pip_mgr.check_package('pylint', version='2.3.1')
-    pip_mgr.check_package('mypy', version='0.701')
-    pip_mgr.check_package('mypy-extensions')
-    pip_mgr.check_package('PyGObject-stubs')
+    # vmtest
+    pip_mgr.check_package(VMTEST, 'paramiko')
+    pip_mgr.check_package(VMTEST, 'python-xlib')
+    sys_mgr.check_package(VMTEST, 'virtualbox')
 
-    # For indicator-cpufreq
-    pip_mgr.check_package('dbus-python')
-    sys_mgr.check_package('bzr')
-    pip_mgr.check_package('python-distutils-extra', source='bzr+lp:python-distutils-extra#egg=python-distutils-extra')
-    pip_mgr.check_package('indicator-cpufreq', source='bzr+lp:indicator-cpufreq#egg=indicator-cpufreq')
-    sys_mgr.check_package('indicator-cpufreq')
 
-    sys_mgr.check_package('mda-lv2')
-    sys_mgr.check_package('swh-plugins')
-    sys_mgr.check_package('gdb')
-    sys_mgr.check_package('xvfb')
-    sys_mgr.check_package('google-perftools')
-    sys_mgr.check_package('intltool')
-
-    # VMtest dependencies:
-    pip_mgr.check_package('paramiko')
-    pip_mgr.check_package('python-xlib')
-    sys_mgr.check_package('virtualbox')
 
 @conf
 def check_virtual_env(ctx):
@@ -328,15 +342,24 @@ class PackageManager(object):
     def install_package(self, name, version=None, source=None):
         raise NotImplementedError
 
-    def check_package(self, name, version, source, allow_install):
+    def check_package(self, dep_type, name, version, source, message, allow_install):
+        if dep_type >= DEV and not self._ctx.env.ENABLE_TEST:
+            return
+        if dep_type >= VMTEST and not self._ctx.env.ENABLE_VMTEST:
+            return
+
+        self._ctx.start_msg(message)
+
         need_install = False
         if not self.is_installed(name):
             self._ctx.to_log("Package is not installed")
             need_install = True
+            self._ctx.end_msg("not found", 'YELLOW')
 
         else:
             self._ctx.to_log("Found installed version %s" % self.version(name))
             if version and not self.check_version(name, version):
+                self._ctx.end_msg(self.version(name), 'YELLOW')
                 self._ctx.to_log("Requirement '%s' not met, requires update" % version)
                 need_install = True
 
@@ -345,13 +368,16 @@ class PackageManager(object):
                 self._ctx.to_log("Not installing system package myself.")
                 self._ctx.fatal("missing")
 
-            try:
-                self.install_package(name, version, source)
-            except WafError as exc:
-                self._ctx.fatal("Failed to install pip package '%s'" % name)
+            if version:
+                self._ctx.start_msg("Install '%s' (%s)" % (name, version))
+            else:
+                self._ctx.start_msg("Install '%s'" % name)
 
+            self.install_package(name, version, source)
             self.update_packages()
             assert not version or self.check_version(name, version)
+
+        self._ctx.end_msg(self.version(name))
 
 
 class PipManager(PackageManager):
@@ -386,10 +412,11 @@ class PipManager(PackageManager):
                 spec += version
         self._ctx.cmd_and_log(self.__pip_cmd + ['install', '-U', spec], output=BOTH)
 
-    def check_package(self, name, version=None, source=None):
-        self._ctx.start_msg("Checking pip package '%s'" % name)
-        super().check_package(name, version, source, self._ctx.options.download)
-        self._ctx.end_msg(self.version(name))
+    def check_package(self, dep_type, name, version=None, source=None):
+        super().check_package(
+            dep_type, name, version, source,
+            "Checking pip package '%s'" % name,
+            self._ctx.options.download)
 
 
 class DebManager(PackageManager):
@@ -429,12 +456,13 @@ class DebManager(PackageManager):
 
         self._ctx.cmd_and_log(cmd, output=BOTH, env=env)
 
-    def check_package(self, name, version=None):
-        self._ctx.start_msg("Checking system package '%s'" % name)
-        super().check_package(name, version, None, self._ctx.options.install_system_packages)
-        self._ctx.end_msg(self.version(name))
+    def check_package(self, dep_type, name, version=None):
+        super().check_package(
+            dep_type, name, version, None,
+            "Checking system package '%s'" % name,
+            self._ctx.options.install_system_packages)
 
 
 class UnsupportedDistManager(PackageManager):
-    def check_package(self, name, version=None):
+    def check_package(self, dep_type, name, version=None):
         pass
