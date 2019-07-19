@@ -42,7 +42,7 @@ class build_model(Task):
             '--template', self.inputs[1].abspath(),
             os.path.relpath(self.inputs[0].abspath(), ctx.top_dir),
         ]
-        self.exec_command(cmd, cwd=ctx.top_dir, env={'PYTHONPATH': ctx.out_dir})
+        return self.exec_command(cmd, cwd=ctx.top_dir, env={'PYTHONPATH': ctx.out_dir})
 
 
 @conf

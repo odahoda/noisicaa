@@ -61,7 +61,9 @@ class compile_py_proto(Task):
             '--proto_path=' + ctx.out_dir,
             self.inputs[0].relpath(),
         ]
-        self.exec_command(cmd, cwd=ctx.top_dir)
+        rc = self.exec_command(cmd, cwd=ctx.top_dir)
+        if rc:
+            return
 
         py_compile.compile(
             self.outputs[0].abspath(), self.outputs[1].abspath(), doraise=True, optimize=0)
@@ -109,7 +111,7 @@ class compile_cpp_proto(Task):
             '--proto_path=' + ctx.out_dir,
             self.inputs[0].relpath(),
         ]
-        self.exec_command(cmd, cwd=ctx.top_dir)
+        return self.exec_command(cmd, cwd=ctx.top_dir)
 
 @conf
 def cpp_proto(ctx, source):

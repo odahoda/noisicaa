@@ -50,7 +50,7 @@ class compile_csound(Task):
             '-o' + self.outputs[0].path_from(cwd),
             self.inputs[0].path_from(cwd),
         ]
-        self.exec_command(cmd, cwd=cwd, env=env)
+        return self.exec_command(cmd, cwd=cwd, env=env)
 
 
 @conf

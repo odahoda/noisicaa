@@ -31,7 +31,7 @@ def build_dsp(task):
         task.inputs[0].abspath(),
         task.outputs[0].parent.abspath(),
     ]
-    task.exec_command(cmd, cwd=ctx.top_dir)
+    return task.exec_command(cmd, cwd=ctx.top_dir)
 
 
 @conf

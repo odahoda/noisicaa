@@ -51,7 +51,7 @@ class compile_cy_cmodule(Task):
             '-o', self.outputs[0].abspath(),
             self.inputs[0].abspath(),
         ]
-        self.exec_command(cmd)
+        return self.exec_command(cmd)
 
 
 @conf

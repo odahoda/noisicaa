@@ -46,7 +46,7 @@ class mksf2(Task):
             '--output=' + self.outputs[0].abspath(),
             self.inputs[0].abspath(),
         ]
-        self.exec_command(cmd, env={'PYTHONPATH': ctx.bldnode.abspath()})
+        return self.exec_command(cmd, env={'PYTHONPATH': ctx.bldnode.abspath()})
 
 
 @conf

@@ -31,7 +31,7 @@ def strip_svg(task):
         '-o', task.outputs[0].abspath(),
         task.inputs[0].abspath(),
     ]
-    task.exec_command(cmd, cwd=ctx.top_dir, env={'PYTHONPATH': ctx.out_dir})
+    return task.exec_command(cmd, cwd=ctx.top_dir, env={'PYTHONPATH': ctx.out_dir})
 
 
 @conf
