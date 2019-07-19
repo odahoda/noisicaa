@@ -27,17 +27,17 @@ if sys.version_info < (3, 5):
     sys.stderr.write("At least python V3.5 required.\n")
     sys.exit(1)
 
-# if 'VIRTUAL_ENV' not in os.environ:
-#     venv_marker = '.venv'
-#     if os.path.isfile(venv_marker):
-#         venv_path = open(venv_marker, 'r').readline().strip()
-#         py_path = os.path.join(venv_path, 'bin', 'python')
-#         if os.path.isfile(py_path):
-#             os.environ['VIRTUAL_ENV'] = venv_path
-#             os.environ['LD_LIBRARY_PATH'] = os.path.join(venv_path, 'lib')
-#             os.environ['PATH'] = os.pathsep.join([os.path.join(venv_path, 'bin')] + os.environ.get('PATH', '').split(os.pathsep))
-#             argv = [py_path] + sys.argv
-#             os.execv(argv[0], argv)
+if 'VIRTUAL_ENV' not in os.environ:
+    venv_marker = '.venv'
+    if os.path.isfile(venv_marker):
+        venv_path = open(venv_marker, 'r').readline().strip()
+        py_path = os.path.join(venv_path, 'bin', 'python')
+        if os.path.isfile(py_path):
+            os.environ['VIRTUAL_ENV'] = venv_path
+            os.environ['LD_LIBRARY_PATH'] = os.path.join(venv_path, 'lib')
+            os.environ['PATH'] = os.pathsep.join([os.path.join(venv_path, 'bin')] + os.environ.get('PATH', '').split(os.pathsep))
+            argv = [py_path] + sys.argv
+            os.execv(argv[0], argv)
 
 
 
