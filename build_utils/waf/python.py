@@ -56,6 +56,9 @@ def py_module(ctx, source):
 
 @conf
 def py_test(ctx, source):
+    if not ctx.env.ENABLE_TEST:
+        return
+
     old_grp = ctx.current_group
     ctx.set_group('tests')
     try:

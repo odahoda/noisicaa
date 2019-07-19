@@ -148,10 +148,11 @@ def build(ctx):
     ctx.recurse('noisicaa')
     ctx.recurse('data')
 
-    old_grp = ctx.current_group
-    ctx.set_group('tests')
-    try:
-        ctx.recurse('noisidev')
-        ctx.recurse('testdata')
-    finally:
-        ctx.set_group(old_grp)
+    if ctx.env.ENABLE_TEST:
+        old_grp = ctx.current_group
+        ctx.set_group('tests')
+        try:
+            ctx.recurse('noisidev')
+            ctx.recurse('testdata')
+        finally:
+            ctx.set_group(old_grp)

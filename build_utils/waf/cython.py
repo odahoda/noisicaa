@@ -87,6 +87,9 @@ def cy_module(ctx, source, use=None):
 
 @conf
 def cy_test(ctx, source, use=None):
+    if not ctx.env.ENABLE_TEST:
+        return
+
     old_grp = ctx.current_group
     ctx.set_group('tests')
     try:
