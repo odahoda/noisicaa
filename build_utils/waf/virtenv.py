@@ -131,7 +131,6 @@ def configure(ctx):
     pip_mgr.check_package(BUILD, 'cssutils')
     pip_mgr.check_package(BUILD, 'Cython', version='0.29.6')
     pip_mgr.check_package(BUILD, 'Jinja2')
-    pip_mgr.check_package(BUILD+1, 'pkgconfig')
     pip_mgr.check_package(BUILD, 'PyYAML')
     pip_mgr.check_package(DEV, 'asynctest')
     pip_mgr.check_package(DEV, 'async-generator')
