@@ -165,7 +165,7 @@ def configure(ctx):
     sys_mgr.check_package(BUILD, 'libboost-dev')
     sys_mgr.check_package(BUILD, 'flex')
     sys_mgr.check_package(BUILD, 'bison')
-    CSoundBuilder(ctx).check(RUNTIME)
+    CSoundBuilder(ctx).check(RUNTIME, version='6.08.0')
 
     # LV2
     sys_mgr.check_package(BUILD, 'libserd-dev')
@@ -174,9 +174,9 @@ def configure(ctx):
     if os_dist == 'ubuntu' and os_release >= Version('17.10'):
         sys_mgr.check_package(BUILD, 'lv2-dev')
     else:
-        LV2Builder(ctx).check(RUNTIME)
-    LilvBuilder(ctx).check(RUNTIME)
-    SuilBuilder(ctx).check(RUNTIME)
+        LV2Builder(ctx).check(RUNTIME, version='1.14.0')
+    LilvBuilder(ctx).check(RUNTIME, version='0.24.3-git')
+    SuilBuilder(ctx).check(RUNTIME, version='0.10.0')
     sys_mgr.check_package(DEV, 'mda-lv2')
 
     # ladspa
@@ -184,8 +184,8 @@ def configure(ctx):
     sys_mgr.check_package(DEV, 'swh-plugins')
 
     # Faust
-    FaustBuilder(ctx).check(BUILD)
-    FaustLibrariesBuilder(ctx).check(BUILD)
+    FaustBuilder(ctx).check(BUILD, version='2.15.11')
+    FaustLibrariesBuilder(ctx).check(BUILD, version='64a57f56')  # snapshot from 2019-03-30
 
     # sndfile
     sys_mgr.check_package(BUILD, 'libsndfile1-dev')
@@ -224,7 +224,7 @@ def configure(ctx):
     sys_mgr.check_package(BUILD, 'make')
     sys_mgr.check_package(BUILD, 'g++')
     sys_mgr.check_package(BUILD, 'unzip')
-    ProtocBuilder(ctx).check(BUILD)
+    ProtocBuilder(ctx).check(BUILD, version='3.7.1')
     # TODO: get my changes upstream and use regular mypy-protobuf package from pip.
     pip_mgr.check_package(BUILD, 'mypy-protobuf', source='git+https://github.com/odahoda/mypy-protobuf.git#egg=mypy-protobuf&subdirectory=python')
 
@@ -464,16 +464,20 @@ class UnsupportedDistManager(PackageManager):
 
 
 class ThirdPartyBuilder(object):
-    def __init__(self, ctx):
+    def __init__(self, ctx, name, archive_ext):
         self._ctx = ctx
-        self.name = None
-        self.version = None
-        self.download_url = None
-        self.archive_name = None
+        self.name = name
+        self.archive_ext = archive_ext
 
-    def download(self, target_path):
+    def download_url(self, version):
+        raise NotImplementedError
+
+    def archive_name(self, version):
+        return '%s-%s%s' % (self.name, version, self.archive_ext)
+
+    def download(self, download_url, target_path):
         total_bytes = 0
-        with urllib.request.urlopen(self.download_url) as fp_in:
+        with urllib.request.urlopen(download_url) as fp_in:
             with open(target_path + '.partial', 'wb') as fp_out:
                 while True:
                     dat = fp_in.read(10240)
@@ -546,7 +550,7 @@ class ThirdPartyBuilder(object):
     def install(self, src_path):
         raise NotImplementedError
 
-    def check(self, dep_type):
+    def check(self, dep_type, version):
         if dep_type >= DEV and not self._ctx.env.ENABLE_TEST:
             return
         if dep_type >= VMTEST and not self._ctx.env.ENABLE_VMTEST:
@@ -554,26 +558,27 @@ class ThirdPartyBuilder(object):
 
         self._ctx.start_msg("Checking '%s'" % self.name)
         install_sentinel_path = os.path.join(
-            self._ctx.env.VIRTUAL_ENV, '.%s-%s-installed' % (self.name, self.version))
+            self._ctx.env.VIRTUAL_ENV, '.%s-%s-installed' % (self.name, version))
         if os.path.isfile(install_sentinel_path):
-            self._ctx.end_msg(self.version)
+            self._ctx.end_msg(version)
             return
         self._ctx.end_msg('not found', 'YELLOW')
 
         build_path = os.path.join(
-            self._ctx.env.VIRTUAL_ENV, 'build', '%s-%s' % (self.name, self.version))
+            self._ctx.env.VIRTUAL_ENV, 'build', '%s-%s' % (self.name, version))
         if not os.path.isdir(build_path):
             os.makedirs(build_path)
 
-        archive_path = os.path.join(build_path, self.archive_name)
+        archive_path = os.path.join(build_path, self.archive_name(version))
         if not os.path.isfile(archive_path):
-            self._ctx.start_msg("Download '%s'" % self.archive_name)
-            size = self.download(archive_path)
+            self._ctx.start_msg("Download '%s'" % self.archive_name(version))
+            download_url = self.download_url(version)
+            size = self.download(download_url, archive_path)
             self._ctx.end_msg('%d bytes' % size)
 
         src_path = os.path.join(build_path, 'src')
         if not os.path.isdir(src_path):
-            self._ctx.start_msg("Unpack '%s'" % self.archive_name)
+            self._ctx.start_msg("Unpack '%s'" % self.archive_name(version))
             self.unpack(archive_path, src_path)
             self._ctx.end_msg("ok")
 
@@ -587,17 +592,15 @@ class ThirdPartyBuilder(object):
         self._ctx.start_msg("Install '%s'" % self.name)
         self.install(src_path)
         open(install_sentinel_path, 'w').close()
-        self._ctx.end_msg(self.version)
+        self._ctx.end_msg(version)
 
 
 class CSoundBuilder(ThirdPartyBuilder):
     def __init__(self, ctx):
-        super().__init__(ctx)
+        super().__init__(ctx, 'csound', '.zip')
 
-        self.name = 'csound'
-        self.version = '6.8.0'
-        self.download_url = 'https://github.com/csound/csound/archive/6.08.0.zip'
-        self.archive_name = 'csound-%s.zip' % self.version
+    def download_url(self, version):
+        return 'https://github.com/csound/csound/archive/%s.zip' % version
 
     def build(self, src_path):
         make_path = os.path.join(src_path, 'build')
@@ -625,12 +628,10 @@ class CSoundBuilder(ThirdPartyBuilder):
 
 class FaustBuilder(ThirdPartyBuilder):
     def __init__(self, ctx):
-        super().__init__(ctx)
+        super().__init__(ctx, 'faust', '.zip')
 
-        self.name = 'faust'
-        self.version = '2.15.11'
-        self.download_url = 'https://github.com/grame-cncm/faust/archive/%s.zip' % self.version
-        self.archive_name = 'faust-%s.zip' % self.version
+    def download_url(self, version):
+        return 'https://github.com/grame-cncm/faust/archive/%s.zip' % version
 
     def build(self, src_path):
         self._ctx.cmd_and_log(
@@ -650,13 +651,10 @@ class FaustBuilder(ThirdPartyBuilder):
 
 class FaustLibrariesBuilder(ThirdPartyBuilder):
     def __init__(self, ctx):
-        super().__init__(ctx)
+        super().__init__(ctx, 'faustlibraries', '.zip')
 
-        self.name = 'faustlibraries'
-        self.version = '0.20190330'
-        commit_id = '64a57f5693573ed73409f16c0d7ba420cde6111e'
-        self.download_url = 'https://github.com/grame-cncm/faustlibraries/archive/%s.zip' % commit_id
-        self.archive_name = 'faustlibraries-%s.zip' % self.version
+    def download_url(self, version):
+        return 'https://github.com/grame-cncm/faustlibraries/archive/%s.zip' % version
 
     def build(self, src_path):
         pass
@@ -670,15 +668,11 @@ class FaustLibrariesBuilder(ThirdPartyBuilder):
 
 class LilvBuilder(ThirdPartyBuilder):
     def __init__(self, ctx):
-        super().__init__(ctx)
+        super().__init__(ctx, 'lilv', '.zip')
 
-        self.name = 'lilv'
-        self.version = '0.24.3-git'
-        self.download_url = 'https://github.com/odahoda/lilv/archive/master.zip'
-        self.archive_name = 'lilv-%s.zip' % self.version
-        # self.version = '0.24.0'
-        # self.download_uri = 'http://git.drobilla.net/cgit.cgi/lilv.git/snapshot/lilv-%s.tar.bz2' % self.version
-        # self.archive_name = 'lilv-%s.tar.vz2' % self.version
+    def download_url(self, version):
+        # 'http://git.drobilla.net/cgit.cgi/lilv.git/snapshot/lilv-%s.tar.bz2' % version
+        return 'https://github.com/odahoda/lilv/archive/master.zip'
 
     def build(self, src_path):
         os.chmod(os.path.join(src_path, 'waf'), 0o755)
@@ -709,12 +703,10 @@ class LilvBuilder(ThirdPartyBuilder):
 
 class SuilBuilder(ThirdPartyBuilder):
     def __init__(self, ctx):
-        super().__init__(ctx)
+        super().__init__(ctx, 'suil', '.tar.bz2')
 
-        self.name = 'suil'
-        self.version = '0.10.0'
-        self.download_url = 'http://git.drobilla.net/cgit.cgi/suil.git/snapshot/suil-%s.tar.bz2' % self.version
-        self.archive_name = 'suil-%s.tar.bz2' % self.version
+    def download_url(self, version):
+        return 'http://git.drobilla.net/cgit.cgi/suil.git/snapshot/suil-%s.tar.bz2' % version
 
     def build(self, src_path):
         os.chmod(os.path.join(src_path, 'waf'), 0o755)
@@ -741,12 +733,10 @@ class SuilBuilder(ThirdPartyBuilder):
 
 class LV2Builder(ThirdPartyBuilder):
     def __init__(self, ctx):
-        super().__init__(ctx)
+        super().__init__(ctx, 'lv2', '.tar.xz')
 
-        self.name = 'lv2'
-        self.version = '1.14.0'
-        self.download_url = 'http://lv2plug.in/git/cgit.cgi/lv2.git/snapshot/lv2-%s.tar.xz' % self.version
-        self.archive_name = 'lv2-%s.tar.xz' % self.version
+    def download_url(self, version):
+        return 'http://lv2plug.in/git/cgit.cgi/lv2.git/snapshot/lv2-%s.tar.xz' % version
 
     def build(self, src_path):
         os.chmod(os.path.join(src_path, 'waf'), 0o755)
@@ -773,12 +763,10 @@ class LV2Builder(ThirdPartyBuilder):
 
 class ProtocBuilder(ThirdPartyBuilder):
     def __init__(self, ctx):
-        super().__init__(ctx)
+        super().__init__(ctx, 'protoc', '.zip')
 
-        self.name = 'protoc'
-        self.version = '3.7.1'
-        self.download_url = 'https://github.com/google/protobuf/archive/v%s.zip' % self.version
-        self.archive_name = 'protoc-%s.zip' % self.version
+    def download_url(self, version):
+        return 'https://github.com/google/protobuf/archive/v%s.zip' % version
 
     def build(self, src_path):
         self._ctx.cmd_and_log(
