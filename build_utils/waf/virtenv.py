@@ -130,7 +130,6 @@ def configure(ctx):
     pip_mgr.check_package(RUNTIME, 'sortedcontainers')
     pip_mgr.check_package(RUNTIME, 'toposort')
     pip_mgr.check_package(RUNTIME, 'urwid')
-    pip_mgr.check_package(RUNTIME, 'PyAudio')
     pip_mgr.check_package(BUILD, 'cssutils')
     pip_mgr.check_package(BUILD, 'Cython', version='0.29.6')
     pip_mgr.check_package(BUILD, 'Jinja2')
