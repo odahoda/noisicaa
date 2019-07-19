@@ -133,6 +133,7 @@ class BuildCSound(CSoundMixin, core.Command):
         subprocess.run(
             ['cmake',
              '-DBUILD_PYTHON_INTERFACE=0',
+             '-DBUILD_LINEAR_ALGEBRA_OPCODES=0',
              '-DCMAKE_INSTALL_PREFIX=' + os.getenv('VIRTUAL_ENV'),
              os.path.abspath(src_dir)
             ],
