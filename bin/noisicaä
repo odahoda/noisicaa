@@ -42,6 +42,8 @@ fi
 
 (cd $ROOTDIR && ./waf build)
 
+export NOISICAA_INSTALL_ROOT="${LIBDIR}"
+export NOISICAA_DATA_DIR="${LIBDIR}/data"
 export PYTHONPATH="$LIBDIR:$PYTHONPATH"
 export LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib
 cd $HOME

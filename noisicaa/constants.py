@@ -34,10 +34,7 @@ EXIT_RESTART_CLEAN = 18
 
 ROOT = os.path.abspath(os.path.dirname(__file__))
 
-if 'VIRTUAL_ENV' in os.environ and os.path.isdir(os.path.join(os.environ['VIRTUAL_ENV'], 'data')):
-    DATA_DIR = os.path.join(os.environ['VIRTUAL_ENV'], 'data')
-else:
-    DATA_DIR = os.path.abspath(os.path.join(__file__, '..', '..', 'data'))
+DATA_DIR = os.environ['NOISICAA_DATA_DIR']
 
 CACHE_DIR = os.path.abspath(os.path.join(os.path.expanduser('~'), '.cache', 'noisicaä'))
 

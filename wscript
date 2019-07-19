@@ -121,6 +121,7 @@ def configure(ctx):
     ctx.env.append_value('INCLUDES', [os.path.join(ctx.env.VIRTUAL_ENV, 'include')])
 
     ctx.env.OPTDIR = os.path.join(ctx.env.PREFIX, 'opt', 'noisicaa')
+    ctx.env.DATADIR = os.path.join(ctx.env.OPTDIR, 'share', 'noisicaa')
     ctx.env.LIBDIR = os.path.join(ctx.env.OPTDIR, 'lib')
     ctx.env.SITE_PACKAGES = os.path.join(ctx.env.LIBDIR, 'python%s' % ctx.env.PYTHON_VERSION, 'site-packages')
 
@@ -176,29 +177,44 @@ def build(ctx):
 
 
 def install_venv(ctx):
-    shutil.rmtree(ctx.env.OPTDIR)
+    if os.path.isdir(ctx.env.OPTDIR):
+        shutil.rmtree(ctx.env.OPTDIR)
     try:
         env_builder = venv.EnvBuilder(
             system_site_packages=False,
-            with_pip=True)
+            symlinks=False,
+            with_pip=False)
         env_builder.create(ctx.env.OPTDIR)
     except Exception as exc:
         ctx.fatal("Failed to create virtual env: %s" % exc)
 
-    pip_path = os.path.join(ctx.env.OPTDIR, 'bin', 'pip')
+    pip_path = os.path.join(ctx.env.VIRTUAL_ENV, 'bin', 'pip')
     for pkg in ctx.env.RUNTIME_PIP_PACKAGES:
-        ctx.cmd_and_log([pip_path, '--disable-pip-version-check', 'install', pkg], output=BOTH)
+        ctx.cmd_and_log(
+            [pip_path,
+             '--disable-pip-version-check',
+             'install',
+             '--no-warn-script-location',
+             '--ignore-installed',
+             '--prefix=' + ctx.env.OPTDIR,
+             pkg,
+            ],
+            output=BOTH)
 
     main_path = os.path.join(ctx.env.OPTDIR, 'bin', 'noisicaa')
     with open(main_path, 'w') as fp:
         fp.write(textwrap.dedent('''\
         #!/bin/bash
 
-        if [ -z "$VIRTUAL_ENV" ]; then
-            source "$(readlink -f "$(dirname "$0")")/activate"
-        fi
+        export NOISICAA_INSTALL_ROOT="{install_root}"
+        export NOISICAA_DATA_DIR="{data_dir}"
+        export LD_LIBRARY_PATH="${{NOISICAA_INSTALL_ROOT}}/lib"
 
-        export LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib
-        exec python -m noisicaa.editor_main "$@"
-        '''))
+        source "${{NOISICAA_INSTALL_ROOT}}/bin/activate"
+
+        exec ${{NOISICAA_INSTALL_ROOT}}/bin/python -m noisicaa.editor_main "$@"
+        ''').format(
+            install_root=ctx.env.OPTDIR,
+            data_dir=ctx.env.DATADIR
+        ))
     os.chmod(main_path, 0o755)

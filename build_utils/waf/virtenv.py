@@ -115,9 +115,9 @@ def configure(ctx):
         sys_mgr = UnsupportedDistManager(ctx)
 
     # Basic venv stuff:
-    pip_mgr.check_package(RUNTIME, 'pip', version='>=19.0')
-    pip_mgr.check_package(RUNTIME, 'setuptools', version='>=41.0')
-    pip_mgr.check_package(RUNTIME, 'wheel', version='>=0.33')
+    pip_mgr.check_package(BUILD, 'pip', version='>=19.0')
+    pip_mgr.check_package(BUILD, 'setuptools', version='>=41.0')
+    pip_mgr.check_package(BUILD, 'wheel', version='>=0.33')
 
     # Misc pip packages:
     pip_mgr.check_package(RUNTIME, 'eventfd')
