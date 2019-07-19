@@ -21,6 +21,7 @@
 # @end:license
 
 import importlib.util
+import os.path
 import py_compile
 import shutil
 
@@ -52,6 +53,10 @@ def py_module(ctx, source):
             target_node,
             compiled_node,
         ])
+
+    if ctx.get_group_name(ctx.current_group) == 'noisicaa':
+        ctx.install_files(os.path.join(ctx.env.SITE_PACKAGES, target_node.parent.relpath()), target_node)
+        ctx.install_files(os.path.join(ctx.env.SITE_PACKAGES, compiled_node.parent.relpath()), compiled_node)
 
 
 @conf

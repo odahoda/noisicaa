@@ -20,6 +20,8 @@
 #
 # @end:license
 
+import os.path
+
 from waflib.Configure import conf
 from waflib.Task import Task
 
@@ -77,13 +79,17 @@ def cy_module(ctx, source, use=None):
             ctx.bldnode,
         ],
         use=['PYEXT'] + (use if use else []),
+        install_path=None,
     )
 
+    if ctx.get_group_name(ctx.current_group) == 'noisicaa':
+        ctx.install_files(os.path.join(ctx.env.SITE_PACKAGES, mod.parent.relpath()), mod)
+
     if pxd.exists():
-        ctx.static_file(pxd)
+        ctx.static_file(pxd, install=False)
 
     if pyi.exists():
-        ctx.static_file(pyi)
+        ctx.static_file(pyi, install=False)
 
 @conf
 def cy_test(ctx, source, use=None):

@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import os.path
 import shutil
 
 from waflib.Configure import conf
@@ -34,10 +35,15 @@ def copy_file(task):
 
 
 @conf
-def static_file(ctx, source):
+def static_file(ctx, source, install=True):
     if not isinstance(source, Node):
         source = ctx.path.make_node(source)
 
+    target = source.get_bld()
+
     ctx(rule=copy_file,
         source=source,
-        target=source.get_bld())
+        target=target)
+
+    if install and ctx.get_group_name(ctx.current_group) == 'noisicaa':
+        ctx.install_files(os.path.join(ctx.env.OPTDIR, target.parent.relpath()), target)

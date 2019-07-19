@@ -115,9 +115,9 @@ def configure(ctx):
         sys_mgr = UnsupportedDistManager(ctx)
 
     # Basic venv stuff:
-    pip_mgr.check_package(BUILD, 'pip', version='>=19.0')
-    pip_mgr.check_package(BUILD, 'setuptools', version='>=41.0')
-    pip_mgr.check_package(BUILD, 'wheel', version='>=0.33')
+    pip_mgr.check_package(RUNTIME, 'pip', version='>=19.0')
+    pip_mgr.check_package(RUNTIME, 'setuptools', version='>=41.0')
+    pip_mgr.check_package(RUNTIME, 'wheel', version='>=0.33')
 
     # Misc pip packages:
     pip_mgr.check_package(RUNTIME, 'eventfd')
@@ -395,7 +395,7 @@ class PipManager(PackageManager):
         p = subprocess.run(self.__pip_cmd + ['list', '--format=json'], stdout=subprocess.PIPE, check=True)
         self._packages = {p['name']: p['version'] for p in json.loads(p.stdout)}
 
-    def install_package(self, name, version=None, source=None):
+    def get_pip_spec(self, name, version=None, source=None):
         if source:
             spec = source
         else:
@@ -404,13 +404,19 @@ class PipManager(PackageManager):
                 op, version = self.split_spec(version)
                 spec += op
                 spec += version
-        self._ctx.cmd_and_log(self.__pip_cmd + ['install', '-U', spec], output=BOTH)
+        return spec
+
+    def install_package(self, name, version=None, source=None):
+        self._ctx.cmd_and_log(self.__pip_cmd + ['install', '-U', self.get_pip_spec(name, version, source)], output=BOTH)
 
     def check_package(self, dep_type, name, version=None, source=None):
         super().check_package(
             dep_type, name, version, source,
             "Checking pip package '%s'" % name,
             self._ctx.options.download)
+
+        if dep_type == RUNTIME:
+            self._ctx.env.append_value('RUNTIME_PIP_PACKAGES', [self.get_pip_spec(name, version, source)])
 
 
 class DebManager(PackageManager):

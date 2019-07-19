@@ -72,15 +72,23 @@ class compile_py_proto(Task):
 def py_proto(ctx, source):
     assert source.endswith('.proto')
 
+    pb2_path = os.path.splitext(source)[0] + '_pb2.py'
+    pb2c_path = importlib.util.cache_from_source(pb2_path, optimization='')
+    pyi_path = os.path.splitext(source)[0] + '_pb2.pyi'
+
+    pb2_node = ctx.path.get_bld().make_node(pb2_path)
+    pb2c_node = ctx.path.get_bld().make_node(pb2c_path)
+
     task = compile_py_proto(env=ctx.env)
     task.set_inputs(ctx.path.find_resource(source))
-    pb2_path = os.path.splitext(source)[0] + '_pb2.py'
-    task.set_outputs(ctx.path.get_bld().make_node(pb2_path))
-    task.set_outputs(ctx.path.get_bld().make_node(
-        importlib.util.cache_from_source(pb2_path, optimization='')))
-    task.set_outputs(ctx.path.get_bld().make_node(
-        os.path.splitext(source)[0] + '_pb2.pyi'))
+    task.set_outputs(pb2_node)
+    task.set_outputs(pb2c_node)
+    task.set_outputs(ctx.path.get_bld().make_node(pyi_path))
     ctx.add_to_group(task)
+
+    if ctx.get_group_name(ctx.current_group) == 'noisicaa':
+        ctx.install_files(os.path.join(ctx.env.SITE_PACKAGES, pb2_node.parent.relpath()), pb2_node)
+        ctx.install_files(os.path.join(ctx.env.SITE_PACKAGES, pb2c_node.parent.relpath()), pb2c_node)
 
 
 class compile_cpp_proto(Task):

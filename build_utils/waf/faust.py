@@ -20,6 +20,8 @@
 #
 # @end:license
 
+import os.path
+
 from waflib.Configure import conf
 
 
@@ -37,14 +39,18 @@ def build_dsp(task):
 @conf
 def faust_dsp(ctx, cls_name, source='processor.dsp'):
     source = ctx.path.make_node(source)
+    json = source.change_ext('.json')
     ctx(rule=build_dsp,
         source=[source],
         target=[
             source.change_ext('.cpp'),
             source.change_ext('.h'),
-            source.change_ext('.json'),
+            json,
         ],
         cls_name=cls_name)
+
+    if ctx.get_group_name(ctx.current_group) == 'noisicaa':
+        ctx.install_files(os.path.join(ctx.env.SITE_PACKAGES, json.parent.relpath()), json)
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-%s-processor' % cls_name.lower(),

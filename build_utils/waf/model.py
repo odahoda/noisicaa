@@ -48,10 +48,15 @@ class build_model(Task):
 @conf
 def model_description(
         ctx, source, *, output='_model.py', template='noisicaa/builtin_nodes/model.tmpl.py'):
+    model_node = ctx.path.get_bld().make_node(output)
+
     task = build_model(env=ctx.env)
     task.set_inputs(ctx.path.make_node(source))
     task.set_inputs(ctx.srcnode.make_node(template))
-    task.set_outputs(ctx.path.get_bld().make_node(output))
+    task.set_outputs(model_node)
     task.set_outputs(ctx.path.get_bld().make_node(
         os.path.join(os.path.dirname(output), 'model.proto')))
     ctx.add_to_group(task)
+
+    if ctx.get_group_name(ctx.current_group) == 'noisicaa':
+        ctx.install_files(os.path.join(ctx.env.SITE_PACKAGES, model_node.parent.relpath()), model_node)

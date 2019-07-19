@@ -42,12 +42,15 @@ if 'VIRTUAL_ENV' not in os.environ:
 
 
 import email.parser
+import glob
 import os.path
 import py_compile
 import re
 import shutil
 import sys
+import textwrap
 import urllib.parse
+import venv
 
 from waflib.Configure import conf
 from waflib.Task import Task
@@ -117,6 +120,10 @@ def configure(ctx):
     ctx.env.append_value('LIBPATH', [os.path.join(ctx.env.VIRTUAL_ENV, 'lib')])
     ctx.env.append_value('INCLUDES', [os.path.join(ctx.env.VIRTUAL_ENV, 'include')])
 
+    ctx.env.OPTDIR = os.path.join(ctx.env.PREFIX, 'opt', 'noisicaa')
+    ctx.env.LIBDIR = os.path.join(ctx.env.OPTDIR, 'lib')
+    ctx.env.SITE_PACKAGES = os.path.join(ctx.env.LIBDIR, 'python%s' % ctx.env.PYTHON_VERSION, 'site-packages')
+
 
 def build(ctx):
     ctx.add_group('buildtools')
@@ -156,3 +163,42 @@ def build(ctx):
             ctx.recurse('testdata')
         finally:
             ctx.set_group(old_grp)
+
+    for lib in ['libprotobuf', 'libcsound64', 'liblilv-0', 'libsuil-0']:
+        for path in glob.glob(os.path.join(ctx.env.VIRTUAL_ENV, 'lib', lib + '.so*')):
+            if os.path.islink(path):
+                ctx.symlink_as(os.path.join(ctx.env.LIBDIR, os.path.basename(path)), os.path.basename(os.path.realpath(path)))
+            else:
+                ctx.install_files(ctx.env.LIBDIR, ctx.root.make_node(path))
+
+    if ctx.cmd == 'install':
+        ctx.add_pre_fun(install_venv)
+
+
+def install_venv(ctx):
+    shutil.rmtree(ctx.env.OPTDIR)
+    try:
+        env_builder = venv.EnvBuilder(
+            system_site_packages=False,
+            with_pip=True)
+        env_builder.create(ctx.env.OPTDIR)
+    except Exception as exc:
+        ctx.fatal("Failed to create virtual env: %s" % exc)
+
+    pip_path = os.path.join(ctx.env.OPTDIR, 'bin', 'pip')
+    for pkg in ctx.env.RUNTIME_PIP_PACKAGES:
+        ctx.cmd_and_log([pip_path, '--disable-pip-version-check', 'install', pkg], output=BOTH)
+
+    main_path = os.path.join(ctx.env.OPTDIR, 'bin', 'noisicaa')
+    with open(main_path, 'w') as fp:
+        fp.write(textwrap.dedent('''\
+        #!/bin/bash
+
+        if [ -z "$VIRTUAL_ENV" ]; then
+            source "$(readlink -f "$(dirname "$0")")/activate"
+        fi
+
+        export LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib
+        exec python -m noisicaa.editor_main "$@"
+        '''))
+    os.chmod(main_path, 0o755)

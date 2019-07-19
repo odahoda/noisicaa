@@ -34,7 +34,10 @@ EXIT_RESTART_CLEAN = 18
 
 ROOT = os.path.abspath(os.path.dirname(__file__))
 
-DATA_DIR = os.path.abspath(os.path.join(__file__, '..', '..', 'data'))
+if 'VIRTUAL_ENV' in os.environ and os.path.isdir(os.path.join(os.environ['VIRTUAL_ENV'], 'data')):
+    DATA_DIR = os.path.join(os.environ['VIRTUAL_ENV'], 'data')
+else:
+    DATA_DIR = os.path.abspath(os.path.join(__file__, '..', '..', 'data'))
 
 CACHE_DIR = os.path.abspath(os.path.join(os.path.expanduser('~'), '.cache', 'noisicaä'))
 

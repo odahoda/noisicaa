@@ -20,6 +20,8 @@
 #
 # @end:license
 
+import os.path
+
 from waflib.Configure import conf
 
 
@@ -36,6 +38,10 @@ def strip_svg(task):
 
 @conf
 def stripped_svg(ctx, source):
+    target = ctx.path.get_bld().make_node(source)
     ctx(rule=strip_svg,
         source=ctx.path.make_node(source),
-        target=ctx.path.get_bld().make_node(source))
+        target=target)
+
+    if ctx.get_group_name(ctx.current_group) == 'noisicaa':
+        ctx.install_files(os.path.join(ctx.env.OPTDIR, target.parent.relpath()), target)
