@@ -20,6 +20,21 @@
 #
 # @end:license
 
-BASEDIR=$(readlink -f "$(dirname "$0")/..")
+ROOTDIR=$(readlink -f "$(dirname "$0")/..")
 
-exec pylint --rcfile=$BASEDIR/bin/pylintrc "$@"
+if [ -z "$VIRTUAL_ENV" ]; then
+    if [ ! -f $ROOTDIR/.venv ]; then
+        echo >&2 "No virtual environment found, run './waf install_venv' first."
+        exit 1
+    fi
+
+    ACTIVATE_PATH=$(cat $ROOTDIR/.venv)/bin/activate
+    if [ ! -f "$ACTIVATE_PATH" ]; then
+        echo >&2 "$ACTIVATE_PATH: file not found."
+        exit 1
+    fi
+
+    source $ACTIVATE_PATH
+fi
+
+exec pylint --rcfile=$ROOTDIR/bin/pylintrc "$@"
