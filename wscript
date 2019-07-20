@@ -144,6 +144,7 @@ def build(ctx):
         ctx.set_group(old_grp)
 
     ctx.recurse('noisicaa')
+    ctx.recurse('misc')
     ctx.recurse('data')
 
     if ctx.env.ENABLE_TEST:

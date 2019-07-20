@@ -32,6 +32,7 @@ def build(ctx):
     ctx.static_file('edit-beats.svg')
     ctx.static_file('edit-control-points.svg')
     ctx.static_file('edit-samples.svg')
+    ctx.static_file('noisicaa-small.png')
     ctx.static_file('node-type-builtin.svg')
     ctx.static_file('node-type-ladspa.svg')
     ctx.static_file('node-type-lv2.svg')

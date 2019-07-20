@@ -46,14 +46,9 @@ def install_post_func(ctx):
 
 def install_post(ctx):
     ctx.install_runtime_pip_packages()
-    ctx.install_main()
 
 
 def uninstall_post(ctx):
-    main_path = os.path.join(ctx.env.BINDIR, 'noisicaa')
-    if os.path.exists(main_path):
-        os.unlink(main_path)
-
     if os.path.isdir(ctx.env.LIBDIR):
         shutil.rmtree(ctx.env.LIBDIR)
 
@@ -125,22 +120,3 @@ def install_runtime_pip_packages(ctx):
                     os.makedirs(os.path.dirname(dest_path))
                 shutil.copyfile(src_path, dest_path)
                 shutil.copystat(src_path, dest_path)
-
-
-@conf
-def install_main(ctx):
-    if not os.path.isdir(ctx.env.BINDIR):
-        os.makedirs(ctx.env.BINDIR)
-    main_path = os.path.join(ctx.env.BINDIR, 'noisicaa')
-    with open(main_path, 'w') as fp:
-        fp.write(textwrap.dedent('''\
-        #!/bin/bash
-
-        export NOISICAA_INSTALL_ROOT="{PREFIX}"
-        export NOISICAA_DATA_DIR="{DATADIR}"
-        export LD_LIBRARY_PATH="${{NOISICAA_INSTALL_ROOT}}/lib/noisicaa"
-        export PYTHONPATH="${{NOISICAA_INSTALL_ROOT}}/lib/noisicaa"
-
-        exec python{PYTHON_VERSION} -m noisicaa.editor_main "$@"
-        ''').format(**ctx.env))
-    os.chmod(main_path, 0o755)
