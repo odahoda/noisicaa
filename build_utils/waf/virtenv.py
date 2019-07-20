@@ -27,6 +27,7 @@ import os
 import os.path
 import shutil
 import subprocess
+import sys
 import tarfile
 import urllib.request
 import venv
@@ -323,6 +324,13 @@ def check_virtual_env(ctx):
     os.environ['LD_LIBRARY_PATH'] = os.path.join(venvdir, 'lib')
     os.environ['PATH'] = os.pathsep.join(
         [os.path.join(venvdir, 'bin')] + os.environ.get('PATH', '').split(os.pathsep))
+
+    # Make sure the site-packages from the venv are visible, even on the initial run of waf, when
+    # the venv didn't exist yet when it was started.
+    site_packages_path = os.path.join(
+        ctx.env.VIRTUAL_ENV, 'lib',
+        'python%d.%d' % (sys.version_info[0], sys.version_info[1]), 'site-packages')
+    sys.path.insert(0, site_packages_path)
 
     ctx.end_msg(venvdir)
 
