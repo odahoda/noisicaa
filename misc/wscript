@@ -1,8 +1,8 @@
-#!/bin/bash
+# -*- mode: python -*-
 
 # @begin:license
 #
-# Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
+# Copyright (c) 2015-2017, Benjamin Niemann <pink@odahoda.de>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,21 +20,14 @@
 #
 # @end:license
 
-ROOTDIR=$(readlink -f "$(dirname "$0")/..")
+import os.path
 
-if [ -z "$VIRTUAL_ENV" ]; then
-    if [ ! -f $ROOTDIR/.venv ]; then
-        echo >&2 "No virtual environment found, run './waf install_venv' first."
-        exit 1
-    fi
 
-    ACTIVATE_PATH=$(cat $ROOTDIR/.venv)/bin/activate
-    if [ ! -f "$ACTIVATE_PATH" ]; then
-        echo >&2 "$ACTIVATE_PATH: file not found."
-        exit 1
-    fi
+def build(ctx):
+    ctx.static_file('noisicaa', rewrite=True, install_to=ctx.env.BINDIR, chmod=0o755)
 
-    source $ACTIVATE_PATH
-fi
-
-exec pylint --rcfile=$ROOTDIR/bin/pylintrc "$@"
+    ctx.static_file(
+        'noisicaa.desktop',
+        rewrite=True,
+        install_to=os.path.join(ctx.env.PREFIX, 'share', 'applications'),
+    )

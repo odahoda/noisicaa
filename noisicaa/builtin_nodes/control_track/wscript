@@ -1,0 +1,64 @@
+# -*- mode: python -*-
+
+# @begin:license
+#
+# Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# @end:license
+
+def build(ctx):
+    ctx.model_description('model.desc.pb')
+
+    ctx.py_module('__init__.py')
+    ctx.py_module('node_description.py')
+    ctx.py_module('model.py')
+    ctx.py_test('model_test.py')
+    ctx.py_module('node_ui.py')
+    ctx.py_module('track_ui.py')
+    ctx.py_test('track_ui_test.py')
+    ctx.py_test('processor_test.py')
+    ctx.py_module('processor_messages.py')
+    ctx.py_proto('model.proto')
+    ctx.py_proto('processor_messages.proto')
+
+    ctx.cpp_proto('processor_messages.proto')
+
+    ctx.shlib(
+        target='noisicaa-builtin_nodes-control_track-processor_messages',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
+        source=[
+            'processor_messages.pb.cc',
+        ],
+        use=[
+            'NOISELIB',
+            'noisicaa-audioproc-public',
+        ]
+    )
+
+    ctx.shlib(
+        target='noisicaa-builtin_nodes-control_track-processor',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
+        source=[
+            'processor.cpp',
+        ],
+        use=[
+            'NOISELIB',
+            'noisicaa-audioproc-public',
+            'noisicaa-host_system',
+            'noisicaa-builtin_nodes-control_track-processor_messages',
+        ]
+    )

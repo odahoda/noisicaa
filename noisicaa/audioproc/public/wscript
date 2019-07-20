@@ -1,0 +1,87 @@
+# -*- mode: python -*-
+
+# @begin:license
+#
+# Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# @end:license
+
+def build(ctx):
+    ctx.py_module('__init__.py')
+    ctx.cy_module('time_mapper.pyx', use=['noisicaa-audioproc-public'])
+    ctx.cy_test('time_mapper_test.pyx', use=['noisicaa-audioproc-public'])
+    ctx.cy_module('musical_time.pyx', use=['noisicaa-audioproc-public'])
+    ctx.cy_test('musical_time_test.pyx', use=['noisicaa-audioproc-public'])
+    ctx.cy_module('transfer_function.pyx', use=['noisicaa-audioproc-public'])
+
+    ctx.py_proto('backend_settings.proto')
+    ctx.py_proto('instrument_spec.proto')
+    ctx.py_proto('musical_time.proto')
+    ctx.py_proto('player_state.proto')
+    ctx.py_proto('plugin_state.proto')
+    ctx.py_proto('processor_message.proto')
+    ctx.py_proto('engine_notification.proto')
+    ctx.py_proto('devices.proto')
+    ctx.py_proto('control_value.proto')
+    ctx.py_proto('host_parameters.proto')
+    ctx.py_proto('project_properties.proto')
+    ctx.py_proto('node_port_properties.proto')
+    ctx.py_proto('node_parameters.proto')
+    ctx.py_proto('midi_event.proto')
+    ctx.py_proto('transfer_function.proto')
+
+    ctx.cpp_proto('backend_settings.proto')
+    ctx.cpp_proto('instrument_spec.proto')
+    ctx.cpp_proto('musical_time.proto')
+    ctx.cpp_proto('player_state.proto')
+    ctx.cpp_proto('plugin_state.proto')
+    ctx.cpp_proto('processor_message.proto')
+    ctx.cpp_proto('engine_notification.proto')
+    ctx.cpp_proto('devices.proto')
+    ctx.cpp_proto('control_value.proto')
+    ctx.cpp_proto('host_parameters.proto')
+    ctx.cpp_proto('project_properties.proto')
+    ctx.cpp_proto('node_port_properties.proto')
+    ctx.cpp_proto('node_parameters.proto')
+    ctx.cpp_proto('midi_event.proto')
+    ctx.cpp_proto('transfer_function.proto')
+
+    ctx.shlib(
+        target='noisicaa-audioproc-public',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
+        source=[
+            'backend_settings.pb.cc',
+            'control_value.pb.cc',
+            'devices.pb.cc',
+            'engine_notification.pb.cc',
+            'host_parameters.pb.cc',
+            'instrument_spec.pb.cc',
+            'midi_event.pb.cc',
+            'musical_time.cpp',
+            'musical_time.pb.cc',
+            'node_parameters.pb.cc',
+            'node_port_properties.pb.cc',
+            'player_state.pb.cc',
+            'plugin_state.pb.cc',
+            'processor_message.pb.cc',
+            'project_properties.pb.cc',
+            'time_mapper.cpp',
+            'transfer_function.cpp',
+            'transfer_function.pb.cc',
+        ],
+        use=['NOISELIB', 'PROTOBUF', 'noisicaa-core'],
+    )

@@ -1,0 +1,135 @@
+# -*- mode: python -*-
+
+# @begin:license
+#
+# Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# @end:license
+
+def build(ctx):
+    ctx.py_module('__init__.py')
+    ctx.cy_module('backend.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.py_test('backend_test.py')
+    ctx.cy_module('engine.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.py_test('engine_test.py')
+    ctx.py_test('engine_perftest.py')
+    ctx.py_module('graph.py')
+    ctx.py_module('plugin_host_process.py')
+    ctx.py_test('plugin_host_process_test.py')
+    ctx.py_proto('plugin_host.proto')
+    ctx.py_proto('processor_plugin.proto')
+    ctx.cy_module('spec.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.cy_test('spec_test.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.cy_module('buffer_arena.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.cy_module('buffers.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.cy_test('buffers_test.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.cy_module('control_value.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.cy_module('processor.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.py_test('processor_test.py')
+    ctx.py_test('processor_csound_test.py')
+    ctx.py_test('processor_plugin_test.py')
+    ctx.py_test('processor_sound_file_test.py')
+    ctx.cy_module('block_context.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.cy_module('message_queue.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.cy_module('plugin_host.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.py_test('plugin_host_test.py')
+    ctx.py_test('plugin_host_ladspa_test.py')
+    ctx.py_test('plugin_host_lv2_test.py')
+    ctx.cy_module('plugin_ui_host.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.cy_module('realm.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.py_test('realm_test.py')
+    ctx.cy_module('player.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.cy_test('player_test.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.cy_module('profile.pyx', use=['noisicaa-audioproc-engine'])
+    ctx.cy_test('opcodes_test.pyx', use=['noisicaa-audioproc-engine'])
+
+    ctx.cpp_proto('plugin_host.proto')
+    ctx.cpp_proto('processor_plugin.proto')
+
+    ctx.shlib(
+        target='noisicaa-audioproc-engine',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
+        source=[
+            'alsa_device_manager.cpp',
+            'backend.cpp',
+            'backend_null.cpp',
+            'backend_portaudio.cpp',
+            'backend_renderer.cpp',
+            'block_context.cpp',
+            'buffer_arena.cpp',
+            'buffers.cpp',
+            'control_value.cpp',
+            'csound_util.cpp',
+            'double_buffered_state_manager.cpp',
+            'engine.cpp',
+            'fluidsynth_util.cpp',
+            'misc.cpp',
+            'message_queue.cpp',
+            'opcodes.cpp',
+            'player.cpp',
+            'plugin_host.pb.cc',
+            'plugin_host.cpp',
+            'plugin_host_lv2.cpp',
+            'plugin_host_ladspa.cpp',
+            'plugin_ui_host.cpp',
+            'plugin_ui_host_lv2.cpp',
+            'processor.cpp',
+            'processor_null.cpp',
+            'processor_faust.cpp',
+            'processor_csound_base.cpp',
+            'processor_csound.cpp',
+            'processor_plugin.cpp',
+            'processor_plugin.pb.cc',
+            'processor_sound_file.cpp',
+            'profile.cpp',
+            'realtime.cpp',
+            'spec.cpp',
+            'realm.cpp',
+        ],
+        use=[
+            'noisicaa-core',
+            'noisicaa-host_system',
+            'noisicaa-lv2',
+            'noisicaa-node_db',
+            'noisicaa-audioproc-public',
+            'noisicaa-builtin_nodes-processors',
+            'rtcheck',
+            'LILV',
+            'CSOUND',
+            'FLUIDSYNTH',
+            'SNDFILE',
+            'AVUTIL',
+            'SWRESAMPLE',
+            'PROTOBUF',
+            'PORTAUDIO',
+            'SUIL',
+            'GTK2',
+            'PROFILER',
+        ],
+    )
+
+    ctx.shlib(
+        target='rtcheck',
+        source='rtcheck.c',
+    )
+
+    ctx.shlib(
+        target='rtcheck_preload',
+        source='rtcheck_preload.c',
+        lib=['c', 'dl'],
+        use='rtcheck',
+    )

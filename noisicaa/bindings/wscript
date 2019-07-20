@@ -1,4 +1,4 @@
-#!/bin/bash
+# -*- mode: python -*-
 
 # @begin:license
 #
@@ -20,31 +20,13 @@
 #
 # @end:license
 
-set -e
-
-ROOTDIR=$(readlink -f "$(dirname "$0")/..")
-LIBDIR="${ROOTDIR}/build"
-
-if [ -z "$VIRTUAL_ENV" ]; then
-    if [ ! -f $ROOTDIR/.venv ]; then
-        echo >&2 "No virtual environment found, run './waf install_venv' first."
-        exit 1
-    fi
-
-    ACTIVATE_PATH=$(cat $ROOTDIR/.venv)/bin/activate
-    if [ ! -f "$ACTIVATE_PATH" ]; then
-        echo >&2 "$ACTIVATE_PATH: file not found."
-        exit 1
-    fi
-
-    source $ACTIVATE_PATH
-fi
-
-(cd $ROOTDIR && ./waf build)
-
-export NOISICAA_INSTALL_ROOT="${LIBDIR}"
-export NOISICAA_DATA_DIR="${LIBDIR}/data"
-export PYTHONPATH="$LIBDIR:$PYTHONPATH"
-export LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib
-cd $HOME
-exec python3 -m noisicaa.editor_main "$@"
+def build(ctx):
+    ctx.py_module('__init__.py')
+    ctx.cy_module('ladspa.pyx')
+    ctx.cy_test('ladspa_test.pyx')
+    ctx.cy_module('lilv.pyx', use=['LILV'])
+    ctx.cy_test('lilv_test.pyx', use=['LILV'])
+    ctx.cy_module('sndfile.pyx', use=['SNDFILE'])
+    ctx.py_test('sndfile_test.py')
+    ctx.cy_module('sratom.pyx', use=['SRATOM'])
+    ctx.py_test('sratom_test.py')

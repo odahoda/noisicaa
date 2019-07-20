@@ -1,4 +1,4 @@
-#!/bin/bash
+# -*- mode: python -*-
 
 # @begin:license
 #
@@ -20,31 +20,30 @@
 #
 # @end:license
 
-set -e
+import os.path
 
-ROOTDIR=$(readlink -f "$(dirname "$0")/..")
-LIBDIR="${ROOTDIR}/build"
+from waflib.Configure import conf
 
-if [ -z "$VIRTUAL_ENV" ]; then
-    if [ ! -f $ROOTDIR/.venv ]; then
-        echo >&2 "No virtual environment found, run './waf install_venv' first."
-        exit 1
-    fi
 
-    ACTIVATE_PATH=$(cat $ROOTDIR/.venv)/bin/activate
-    if [ ! -f "$ACTIVATE_PATH" ]; then
-        echo >&2 "$ACTIVATE_PATH: file not found."
-        exit 1
-    fi
+def strip_svg(task):
+    ctx = task.generator.bld
+    cmd = [
+        ctx.env.PYTHON[0],
+        'build_utils/process_svg.py',
+        '-o', task.outputs[0].abspath(),
+        task.inputs[0].abspath(),
+    ]
+    return task.exec_command(cmd, cwd=ctx.top_dir, env={'PYTHONPATH': ctx.out_dir})
 
-    source $ACTIVATE_PATH
-fi
 
-(cd $ROOTDIR && ./waf build)
+@conf
+def stripped_svg(ctx, source):
+    target = ctx.path.get_bld().make_node(source)
+    ctx(rule=strip_svg,
+        source=ctx.path.make_node(source),
+        target=target)
 
-export NOISICAA_INSTALL_ROOT="${LIBDIR}"
-export NOISICAA_DATA_DIR="${LIBDIR}/data"
-export PYTHONPATH="$LIBDIR:$PYTHONPATH"
-export LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib
-cd $HOME
-exec python3 -m noisicaa.editor_main "$@"
+    if ctx.get_group_name(ctx.current_group) == 'noisicaa':
+        ctx.install_files(
+            os.path.join(ctx.env.DATADIR, target.parent.path_from(ctx.bldnode.make_node('data'))),
+            target)

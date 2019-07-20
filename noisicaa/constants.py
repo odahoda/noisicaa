@@ -34,7 +34,7 @@ EXIT_RESTART_CLEAN = 18
 
 ROOT = os.path.abspath(os.path.dirname(__file__))
 
-DATA_DIR = os.path.abspath(os.path.join(__file__, '..', '..', 'data'))
+DATA_DIR = os.environ['NOISICAA_DATA_DIR']
 
 CACHE_DIR = os.path.abspath(os.path.join(os.path.expanduser('~'), '.cache', 'noisicaä'))
 

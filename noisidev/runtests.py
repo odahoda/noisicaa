@@ -420,12 +420,17 @@ def main(argv):
         print(' '.join(subargv))
         os.execv(subargv[0], subargv)
 
+    if args.rebuild:
+        subprocess.run(['./waf', 'build'], cwd=ROOTDIR, check=True)
+
     if args.rtcheck:
         subargv = [sys.executable, '-m', 'noisidev.runtests']
         for arg, value in sorted(args.__dict__.items()):
             arg = arg.replace('_', '-')
             if arg == 'selectors':
                 continue
+            elif arg == 'rebuild':
+                subargv.append('--%s=%s' % (arg, False))
             elif arg == 'rtcheck':
                 subargv.append('--%s=%s' % (arg, False))
             elif value != parser.get_default(arg):
@@ -458,9 +463,6 @@ def main(argv):
     # Make loggers of 3rd party modules less noisy.
     for other in ['quamash']:
         logging.getLogger(other).setLevel(logging.WARNING)
-
-    if args.rebuild:
-        subprocess.run([sys.executable, 'setup.py', 'build'], cwd=ROOTDIR, check=True)
 
     tmp_dir = tempfile.mkdtemp(prefix='noisicaa-tests-')
     if not args.keep_temp:

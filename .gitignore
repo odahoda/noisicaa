@@ -8,3 +8,6 @@ __pycache__/
 /.venv
 /website/_build/
 /website/_serve/
+/.waf*
+/.lock-waf*
+/venv/

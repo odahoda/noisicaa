@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -19,32 +17,3 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # @end:license
-
-set -e
-
-ROOTDIR=$(readlink -f "$(dirname "$0")/..")
-LIBDIR="${ROOTDIR}/build"
-
-if [ -z "$VIRTUAL_ENV" ]; then
-    if [ ! -f $ROOTDIR/.venv ]; then
-        echo >&2 "No virtual environment found, run './waf install_venv' first."
-        exit 1
-    fi
-
-    ACTIVATE_PATH=$(cat $ROOTDIR/.venv)/bin/activate
-    if [ ! -f "$ACTIVATE_PATH" ]; then
-        echo >&2 "$ACTIVATE_PATH: file not found."
-        exit 1
-    fi
-
-    source $ACTIVATE_PATH
-fi
-
-(cd $ROOTDIR && ./waf build)
-
-export NOISICAA_INSTALL_ROOT="${LIBDIR}"
-export NOISICAA_DATA_DIR="${LIBDIR}/data"
-export PYTHONPATH="$LIBDIR:$PYTHONPATH"
-export LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib
-cd $HOME
-exec python3 -m noisicaa.editor_main "$@"
