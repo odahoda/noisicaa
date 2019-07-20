@@ -62,7 +62,7 @@ top = '.'
 out = 'build'
 
 def options(ctx):
-    ctx.load('virtenv', tooldir='build_utils/waf')
+    ctx.load('build_utils.waf.virtenv', tooldir='.')
     ctx.load('compiler_cxx')
     ctx.load('compiler_c')
 
@@ -80,22 +80,22 @@ def pkg_config(ctx, store, package, minver):
 def configure(ctx):
     # This one must come first, because it sets up the virtual environment where everything else
     # below should search for dependencies.
-    ctx.load('virtenv', tooldir='build_utils/waf')
+    ctx.load('build_utils.waf.virtenv', tooldir='.')
 
     ctx.load('compiler_cxx')
     ctx.load('compiler_c')
     ctx.load('python')
-    ctx.load('local_rpath', tooldir='build_utils/waf')
-    ctx.load('proto', tooldir='build_utils/waf')
-    ctx.load('python', tooldir='build_utils/waf')
-    ctx.load('cython', tooldir='build_utils/waf')
-    ctx.load('model', tooldir='build_utils/waf')
-    ctx.load('static', tooldir='build_utils/waf')
-    ctx.load('csound', tooldir='build_utils/waf')
-    ctx.load('sf2', tooldir='build_utils/waf')
-    ctx.load('plugins', tooldir='build_utils/waf')
-    ctx.load('svg', tooldir='build_utils/waf')
-    ctx.load('faust', tooldir='build_utils/waf')
+    ctx.load('build_utils.waf.local_rpath', tooldir='.')
+    ctx.load('build_utils.waf.proto', tooldir='.')
+    ctx.load('build_utils.waf.python', tooldir='.')
+    ctx.load('build_utils.waf.cython', tooldir='.')
+    ctx.load('build_utils.waf.model', tooldir='.')
+    ctx.load('build_utils.waf.static', tooldir='.')
+    ctx.load('build_utils.waf.csound', tooldir='.')
+    ctx.load('build_utils.waf.sf2', tooldir='.')
+    ctx.load('build_utils.waf.plugins', tooldir='.')
+    ctx.load('build_utils.waf.svg', tooldir='.')
+    ctx.load('build_utils.waf.faust', tooldir='.')
 
     ctx.check_python_version(minver=(3, 5))
     ctx.check_python_headers(features=['pyext'])
