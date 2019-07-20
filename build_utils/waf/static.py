@@ -46,4 +46,6 @@ def static_file(ctx, source, install=True):
         target=target)
 
     if install and ctx.get_group_name(ctx.current_group) == 'noisicaa':
-        ctx.install_files(os.path.join(ctx.env.DATADIR, target.parent.path_from(ctx.bldnode.make_node('data'))), target)
+        ctx.install_files(
+            os.path.join(ctx.env.DATADIR, target.parent.path_from(ctx.bldnode.make_node('data'))),
+            target)

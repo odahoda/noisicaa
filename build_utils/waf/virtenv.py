@@ -25,7 +25,6 @@ import json
 import operator
 import os
 import os.path
-import re
 import shutil
 import subprocess
 import tarfile
@@ -34,7 +33,6 @@ import venv
 import zipfile
 
 from waflib.Configure import conf
-from waflib.Errors import ConfigurationError, WafError
 from waflib.Context import BOTH, STDOUT
 
 
@@ -51,12 +49,36 @@ VMTEST = 4
 
 def options(ctx):
     grp = ctx.add_option_group('Virtual Environment options')
-    grp.add_option('--venvdir', action='store', default=None, help='Where to setup the virtual environment [default: %s]' % DEFAULT_VENVDIR)
-    grp.add_option('--download', action='store_true', default=False, help='Download and install missing packages into virtual environment')
-    grp.add_option('--install-system-packages', action='store_true', default=False, help='Download and install missing system package (requires `sudo` priviledge)')
-    grp.add_option('--os-dist', default=False, help='Override the auto detected OS distribution (format "${name}:${release}", e.g. "ubuntu:18.10")')
-    grp.add_option('--enable-tests', action='store_true', default=False, help='Build test cases')
-    grp.add_option('--enable-vmtests', action='store_true', default=False, help='Build VM test cases (implies --enable-test)')
+    grp.add_option(
+        '--venvdir',
+        action='store',
+        default=None,
+        help='Where to setup the virtual environment [default: %s]' % DEFAULT_VENVDIR)
+    grp.add_option(
+        '--download',
+        action='store_true',
+        default=False,
+        help='Download and install missing packages into virtual environment')
+    grp.add_option(
+        '--install-system-packages',
+        action='store_true',
+        default=False,
+        help='Download and install missing system package (requires `sudo` priviledge)')
+    grp.add_option(
+        '--os-dist',
+        default=False,
+        help=('Override the auto detected OS distribution (format "${name}:${release}",'
+              ' e.g. "ubuntu:18.10")'))
+    grp.add_option(
+        '--enable-tests',
+        action='store_true',
+        default=False,
+        help='Build test cases')
+    grp.add_option(
+        '--enable-vmtests',
+        action='store_true',
+        default=False,
+        help='Build VM test cases (implies --enable-test)')
 
 
 def configure(ctx):
@@ -75,10 +97,11 @@ def configure(ctx):
     ctx.find_program('lsb_release')
 
     if ctx.options.install_system_packages:
-        # Prefer x11-ssh-askpass over the default ssh-askpass. The latter might point to ksshaskpass,
-        # which might not play well with sudo
+        # Prefer x11-ssh-askpass over the default ssh-askpass. The latter might point to
+        # ksshaskpass, which might not play well with sudo
         # (https://bugs.launchpad.net/ubuntu/+source/ksshaskpass/+bug/1728696).
-        ctx.find_program('x11-ssh-askpass', var='SSH_ASKPASS', mandatory=False, path_list='/usr/lib/ssh')
+        ctx.find_program(
+            'x11-ssh-askpass', var='SSH_ASKPASS', mandatory=False, path_list='/usr/lib/ssh')
         if not ctx.env.SSH_ASKPASS:
             ctx.find_program('ssh-askpass', var='SSH_ASKPASS', mandatory=False)
 
@@ -113,6 +136,9 @@ def configure(ctx):
         if ctx.options.install_system_packages:
             ctx.fatal("Installing system packages is not supported for distribution '%s'" % os_dist)
         sys_mgr = UnsupportedDistManager(ctx)
+
+    # Yes, some of these lines are very long, but let's stay consistent.
+    # pylint: disable=line-too-long
 
     # Basic venv stuff:
     pip_mgr.check_package(BUILD, 'pip', version='>=19.0')
@@ -245,7 +271,7 @@ def configure(ctx):
     pip_mgr.check_package(VMTEST, 'python-xlib')
     sys_mgr.check_package(VMTEST, 'virtualbox')
 
-
+    # pylint: enable=line-too-long
 
 @conf
 def check_virtual_env(ctx):
@@ -273,7 +299,7 @@ def check_virtual_env(ctx):
                 system_site_packages=False,
                 with_pip=True)
             env_builder.create(venvdir)
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             shutil.rmtree(venvdir)
             ctx.fatal("Failed to create virtual env: %s" % exc)
         ctx.to_log("  ok.")
@@ -290,11 +316,13 @@ def check_virtual_env(ctx):
         ctx.to_log("  ok.")
 
     ctx.env.VIRTUAL_ENV = venvdir
-    ctx.environ['PATH'] = os.pathsep.join([os.path.join(venvdir, 'bin')] + ctx.environ.get('PATH', '').split(os.pathsep))
+    ctx.environ['PATH'] = os.pathsep.join(
+        [os.path.join(venvdir, 'bin')] + ctx.environ.get('PATH', '').split(os.pathsep))
 
     os.environ['VIRTUAL_ENV'] = venvdir
     os.environ['LD_LIBRARY_PATH'] = os.path.join(venvdir, 'lib')
-    os.environ['PATH'] = os.pathsep.join([os.path.join(venvdir, 'bin')] + os.environ.get('PATH', '').split(os.pathsep))
+    os.environ['PATH'] = os.pathsep.join(
+        [os.path.join(venvdir, 'bin')] + os.environ.get('PATH', '').split(os.pathsep))
 
     ctx.end_msg(venvdir)
 
@@ -324,7 +352,6 @@ class PackageManager(object):
         return '==', spec
 
     def check_version(self, pkg, expected_spec):
-        have = self.version(pkg)
         op, version = self.split_spec(expected_spec)
         return self.compare_versions(self.version(pkg), op, version)
 
@@ -393,7 +420,9 @@ class PipManager(PackageManager):
         return op(Version(v1), Version(v2))
 
     def update_packages(self):
-        p = subprocess.run(self.__pip_cmd + ['list', '--format=json'], stdout=subprocess.PIPE, check=True)
+        p = subprocess.run(
+            self.__pip_cmd + ['list', '--format=json'],
+            stdout=subprocess.PIPE, check=True)
         self._packages = {p['name']: p['version'] for p in json.loads(p.stdout)}
 
     def get_pip_spec(self, name, version=None, source=None):
@@ -408,7 +437,9 @@ class PipManager(PackageManager):
         return spec
 
     def install_package(self, name, version=None, source=None):
-        self._ctx.cmd_and_log(self.__pip_cmd + ['install', '-U', self.get_pip_spec(name, version, source)], output=BOTH)
+        self._ctx.cmd_and_log(
+            self.__pip_cmd + ['install', '-U', self.get_pip_spec(name, version, source)],
+            output=BOTH)
 
     def check_package(self, dep_type, name, version=None, source=None):
         super().check_package(
@@ -421,9 +452,6 @@ class PipManager(PackageManager):
 
 
 class DebManager(PackageManager):
-    def __init__(self, ctx):
-        super().__init__(ctx)
-
     def compare_versions(self, v1, op_name, v2):
         op = {
             '<=': 'le',
@@ -437,7 +465,9 @@ class DebManager(PackageManager):
         return p.returncode == 0
 
     def update_packages(self):
-        p = subprocess.run(['/usr/bin/dpkg-query', '--show', '--showformat', '${Package}\t${Version}\n'], stdout=subprocess.PIPE, check=True)
+        p = subprocess.run(
+            ['/usr/bin/dpkg-query', '--show', '--showformat', '${Package}\t${Version}\n'],
+            stdout=subprocess.PIPE, check=True)
 
         self._packages.clear()
         for l in p.stdout.splitlines():
@@ -465,7 +495,16 @@ class DebManager(PackageManager):
 
 
 class UnsupportedDistManager(PackageManager):
-    def check_package(self, dep_type, name, version=None):
+    def compare_versions(self, v1, op, v2):
+        raise RuntimeError
+
+    def update_packages(self):
+        raise RuntimeError
+
+    def install_package(self, name, version=None, source=None):
+        raise RuntimeError
+
+    def check_package(self, dep_type, name, version=None, source=None):
         pass
 
 
@@ -548,7 +587,7 @@ class ThirdPartyBuilder(object):
             os.rename(os.path.join(os.path.dirname(archive_path), base_dir), target_path)
 
         else:
-            self._ctx.fatal("Unsupported archive type %s" % ext)
+            self._ctx.fatal("Unsupported archive %s" % archive_path)
 
     def build(self, src_path):
         raise NotImplementedError

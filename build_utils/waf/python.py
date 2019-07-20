@@ -55,8 +55,10 @@ def py_module(ctx, source):
         ])
 
     if ctx.get_group_name(ctx.current_group) == 'noisicaa':
-        ctx.install_files(os.path.join(ctx.env.LIBDIR, target_node.parent.relpath()), target_node)
-        ctx.install_files(os.path.join(ctx.env.LIBDIR, compiled_node.parent.relpath()), compiled_node)
+        ctx.install_files(
+            os.path.join(ctx.env.LIBDIR, target_node.parent.relpath()), target_node)
+        ctx.install_files(
+            os.path.join(ctx.env.LIBDIR, compiled_node.parent.relpath()), compiled_node)
 
 
 @conf
