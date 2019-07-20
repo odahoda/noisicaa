@@ -59,4 +59,4 @@ def model_description(
     ctx.add_to_group(task)
 
     if ctx.get_group_name(ctx.current_group) == 'noisicaa':
-        ctx.install_files(os.path.join(ctx.env.SITE_PACKAGES, model_node.parent.relpath()), model_node)
+        ctx.install_files(os.path.join(ctx.env.LIBDIR, model_node.parent.relpath()), model_node)

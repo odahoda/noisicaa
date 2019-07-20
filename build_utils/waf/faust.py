@@ -50,7 +50,7 @@ def faust_dsp(ctx, cls_name, source='processor.dsp'):
         cls_name=cls_name)
 
     if ctx.get_group_name(ctx.current_group) == 'noisicaa':
-        ctx.install_files(os.path.join(ctx.env.SITE_PACKAGES, json.parent.relpath()), json)
+        ctx.install_files(os.path.join(ctx.env.LIBDIR, json.parent.relpath()), json)
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-%s-processor' % cls_name.lower(),

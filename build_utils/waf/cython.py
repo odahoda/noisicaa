@@ -91,7 +91,7 @@ def cy_module(ctx, source, use=None):
     )
 
     if ctx.get_group_name(ctx.current_group) == 'noisicaa':
-        ctx.install_files(os.path.join(ctx.env.SITE_PACKAGES, mod.parent.relpath()), mod)
+        ctx.install_files(os.path.join(ctx.env.LIBDIR, mod.parent.relpath()), mod)
 
     if pxd.exists():
         ctx.static_file(pxd, install=False)

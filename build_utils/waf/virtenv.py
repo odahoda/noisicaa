@@ -134,6 +134,7 @@ def configure(ctx):
     pip_mgr.check_package(BUILD, 'Cython', version='0.29.6')
     pip_mgr.check_package(BUILD, 'Jinja2')
     pip_mgr.check_package(BUILD, 'PyYAML')
+    pip_mgr.check_package(BUILD, 'packaging', version='>=19.0')
     pip_mgr.check_package(DEV, 'asynctest')
     pip_mgr.check_package(DEV, 'async-generator')
     pip_mgr.check_package(DEV, 'coverage')
@@ -416,7 +417,7 @@ class PipManager(PackageManager):
             self._ctx.options.download)
 
         if dep_type == RUNTIME:
-            self._ctx.env.append_value('RUNTIME_PIP_PACKAGES', [self.get_pip_spec(name, version, source)])
+            self._ctx.env.append_value('RUNTIME_PIP_PACKAGES', [name])
 
 
 class DebManager(PackageManager):

@@ -87,8 +87,8 @@ def py_proto(ctx, source):
     ctx.add_to_group(task)
 
     if ctx.get_group_name(ctx.current_group) == 'noisicaa':
-        ctx.install_files(os.path.join(ctx.env.SITE_PACKAGES, pb2_node.parent.relpath()), pb2_node)
-        ctx.install_files(os.path.join(ctx.env.SITE_PACKAGES, pb2c_node.parent.relpath()), pb2c_node)
+        ctx.install_files(os.path.join(ctx.env.LIBDIR, pb2_node.parent.relpath()), pb2_node)
+        ctx.install_files(os.path.join(ctx.env.LIBDIR, pb2c_node.parent.relpath()), pb2c_node)
 
 
 class compile_cpp_proto(Task):

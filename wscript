@@ -20,8 +20,13 @@
 #
 # @end:license
 
+import glob
 import os
+import os.path
 import sys
+
+from waflib.Configure import conf
+
 
 if sys.version_info < (3, 5):
     sys.stderr.write("At least python V3.5 required.\n")
@@ -35,28 +40,11 @@ if 'VIRTUAL_ENV' not in os.environ:
         if os.path.isfile(py_path):
             os.environ['VIRTUAL_ENV'] = venv_path
             os.environ['LD_LIBRARY_PATH'] = os.path.join(venv_path, 'lib')
-            os.environ['PATH'] = os.pathsep.join([os.path.join(venv_path, 'bin')] + os.environ.get('PATH', '').split(os.pathsep))
+            os.environ['PATH'] = os.pathsep.join(
+                [os.path.join(venv_path, 'bin')] + os.environ.get('PATH', '').split(os.pathsep))
             argv = [py_path] + sys.argv
             os.execv(argv[0], argv)
 
-
-
-import email.parser
-import glob
-import os.path
-import py_compile
-import re
-import shutil
-import sys
-import textwrap
-import urllib.parse
-import venv
-
-from waflib.Configure import conf
-from waflib.Task import Task
-from waflib.Context import BOTH, STDOUT
-from waflib.Errors import WafError
-from waflib.Logs import make_logger
 
 top = '.'
 out = 'build'
@@ -85,6 +73,7 @@ def configure(ctx):
     ctx.load('compiler_cxx')
     ctx.load('compiler_c')
     ctx.load('python')
+    ctx.load('build_utils.waf.install', tooldir='.')
     ctx.load('build_utils.waf.local_rpath', tooldir='.')
     ctx.load('build_utils.waf.proto', tooldir='.')
     ctx.load('build_utils.waf.python', tooldir='.')
@@ -120,10 +109,8 @@ def configure(ctx):
     ctx.env.append_value('LIBPATH', [os.path.join(ctx.env.VIRTUAL_ENV, 'lib')])
     ctx.env.append_value('INCLUDES', [os.path.join(ctx.env.VIRTUAL_ENV, 'include')])
 
-    ctx.env.OPTDIR = os.path.join(ctx.env.PREFIX, 'opt', 'noisicaa')
-    ctx.env.DATADIR = os.path.join(ctx.env.OPTDIR, 'share', 'noisicaa')
-    ctx.env.LIBDIR = os.path.join(ctx.env.OPTDIR, 'lib')
-    ctx.env.SITE_PACKAGES = os.path.join(ctx.env.LIBDIR, 'python%s' % ctx.env.PYTHON_VERSION, 'site-packages')
+    ctx.env.DATADIR = os.path.join(ctx.env.PREFIX, 'share', 'noisicaa')
+    ctx.env.LIBDIR = os.path.join(ctx.env.PREFIX, 'lib', 'noisicaa')
 
 
 def build(ctx):
@@ -143,8 +130,7 @@ def build(ctx):
         export_lib=[
             'pthread',
         ],
-        use=[],
-    )
+        use=[])
 
     old_grp = ctx.current_group
     ctx.set_group('buildtools')
@@ -168,53 +154,12 @@ def build(ctx):
     for lib in ['libprotobuf', 'libcsound64', 'liblilv-0', 'libsuil-0']:
         for path in glob.glob(os.path.join(ctx.env.VIRTUAL_ENV, 'lib', lib + '.so*')):
             if os.path.islink(path):
-                ctx.symlink_as(os.path.join(ctx.env.LIBDIR, os.path.basename(path)), os.path.basename(os.path.realpath(path)))
+                ctx.symlink_as(
+                    os.path.join(ctx.env.LIBDIR, os.path.basename(path)),
+                    os.path.basename(os.path.realpath(path)))
             else:
-                ctx.install_files(ctx.env.LIBDIR, ctx.root.make_node(path))
+                ctx.install_files(
+                    ctx.env.LIBDIR,
+                    ctx.root.make_node(path))
 
-    if ctx.cmd == 'install':
-        ctx.add_pre_fun(install_venv)
-
-
-def install_venv(ctx):
-    if os.path.isdir(ctx.env.OPTDIR):
-        shutil.rmtree(ctx.env.OPTDIR)
-    try:
-        env_builder = venv.EnvBuilder(
-            system_site_packages=False,
-            symlinks=False,
-            with_pip=False)
-        env_builder.create(ctx.env.OPTDIR)
-    except Exception as exc:
-        ctx.fatal("Failed to create virtual env: %s" % exc)
-
-    pip_path = os.path.join(ctx.env.VIRTUAL_ENV, 'bin', 'pip')
-    for pkg in ctx.env.RUNTIME_PIP_PACKAGES:
-        ctx.cmd_and_log(
-            [pip_path,
-             '--disable-pip-version-check',
-             'install',
-             '--no-warn-script-location',
-             '--ignore-installed',
-             '--prefix=' + ctx.env.OPTDIR,
-             pkg,
-            ],
-            output=BOTH)
-
-    main_path = os.path.join(ctx.env.OPTDIR, 'bin', 'noisicaa')
-    with open(main_path, 'w') as fp:
-        fp.write(textwrap.dedent('''\
-        #!/bin/bash
-
-        export NOISICAA_INSTALL_ROOT="{install_root}"
-        export NOISICAA_DATA_DIR="{data_dir}"
-        export LD_LIBRARY_PATH="${{NOISICAA_INSTALL_ROOT}}/lib"
-
-        source "${{NOISICAA_INSTALL_ROOT}}/bin/activate"
-
-        exec ${{NOISICAA_INSTALL_ROOT}}/bin/python -m noisicaa.editor_main "$@"
-        ''').format(
-            install_root=ctx.env.OPTDIR,
-            data_dir=ctx.env.DATADIR
-        ))
-    os.chmod(main_path, 0o755)
+    ctx.install_post_func()
