@@ -30,12 +30,22 @@ from waflib.Node import Node
 def copy_file(task):
     assert len(task.inputs) == 1
     assert len(task.outputs) == 1
-    shutil.copyfile(task.inputs[0].abspath(), task.outputs[0].abspath())
+
+    if task.generator.rewrite:
+        with open(task.inputs[0].abspath(), 'r') as fp:
+            contents = fp.read()
+
+        contents = contents.format(**task.generator.bld.env)
+
+        with open(task.outputs[0].abspath(), 'w') as fp:
+            fp.write(contents)
+    else:
+        shutil.copyfile(task.inputs[0].abspath(), task.outputs[0].abspath())
     shutil.copymode(task.inputs[0].abspath(), task.outputs[0].abspath())
 
 
 @conf
-def static_file(ctx, source, install=True):
+def static_file(ctx, source, install=None, install_to=None, rewrite=False, chmod=0o644):
     if not isinstance(source, Node):
         source = ctx.path.make_node(source)
 
@@ -43,9 +53,15 @@ def static_file(ctx, source, install=True):
 
     ctx(rule=copy_file,
         source=source,
-        target=target)
+        target=target,
+        rewrite=rewrite)
 
-    if install and ctx.get_group_name(ctx.current_group) == 'noisicaa':
-        ctx.install_files(
-            os.path.join(ctx.env.DATADIR, target.parent.path_from(ctx.bldnode.make_node('data'))),
-            target)
+    if install is None:
+        install = (ctx.get_group_name(ctx.current_group) == 'noisicaa')
+
+    if install:
+        if install_to is None:
+            install_to = os.path.join(
+                ctx.env.DATADIR, target.parent.path_from(ctx.bldnode.make_node('data')))
+
+        ctx.install_files(install_to, target, chmod=chmod)
