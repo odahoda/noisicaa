@@ -22,6 +22,8 @@
 
 import os.path
 
+import Cython.Build.Dependencies
+
 from waflib.Configure import conf
 from waflib.Task import Task
 
@@ -31,15 +33,21 @@ def configure(ctx):
 
 
 class compile_cy_cmodule(Task):
-    # def scan(self):
-    #     ctx = self.generator.bld
+    def scan(self):
+        ctx = self.generator.bld
 
-    #     deps = []
-    #     for line in self.inputs[0].read().splitlines():
-    #         m = re.match(r'import\s+"([^"]*)"\s*;', line)
-    #         if m:
-    #             deps.append(ctx.srcnode.find_resource(m.group(1)))
-    #     return (deps, None)
+        deps = []
+
+        venv = ctx.root.make_node(ctx.env.VIRTUAL_ENV)
+        tree = Cython.Build.Dependencies.create_dependency_tree()
+        for dep_path in tree.immediate_dependencies(self.inputs[0].abspath()):
+            dep_path = ctx.root.find_resource(os.path.join(ctx.top_dir, dep_path))
+            if dep_path.is_child_of(venv):
+                # Ignoring dependencies on packages installed in venv.
+                continue
+            deps.append(dep_path)
+
+        return (deps, None)
 
     def run(self):
         ctx = self.generator.bld
