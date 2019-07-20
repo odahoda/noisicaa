@@ -6,14 +6,14 @@ available, so the following instructions only work for myself.
 # Install odasite
 
 ```bash
-pip install -e ~/projects/odasite
+venv/bin/pip install -e ~/projects/odasite
 ```
 
 # Editing
 
 ```bash
 cd website/
-odasite serve
+../venv/bin/python -m odasite serve
 ```
 
 View website at http://localhost:8000/
@@ -21,6 +21,6 @@ View website at http://localhost:8000/
 # Upload
 
 ```bash
-odasite remote-diff  # Review changes
-odasite upload
+../venv/bin/python -m odasite remote-diff  # Review changes
+../venv/bin/python -m odasite upload
 ```
