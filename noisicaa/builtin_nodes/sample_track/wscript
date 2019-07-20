@@ -40,6 +40,7 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-sample_track-processor_messages',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
             'processor_messages.pb.cc',
         ],
@@ -51,6 +52,7 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-sample_track-processor',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
             'processor.cpp',
         ],

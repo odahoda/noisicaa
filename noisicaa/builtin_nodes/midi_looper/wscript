@@ -38,6 +38,7 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-midi_looper-processor_messages',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
             'processor.pb.cc',
         ],
@@ -49,6 +50,7 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-midi_looper-processor',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
             'processor.cpp',
         ],

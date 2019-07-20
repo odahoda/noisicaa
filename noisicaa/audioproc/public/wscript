@@ -62,6 +62,7 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-audioproc-public',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
             'backend_settings.pb.cc',
             'control_value.pb.cc',

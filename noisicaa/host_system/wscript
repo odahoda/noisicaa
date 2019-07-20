@@ -26,6 +26,7 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-host_system',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
             'host_system.cpp',
             'host_system_lv2.cpp',

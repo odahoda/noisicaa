@@ -38,6 +38,7 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-lv2',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
             'urid_mapper.cpp',
             'feature_manager.cpp',

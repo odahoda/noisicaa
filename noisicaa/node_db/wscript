@@ -37,6 +37,7 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-node_db',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
             'node_description.pb.cc',
         ],

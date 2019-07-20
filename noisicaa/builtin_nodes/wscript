@@ -32,6 +32,7 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-processor_message_registry',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source='processor_message_registry.pb.cc',
         use=[
             'NOISELIB',
@@ -48,6 +49,7 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-processors',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source='processor_registry.cpp',
         use=[
             'NOISELIB',

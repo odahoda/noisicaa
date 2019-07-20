@@ -38,6 +38,7 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-metronome-processor',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
             'processor.cpp',
             'processor.pb.cc',

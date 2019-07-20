@@ -36,6 +36,7 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-midi_monitor-processor',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
             'processor.cpp',
         ],

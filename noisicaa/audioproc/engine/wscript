@@ -62,6 +62,7 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-audioproc-engine',
+        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
             'alsa_device_manager.cpp',
             'backend.cpp',

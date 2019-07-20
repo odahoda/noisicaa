@@ -103,8 +103,10 @@ def configure(ctx):
     ctx.pkg_config('PROFILER', 'libprofiler', '2.5')
 
     ctx.env.LIB_CSOUND = ['csound64']
+    ctx.env.CFLAGS_CSOUND = ['-DHAVE_PTHREAD_SPIN_LOCK']
+    ctx.env.CXXFLAGS_CSOUND = ['-DHAVE_PTHREAD_SPIN_LOCK']
 
-    ctx.env.append_value('CXXFLAGS', ['-g', '-O2', '-std=c++11'])
+    ctx.env.append_value('CXXFLAGS', ['-g', '-O2', '-std=c++11', '-Wall', '-pedantic'])
     ctx.env.append_value('CFLAGS', ['-g', '-O2'])
     ctx.env.append_value('LIBPATH', [os.path.join(ctx.env.VIRTUAL_ENV, 'lib')])
     ctx.env.append_value('INCLUDES', [os.path.join(ctx.env.VIRTUAL_ENV, 'include')])
