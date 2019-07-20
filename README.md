@@ -60,6 +60,6 @@ You can either run it from the build directory:
 
     bin/noisicaä
 
-Or install it to `/usr/local`.
+Or install it to `/usr/local`:
 
     sudo ./waf install

@@ -17,8 +17,7 @@ distribution, build noisicaä from source and then run the test suite.
 Before you can run test vmtests, you might have to install some additional packages:
 
 ```bash
-pip install $(./listdeps --pip --vmtests)
-sudo apt install $(./listdeps --system --vmtests)
+./waf configure --enable-vmtests --download --install-system-packages
 ```
 
 The VMs are stored in a `vmtests` directory. That directory will contain some large files, so if you
@@ -34,7 +33,7 @@ ln -s /path/to/vmtests vmtests
 ## Running the tests
 
 ```bash
-python -m noisidev.runvmtests
+venv/bin/python -m noisidev.runvmtests
 ```
 
 * Each distribution runs in a separate VM.
@@ -44,7 +43,7 @@ python -m noisidev.runvmtests
 * When no argument is given, tests for all supported distributions are run. You can restrict the
   tests by listing the desired distributions as arguments:
 ```bash
-python -m noisidev.runvmtests ubuntu-16.04
+venv/bin/python -m noisidev.runvmtests ubuntu-16.04
 ```
 
 * Once a the distribution has been installed in a VM, a snapshot called 'clean' is created. On
@@ -59,7 +58,7 @@ If inspecting the output is not sufficient to pin down the problem, you can rest
 state as it was after the test finished:
 
 ```bash
-python -m noisidev.runvmtests --just-start $DISTNAME
+venv/bin/python -m noisidev.runvmtests --just-start $DISTNAME
 ```
 
 Login as user `testuser` with passwork `123`, change into the `noiscaa` directory and active the
@@ -67,5 +66,4 @@ virtuenenv:
 
 ``` bash
 cd noisicaa/
-. ENV/bin/activate
 ```
