@@ -66,6 +66,8 @@ sys.path.insert(0, LIBDIR)
 # Ensure that future imports from noisidev come from LIBDIR.
 sys.modules.pop('noisidev')
 
+os.environ['NOISICAA_DATA_DIR'] = os.path.join(LIBDIR, 'data')
+
 # Set path to locally built 3rdparty libraries.
 os.environ['LD_LIBRARY_PATH'] = os.path.join(os.getenv('VIRTUAL_ENV'), 'lib')
 
