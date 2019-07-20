@@ -112,6 +112,8 @@ def configure(ctx):
     ctx.env.DATADIR = os.path.join(ctx.env.PREFIX, 'share', 'noisicaa')
     ctx.env.LIBDIR = os.path.join(ctx.env.PREFIX, 'lib', 'noisicaa')
 
+    ctx.write_config_header('config.h')
+
 
 def build(ctx):
     ctx.add_group('buildtools')
