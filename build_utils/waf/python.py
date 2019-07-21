@@ -68,6 +68,12 @@ def py_module(ctx, source):
 class run_py_test(Task):
     always_run = True
 
+    def __init__(self, *, env, timeout=None):
+        super().__init__(env=env)
+
+        self.__timeout = timeout or 10
+        assert self.__timeout > 0
+
     def __str__(self):
         return self.inputs[0].relpath()
 
@@ -87,11 +93,14 @@ class run_py_test(Task):
             '--display=off',
             mod_name,
         ]
-        return self.exec_command(cmd, cwd=ctx.out_dir)
+        return self.exec_command(
+            cmd,
+            cwd=ctx.out_dir,
+            timeout=self.__timeout)
 
 
 @conf
-def py_test(ctx, source):
+def py_test(ctx, source, timeout=None):
     if not ctx.env.ENABLE_TEST:
         return
 
@@ -100,6 +109,6 @@ def py_test(ctx, source):
 
     with ctx.group(ctx.GRP_RUN_TESTS):
         if ctx.cmd == 'test':
-            task = run_py_test(env=ctx.env)
+            task = run_py_test(env=ctx.env, timeout=timeout)
             task.set_inputs(target)
             ctx.add_to_group(task)
