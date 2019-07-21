@@ -33,6 +33,7 @@ import sys
 import textwrap
 import unittest
 
+import coverage
 import xunitparser
 
 from waflib.Configure import conf
@@ -46,7 +47,12 @@ def options(ctx):
     grp.add_option(
         '--tags',
         default='unit,lint',
-        help='Comma separated list of test classes to run (%s) [default: unit,lint]' % ', '.join(sorted(ALL_TAGS)))
+        help="Comma separated list of test classes to run (%s) [default: unit,lint]" % ', '.join(sorted(ALL_TAGS)))
+    grp.add_option(
+        '--coverage',
+        action='store_true',
+        default=False,
+        help="Enable code coverage report.")
 
 
 @conf
@@ -73,8 +79,15 @@ def test_complete(ctx):
     ctx.tests_failed = False
 
     ctx.collect_unittest_results()
-    ctx.collect_mypy_results()
-    ctx.collect_pylint_results()
+
+    if {'all', 'lint', 'mypy'} & ctx.TEST_TAGS:
+        ctx.collect_mypy_results()
+
+    if {'all', 'lint', 'pylint'} & ctx.TEST_TAGS:
+        ctx.collect_pylint_results()
+
+    if ctx.options.coverage:
+        ctx.collect_coverage_results()
 
     if ctx.tests_failed:
         ctx.fatal("Some tests failed")
@@ -174,6 +187,8 @@ def collect_unittest_results(ctx):
 
 @conf
 def collect_mypy_results(ctx):
+    Logs.info(Logs.colors.BLUE + "Collecting mypy data...")
+
     issues_found = False
 
     for result_path in glob.glob(os.path.join(ctx.TEST_RESULTS_PATH, '*', 'mypy.log')):
@@ -187,10 +202,15 @@ def collect_mypy_results(ctx):
     if issues_found:
         ctx.tests_failed = True
         Logs.info(Logs.colors.RED + "mypy found some issues")
+    else:
+        Logs.info(Logs.colors.GREEN + "No issues found")
+        Logs.info('')
 
 
 @conf
 def collect_pylint_results(ctx):
+    Logs.info(Logs.colors.BLUE + "Collecting pylint data...")
+
     issues_found = False
 
     for result_path in glob.glob(os.path.join(ctx.TEST_RESULTS_PATH, '*', 'pylint.log')):
@@ -204,3 +224,24 @@ def collect_pylint_results(ctx):
     if issues_found:
         ctx.tests_failed = True
         Logs.info(Logs.colors.RED + "pylint found some issues")
+    else:
+        Logs.info(Logs.colors.GREEN + "No issues found")
+        Logs.info('')
+
+
+@conf
+def collect_coverage_results(ctx):
+    Logs.info(Logs.colors.BLUE + "Collecting coverage data...")
+
+    cov = coverage.Coverage()
+    data = cov.get_data()
+    for result_path in glob.glob(os.path.join(ctx.TEST_RESULTS_PATH, '*', 'coverage.data')):
+        d = coverage.CoverageData()
+        d.read_file(result_path)
+        data.update(d)
+
+    report_path = os.path.join(ctx.TEST_RESULTS_PATH, 'coverage')
+    total_coverage = cov.html_report(directory=report_path)
+    Logs.info(Logs.colors.GREEN + "Total coverage: %.1f%%" % total_coverage)
+    Logs.info(Logs.colors.GREEN + "Coverage report: file://%s/index.html" % report_path)
+    Logs.info('')

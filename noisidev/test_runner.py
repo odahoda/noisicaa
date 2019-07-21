@@ -255,10 +255,14 @@ def main(argv):
         os.symlink(args.store_results, test_data_path)
         atexit.register(os.unlink, test_data_path)
 
+        coverage_path = os.path.join(test_data_path, 'coverage')
+
     else:
         test_data_path = tempfile.mkdtemp(prefix='noisicaa-tests-')
         if not args.keep_temp:
             atexit.register(shutil.rmtree, test_data_path)
+
+        coverage_path = '/tmp/noisicaa-coverage'
 
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:
@@ -287,7 +291,7 @@ def main(argv):
 
     if args.coverage:
         cov = coverage.Coverage(
-            source=['build/noisicaa', 'build/noisidev'],
+            source=['noisicaa', 'noisidev'],
             omit='*_*test.py',
             config_file=False)
         cov.set_option("run:branch", True)
@@ -373,31 +377,15 @@ def main(argv):
 
     if args.coverage:
         cov.stop()
-        cov_data = cov.get_data()
-        total_coverage = cov.html_report(
-            directory='/tmp/noisicaä.coverage')
+        total_coverage = cov.html_report(directory=coverage_path)
 
-        file_coverages = []
-        for path in sorted(cov_data.measured_files()):
-            _, statements, _, missing, _ = cov.analysis2(path)
-            try:
-                file_coverage = 1.0 - 1.0 * len(missing) / len(statements)
-            except ZeroDivisionError:
-                file_coverage = 1.0
-            file_coverages.append(
-                (os.path.relpath(
-                    path, os.path.abspath(os.path.dirname(__file__))),
-                 file_coverage))
-        file_coverages = sorted(file_coverages, key=lambda f: f[1])
-        file_coverages = filter(lambda f: f[1] < 0.8, file_coverages)
-        file_coverages = list(file_coverages)
-
-        print()
-        print("Total coverage: %.1f%%" % total_coverage)
-        for path, file_coverage in file_coverages[:5]:
-            print("% 3.1f%% %s" % (100 * file_coverage, path))
-        print("Coverage report: file:///tmp/noisicaä.coverage/index.html")
-        print()
+        if args.store_results:
+            cov.data.write_file(os.path.join(test_data_path, 'coverage.data'))
+        else:
+            print()
+            print("Total coverage: %.1f%%" % total_coverage)
+            print("Coverage report: file://%s/index.html" % coverage_path)
+            print()
 
     return 0 if result.wasSuccessful() else 1
 

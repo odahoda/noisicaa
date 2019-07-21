@@ -241,6 +241,7 @@ class run_py_test(Task):
             ctx.env.PYTHON[0],
             '-m', 'noisidev.test_runner',
             '--store-result=%s' % os.path.join(ctx.TEST_RESULTS_PATH, mod_name),
+            '--coverage=%s' % ('true' if ctx.options.coverage else 'false'),
             '--tags=%s' % ','.join(ctx.TEST_TAGS),
             mod_name,
         ]
