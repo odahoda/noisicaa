@@ -34,6 +34,11 @@ from . import project_registry
 
 
 class ProjectRegistryTest(uitest.UITestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.__registry = None
+
     async def setup_testcase(self):
         self.stubs = stubout.StubOutForTesting()
         self.addCleanup(self.stubs.SmartUnsetAll)
@@ -59,7 +64,8 @@ class ProjectRegistryTest(uitest.UITestCase):
         await self.__registry.setup()
 
     async def cleanup_testcase(self):
-        await self.__registry.cleanup()
+        if self.__registry is not None:
+            await self.__registry.cleanup()
 
     async def test_QAbstractItemModel(self):
         self.assertEqual(self.__registry.columnCount(), 1)

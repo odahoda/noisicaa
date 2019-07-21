@@ -28,6 +28,11 @@ from . import transfer_function_editor
 
 
 class TransferFunctionEditorTest(uitest.ProjectMixin, uitest.UITestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.editor = None
+
     async def setup_testcase(self):
         with self.project.apply_mutations('test'):
             self.tf = self.project._pool.create(music.TransferFunction)
@@ -38,7 +43,8 @@ class TransferFunctionEditorTest(uitest.ProjectMixin, uitest.UITestCase):
             context=self.context)
 
     async def cleanup_testcase(self):
-        self.editor.cleanup()
+        if self.editor is not None:
+            self.editor.cleanup()
 
     def render(self):
         pixmap = QtGui.QPixmap(self.editor.size())
