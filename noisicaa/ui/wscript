@@ -30,7 +30,7 @@ def build(ctx):
     ctx.py_module('device_list.py')
     ctx.py_module('dynamic_layout.py')
     ctx.py_module('editor_app.py')
-    ctx.py_test('editor_app_test.py', timeout=60)
+    ctx.py_test('editor_app_test.py')
     ctx.py_module('editor_window.py')
     ctx.py_module('flowlayout.py', mypy='loose')
     ctx.py_module('gain_slider.py')

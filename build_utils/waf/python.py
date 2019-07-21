@@ -218,7 +218,7 @@ class run_py_test(Task):
     def __init__(self, *, env, timeout=None):
         super().__init__(env=env)
 
-        self.__timeout = timeout or 10
+        self.__timeout = timeout or 60
         assert self.__timeout > 0
 
     def __str__(self):
