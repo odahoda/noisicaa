@@ -55,6 +55,16 @@ def test_init(ctx):
         shutil.rmtree(ctx.TEST_RESULTS_PATH)
 
 
+def test_complete(ctx):
+    ctx.tests_failed = False
+
+    ctx.collect_unittest_results()
+    ctx.collect_mypy_results()
+
+    if ctx.tests_failed:
+        ctx.fatal("Some tests failed")
+
+
 class TestCase(xunitparser.TestCase):
     # This override only exists, because the original has a docstring, which shows up in the
     # output...
@@ -73,9 +83,8 @@ class Parser(xunitparser.Parser):
     TC_CLASS = TestCase
 
 
-def test_complete(ctx):
-    Logs.info("Collecting test results...")
-
+@conf
+def collect_unittest_results(ctx):
     def flatten_suite(suite):
         for child in suite:
             if isinstance(child, unittest.TestSuite):
@@ -136,6 +145,24 @@ def test_complete(ctx):
         msg += " (%s)" % ", ".join(infos)
 
     if not result.wasSuccessful():
-        ctx.fatal(msg)
+        Logs.info(Logs.colors.RED + msg)
+        ctx.tests_failed = True
     else:
         Logs.info(msg)
+
+
+@conf
+def collect_mypy_results(ctx):
+    issues_found = False
+
+    for result_path in glob.glob(os.path.join(ctx.TEST_RESULTS_PATH, '*', 'mypy.log')):
+        with open(result_path, 'r') as fp:
+            mypy_log = fp.read().strip()
+            if mypy_log:
+                issues_found = True
+                sys.stderr.write(mypy_log)
+                sys.stderr.write('\n\n')
+
+    if issues_found:
+        ctx.tests_failed = True
+        Logs.info(Logs.colors.RED + "mypy found some issues")

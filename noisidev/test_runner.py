@@ -252,9 +252,7 @@ def main(argv):
         os.execve(subargv[0], subargv, env)
 
     if args.store_results:
-        if os.path.isdir(args.store_results):
-            shutil.rmtree(args.store_results)
-        os.makedirs(args.store_results)
+        os.makedirs(args.store_results, exist_ok=True)
 
         # This is a workaround. Paths relative to test_data_path are very long - too long for
         # sockets. So use a shorter path, which just symlinks to the real one.
