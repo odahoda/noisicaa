@@ -283,7 +283,7 @@ class BaseProject(_model.Project, model_base.ObjectBase):
                 except KeyError:
                     measure = down_cast(base_track.Measure, self._pool.clone_tree(src_proto))
                     measure_map[src_proto.root] = measure
-                    cast(base_track.MeasuredTrack, target.track).measure_heap.append(measure)
+                    target.track.measure_heap.append(measure)
 
                 target.measure = measure
 
@@ -363,7 +363,7 @@ class Project(BaseProject):
             assert node.project is project
 
             for c in node.list_children():
-                validate_node(node, cast(model_base.ObjectBase, c))
+                validate_node(node, c)
 
         validate_node(None, project)
 

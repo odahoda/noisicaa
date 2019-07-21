@@ -33,6 +33,7 @@ from noisicaa.value_types import (
 )
 from noisicaa.music import (
     graph,
+    Sample,
 )
 from noisicaa.builtin_nodes.score_track import model as score_track
 from noisicaa.builtin_nodes.beat_track import model as beat_track
@@ -312,7 +313,7 @@ def complex(pool, cls, **kwargs):  # pylint: disable=redefined-builtin
         dest_node=audio_out, dest_port='in:right'))
 
     smpl = pool.create(
-        sample_track.Sample, path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))
+        Sample, path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))
     project.samples.append(smpl)
 
     track3.samples.append(

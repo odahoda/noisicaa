@@ -20,6 +20,8 @@
 #
 # @end:license
 
+from typing import Any, List
+
 import contextlib
 import asyncio
 import logging
@@ -41,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 class ServerMixin(object):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)  # type: ignore
 
         self.server = None
 
@@ -56,7 +58,7 @@ class ServerMixin(object):
 
 class NodeDBMixin(object):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)  # type: ignore
 
         self.node_db = None
 
@@ -71,7 +73,7 @@ class NodeDBMixin(object):
 
 class ProcessManagerMixin(object):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)  # type: ignore
 
         self.process_manager = None
         self.process_manager_client = None
@@ -300,7 +302,7 @@ class URIDMapperMixin(ProcessManagerMixin):
 
 class NodeConnectorMixin(object):
     async def setup_testcase(self):
-        self.messages = []
+        self.messages = []  # type: List[Any]
 
     @contextlib.contextmanager
     def connector(self, node):

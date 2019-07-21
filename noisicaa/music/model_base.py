@@ -701,7 +701,7 @@ class ObjectBase(object):
             if not issubclass(cls, ObjectBase):
                 continue  # pragma: no coverage
 
-            spec = cast(Type[ObjectBase], cls).get_spec()
+            spec = cls.get_spec()
             if spec is None:
                 continue
 
@@ -923,7 +923,7 @@ class Pool(MutableMapping[int, ObjectBase]):
             if not issubclass(c, ObjectBase):
                 continue  # pragma: no coverage
 
-            spec = cast(Type[ObjectBase], c).get_spec()
+            spec = c.get_spec()
             if spec is None:
                 continue
 
@@ -1005,7 +1005,7 @@ class Pool(MutableMapping[int, ObjectBase]):
         obj.setup()
         obj.setup_complete()
         self.object_added(obj)
-        return cast(OBJECT, obj)
+        return obj
 
     def deserialize(self, pb: model_base_pb2.ObjectBase) -> 'ObjectBase':
         assert pb.id not in self.__obj_map, str(pb)

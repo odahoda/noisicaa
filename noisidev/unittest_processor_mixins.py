@@ -18,6 +18,8 @@
 #
 # @end:license
 
+from typing import List
+
 from . import unittest_mixins
 from . import unittest_engine_mixins
 from . import unittest_engine_utils

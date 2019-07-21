@@ -162,10 +162,8 @@ class Player(object):
         await self.audioproc_client.set_session_values(self.realm, values)
 
     def add_node(self, node: graph.BaseNode) -> Iterator[audioproc.ProcessorMessage]:
-        connector = cast(
-            node_connector.NodeConnector,
-            node.create_node_connector(
-                message_cb=self.send_node_message, audioproc_client=self.audioproc_client))
+        connector = node.create_node_connector(
+            message_cb=self.send_node_message, audioproc_client=self.audioproc_client)
         if connector is not None:
             yield from connector.init()
             self.__node_connectors[node.id] = connector
