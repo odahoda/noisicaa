@@ -218,6 +218,15 @@ class TestSubprocess(process_manager.SubprocessMixin, process_manager.ProcessBas
 
 
 class IPCPerfTest(unittest.AsyncTestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.proxy = None
+        self.old_governor = None
+        self.mgr = None
+        self.proc = None
+        self.stub = None
+
     async def setup_testcase(self):
         self.mgr = process_manager.ProcessManager(self.loop, collect_stats=False)
         await self.mgr.setup()
@@ -240,13 +249,19 @@ class IPCPerfTest(unittest.AsyncTestCase):
             self.cpus, 'performance', dbus_interface='com.ubuntu.IndicatorCpufreqSelector')
 
     async def cleanup_testcase(self):
-        self.proxy.SetGovernor(
-            self.cpus, self.old_governor, dbus_interface='com.ubuntu.IndicatorCpufreqSelector')
+        if self.old_governor is not None:
+            self.proxy.SetGovernor(
+                self.cpus, self.old_governor, dbus_interface='com.ubuntu.IndicatorCpufreqSelector')
 
-        await self.stub.call('quit')
-        await self.stub.close()
-        await self.proc.wait()
-        await self.mgr.cleanup()
+        if self.stub is not None:
+            await self.stub.call('quit')
+            await self.stub.close()
+
+        if self.proc is not None:
+            await self.proc.wait()
+
+        if self.mgr is not None:
+            await self.mgr.cleanup()
 
     async def run_test(self, request, num_requests, *, out=sys.stdout):
         passes = []
