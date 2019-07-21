@@ -30,5 +30,7 @@ def build(ctx):
     ctx.py_module('time_view_mixin.py')
     ctx.py_module('toolbox.py')
     ctx.py_module('tools.py')
-    ctx.py_test('track_editor_tests.py')
     ctx.py_module('view.py')
+
+    with ctx.group(ctx.GRP_BUILD_TESTS):
+        ctx.py_module('track_editor_tests.py')

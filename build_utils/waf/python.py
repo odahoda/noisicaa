@@ -54,7 +54,7 @@ def py_module(ctx, source):
             compiled_node,
         ])
 
-    if ctx.get_group_name(ctx.current_group) == 'noisicaa':
+    if ctx.in_group(ctx.GRP_BUILD_MAIN):
         ctx.install_files(
             os.path.join(ctx.env.LIBDIR, target_node.parent.relpath()), target_node)
         ctx.install_files(
@@ -66,9 +66,5 @@ def py_test(ctx, source):
     if not ctx.env.ENABLE_TEST:
         return
 
-    old_grp = ctx.current_group
-    ctx.set_group('tests')
-    try:
-        ctx.py_module(source)
-    finally:
-        ctx.set_group(old_grp)
+    with ctx.group(ctx.GRP_BUILD_TESTS):
+        target = ctx.py_module(source)

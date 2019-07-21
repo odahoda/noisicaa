@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import contextlib
 import glob
 import os
 import os.path
@@ -63,6 +64,21 @@ def pkg_config(ctx, store, package, minver):
         uselib_store=store,
         pkg_config_path=os.path.join(
             ctx.env.VIRTUAL_ENV, 'lib', 'pkgconfig'))
+
+
+@conf
+@contextlib.contextmanager
+def group(ctx, grp):
+    old_grp = ctx.current_group
+    ctx.set_group(grp)
+    try:
+        yield
+    finally:
+        ctx.set_group(old_grp)
+
+@conf
+def in_group(ctx, grp):
+    return ctx.get_group_name(ctx.current_group) == grp
 
 
 def configure(ctx):
@@ -118,11 +134,16 @@ def configure(ctx):
 
 
 def build(ctx):
-    ctx.add_group('buildtools')
-    ctx.add_group('noisicaa')
-    ctx.add_group('tests')
 
-    ctx.set_group('noisicaa')
+    ctx.GRP_BUILD_TOOLS = 'build:tools'
+    ctx.GRP_BUILD_MAIN = 'build:main'
+    ctx.GRP_BUILD_TESTS = 'build:tests'
+
+    ctx.add_group(ctx.GRP_BUILD_TOOLS)
+    ctx.add_group(ctx.GRP_BUILD_MAIN)
+    ctx.add_group(ctx.GRP_BUILD_TESTS)
+
+    ctx.set_group(ctx.GRP_BUILD_MAIN)
 
     # A dummy library with the common include dirs, etc.
     # noisicaä libraries should use this lib to pull in those settings.
@@ -136,25 +157,17 @@ def build(ctx):
         ],
         use=[])
 
-    old_grp = ctx.current_group
-    ctx.set_group('buildtools')
-    try:
+    with ctx.group(ctx.GRP_BUILD_TOOLS):
         ctx.recurse('build_utils')
-    finally:
-        ctx.set_group(old_grp)
 
     ctx.recurse('noisicaa')
     ctx.recurse('misc')
     ctx.recurse('data')
 
     if ctx.env.ENABLE_TEST:
-        old_grp = ctx.current_group
-        ctx.set_group('tests')
-        try:
+        with ctx.group(ctx.GRP_BUILD_TESTS):
             ctx.recurse('noisidev')
             ctx.recurse('testdata')
-        finally:
-            ctx.set_group(old_grp)
 
     for lib in ['libprotobuf', 'libcsound64', 'liblilv-0', 'libsuil-0']:
         for path in glob.glob(os.path.join(ctx.env.VIRTUAL_ENV, 'lib', lib + '.so*')):

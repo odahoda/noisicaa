@@ -58,5 +58,5 @@ def model_description(
         os.path.join(os.path.dirname(output), 'model.proto')))
     ctx.add_to_group(task)
 
-    if ctx.get_group_name(ctx.current_group) == 'noisicaa':
+    if ctx.in_group(ctx.GRP_BUILD_MAIN):
         ctx.install_files(os.path.join(ctx.env.LIBDIR, model_node.parent.relpath()), model_node)

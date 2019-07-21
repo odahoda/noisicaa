@@ -57,7 +57,7 @@ def static_file(ctx, source, install=None, install_to=None, rewrite=False, chmod
         rewrite=rewrite)
 
     if install is None:
-        install = (ctx.get_group_name(ctx.current_group) == 'noisicaa')
+        install = ctx.in_group(ctx.GRP_BUILD_MAIN)
 
     if install:
         if install_to is None:

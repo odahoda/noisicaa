@@ -90,7 +90,7 @@ def cy_module(ctx, source, use=None):
         install_path=None,
     )
 
-    if ctx.get_group_name(ctx.current_group) == 'noisicaa':
+    if ctx.in_group(ctx.GRP_BUILD_MAIN):
         ctx.install_files(os.path.join(ctx.env.LIBDIR, mod.parent.relpath()), mod)
 
     if pxd.exists():
@@ -104,9 +104,5 @@ def cy_test(ctx, source, use=None):
     if not ctx.env.ENABLE_TEST:
         return
 
-    old_grp = ctx.current_group
-    ctx.set_group('tests')
-    try:
+    with ctx.group(ctx.GRP_BUILD_TESTS):
         ctx.cy_module(source, use=use)
-    finally:
-        ctx.set_group(old_grp)
