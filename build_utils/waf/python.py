@@ -150,7 +150,7 @@ def py_module(ctx, source, mypy='strict'):
     if ctx.in_group(ctx.GRP_BUILD_TOOLS):
         mypy = 'disabled'
 
-    if ctx.cmd == 'test' and mypy != 'disabled':
+    if ctx.cmd == 'test' and {'all', 'lint', 'mypy'} & ctx.TEST_TAGS and mypy != 'disabled':
         with ctx.group(ctx.GRP_RUN_TESTS):
             task = run_mypy(env=ctx.env, strict=(mypy == 'strict'))
             task.set_inputs(target_node)
@@ -185,6 +185,7 @@ class run_py_test(Task):
             ctx.env.PYTHON[0],
             '-m', 'noisidev.test_runner',
             '--store-result=%s' % os.path.join(ctx.TEST_RESULTS_PATH, mod_name),
+            '--tags=%s' % ','.join(ctx.TEST_TAGS),
             mod_name,
         ]
         self.exec_command(

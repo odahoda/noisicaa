@@ -54,6 +54,7 @@ out = 'build'
 
 def options(ctx):
     ctx.load('build_utils.waf.virtenv', tooldir='.')
+    ctx.load('build_utils.waf.test', tooldir='.')
     ctx.load('compiler_cxx')
     ctx.load('compiler_c')
 

@@ -39,6 +39,16 @@ from waflib.Configure import conf
 from waflib import Logs
 
 
+ALL_TAGS = {'all', 'unit', 'lint', 'pylint', 'mypy', 'integration', 'perf'}
+
+def options(ctx):
+    grp = ctx.add_option_group('Test options')
+    grp.add_option(
+        '--tags',
+        default='unit,lint',
+        help='Comma separated list of test classes to run (%s) [default: unit,lint]' % ', '.join(sorted(ALL_TAGS)))
+
+
 @conf
 def init_test(ctx):
     if ctx.cmd == 'test':
@@ -46,6 +56,10 @@ def init_test(ctx):
             ctx.fatal("noisicaä has been configured without --enable-tests")
 
         ctx.TEST_RESULTS_PATH = os.path.join(ctx.out_dir, 'testresults')
+        ctx.TEST_TAGS = set(ctx.options.tags.split(','))
+        for tag in ctx.TEST_TAGS:
+            assert tag in ALL_TAGS
+
         ctx.add_pre_fun(test_init)
         ctx.add_post_fun(test_complete)
 
@@ -95,6 +109,9 @@ def collect_unittest_results(ctx):
     all_tests = unittest.TestSuite()
     total_time = datetime.timedelta()
     for result_path in glob.glob(os.path.join(ctx.TEST_RESULTS_PATH, '*', 'results.xml')):
+        if os.path.getsize(result_path) == 0:
+            continue
+
         try:
             ts, tr = Parser().parse(result_path)
         except Exception as exc:
@@ -104,6 +121,9 @@ def collect_unittest_results(ctx):
             all_tests.addTest(tc)
             if tc.time is not None:
                 total_time += tc.time
+
+    if not list(all_tests):
+        return
 
     sorted_tests = unittest.TestSuite()
     for tc in sorted(all_tests, key=lambda tc: (tc.classname, tc.methodname)):
