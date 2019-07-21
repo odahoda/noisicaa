@@ -21,6 +21,7 @@
 # @end:license
 
 import importlib.util
+import json
 import os
 import os.path
 import py_compile
@@ -121,10 +122,55 @@ class run_mypy(Task):
             fp.write(out)
 
 
+class run_pylint(Task):
+    always_run = True
+
+    def __str__(self):
+        return self.inputs[0].relpath()
+
+    def keyword(self):
+        return 'Lint (pylint)'
+
+    def run(self):
+        ctx = self.generator.bld
+
+        mod_path = self.inputs[0].relpath()
+        assert mod_path.endswith('.py') or mod_path.endswith('.so')
+        mod_name = '.'.join(os.path.splitext(mod_path)[0].split(os.sep))
+
+        argv = [
+            os.path.join(ctx.env.VIRTUAL_ENV, 'bin', 'pylint'),
+            '--rcfile=%s' % os.path.join(ctx.top_dir, 'bin', 'pylintrc'),
+            '--output-format=parseable',
+            '--score=no',
+            '--exit-zero',
+            mod_name,
+        ]
+
+        env = dict(os.environ)
+
+        rc, out, err = Utils.run_process(
+            argv,
+            {'cwd': ctx.out_dir,
+             'env': env,
+             'stdout': subprocess.PIPE,
+             'stderr': subprocess.PIPE})
+
+        if rc != 0:
+            sys.stderr.write(err.decode('utf-8'))
+            ctx.fatal("pylint is unhappy")
+
+        out_path = os.path.join(ctx.TEST_RESULTS_PATH, mod_name, 'pylint.log')
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        with open(out_path, 'wb') as fp:
+            fp.write(out)
+
+
 @conf
-def py_module(ctx, source, mypy='strict'):
+def py_module(ctx, source, mypy='strict', pylint='enabled'):
     assert source.endswith('.py')
     assert mypy in ('strict', 'loose', 'disabled')
+    assert pylint in ('enabled', 'disabled')
 
     source_node = ctx.path.make_node(source)
     target_node = ctx.path.get_bld().make_node(source)
@@ -149,10 +195,17 @@ def py_module(ctx, source, mypy='strict'):
 
     if ctx.in_group(ctx.GRP_BUILD_TOOLS):
         mypy = 'disabled'
+        pylint = 'disabled'
 
     if ctx.cmd == 'test' and {'all', 'lint', 'mypy'} & ctx.TEST_TAGS and mypy != 'disabled':
         with ctx.group(ctx.GRP_RUN_TESTS):
             task = run_mypy(env=ctx.env, strict=(mypy == 'strict'))
+            task.set_inputs(target_node)
+            ctx.add_to_group(task)
+
+    if ctx.cmd == 'test' and {'all', 'lint', 'pylint'} & ctx.TEST_TAGS and pylint != 'disabled':
+        with ctx.group(ctx.GRP_RUN_TESTS):
+            task = run_pylint(env=ctx.env)
             task.set_inputs(target_node)
             ctx.add_to_group(task)
 

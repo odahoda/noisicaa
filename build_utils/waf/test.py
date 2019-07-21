@@ -74,6 +74,7 @@ def test_complete(ctx):
 
     ctx.collect_unittest_results()
     ctx.collect_mypy_results()
+    ctx.collect_pylint_results()
 
     if ctx.tests_failed:
         ctx.fatal("Some tests failed")
@@ -177,12 +178,29 @@ def collect_mypy_results(ctx):
 
     for result_path in glob.glob(os.path.join(ctx.TEST_RESULTS_PATH, '*', 'mypy.log')):
         with open(result_path, 'r') as fp:
-            mypy_log = fp.read().strip()
-            if mypy_log:
+            log = fp.read().strip()
+            if log:
                 issues_found = True
-                sys.stderr.write(mypy_log)
+                sys.stderr.write(log)
                 sys.stderr.write('\n\n')
 
     if issues_found:
         ctx.tests_failed = True
         Logs.info(Logs.colors.RED + "mypy found some issues")
+
+
+@conf
+def collect_pylint_results(ctx):
+    issues_found = False
+
+    for result_path in glob.glob(os.path.join(ctx.TEST_RESULTS_PATH, '*', 'pylint.log')):
+        with open(result_path, 'r') as fp:
+            log = fp.read().strip()
+            if log:
+                issues_found = True
+                sys.stderr.write(log)
+                sys.stderr.write('\n\n')
+
+    if issues_found:
+        ctx.tests_failed = True
+        Logs.info(Logs.colors.RED + "pylint found some issues")
