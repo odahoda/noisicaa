@@ -51,10 +51,6 @@ class QtTestCase(unittest.AsyncTestCase):
 
         asyncio.set_event_loop(quamash.QEventLoop(cls.qt_app))
 
-    @classmethod
-    def tearDownClass(cls):
-        asyncio.set_event_loop(None)
-
     def setup_testcase(self):
         if not constants.TEST_OPTS.ALLOW_UI:
             raise unittest.SkipTest("QT tests disabled")

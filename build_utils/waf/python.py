@@ -90,7 +90,6 @@ class run_py_test(Task):
         cmd = [
             ctx.env.PYTHON[0],
             '-m', 'noisidev.test_runner',
-            '--display=off',
             mod_name,
         ]
         return self.exec_command(
