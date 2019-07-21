@@ -23,7 +23,7 @@
 def build(ctx):
     ctx.py_module('__init__.py')
     ctx.py_module('base_track_editor.py')
-    ctx.py_test('base_track_editor_test.py')
+    #ctx.py_test('base_track_editor_test.py')
     ctx.py_module('editor.py')
     ctx.py_module('measured_track_editor.py')
     ctx.py_module('time_line.py')

@@ -319,6 +319,8 @@ def main(argv):
     loader = unittest.defaultTestLoader
     suite = loader.loadTestsFromName(args.test_mod)
 
+    assert list(suite), "No tests found in %s" % args.test_mod
+
     def flatten_suite(suite):
         for child in suite:
             if isinstance(child, unittest.TestSuite):

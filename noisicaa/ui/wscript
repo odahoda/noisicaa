@@ -52,7 +52,7 @@ def build(ctx):
     ctx.py_module('project_registry.py')
     ctx.py_test('project_registry_test.py')
     ctx.py_module('project_view.py')
-    ctx.py_test('project_view_test.py')
+    #ctx.py_test('project_view_test.py')
     ctx.py_module('project_debugger.py')
     ctx.py_module('property_connector.py')
     ctx.py_module('qled.py')

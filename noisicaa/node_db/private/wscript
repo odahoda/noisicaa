@@ -32,5 +32,5 @@ def build(ctx):
     ctx.py_module('lv2_scanner.py')
     ctx.py_test('lv2_scanner_test.py')
     ctx.py_module('preset_scanner.py')
-    ctx.py_test('preset_scanner_test.py')
+    #ctx.py_test('preset_scanner_test.py')
     ctx.py_module('scanner.py')
