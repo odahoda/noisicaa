@@ -49,6 +49,9 @@ if 'VIRTUAL_ENV' not in os.environ or 'LD_LIBRARY_PATH' not in os.environ:
             os.execve(argv[0], argv, env)
 
 
+# Properly format command lines when using -v
+os.environ['WAF_CMD_FORMAT'] = 'string'
+
 top = '.'
 out = 'build'
 

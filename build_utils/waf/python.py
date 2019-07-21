@@ -101,12 +101,15 @@ class run_mypy(Task):
             env = dict(os.environ)
             env['MYPYPATH'] = os.path.join(ctx.top_dir, '3rdparty', 'typeshed')
 
-            rc, out, err = Utils.run_process(
-                argv,
-                {'cwd': ctx.out_dir,
-                 'env': env,
-                 'stdout': subprocess.PIPE,
-                 'stderr': subprocess.PIPE})
+            kw = {
+                'cwd': ctx.out_dir,
+                'env': env,
+                'stdout': subprocess.PIPE,
+                'stderr': subprocess.PIPE,
+            }
+
+            ctx.log_command(argv, kw)
+            rc, out, err = Utils.run_process(argv, kw)
 
         finally:
             with mypy_cache_lock:
@@ -147,14 +150,14 @@ class run_pylint(Task):
             mod_name,
         ]
 
-        env = dict(os.environ)
+        kw = {
+            'cwd': ctx.out_dir,
+            'stdout': subprocess.PIPE,
+            'stderr': subprocess.PIPE,
+        }
 
-        rc, out, err = Utils.run_process(
-            argv,
-            {'cwd': ctx.out_dir,
-             'env': env,
-             'stdout': subprocess.PIPE,
-             'stderr': subprocess.PIPE})
+        ctx.log_command(argv, kw)
+        rc, out, err = Utils.run_process(argv, kw)
 
         if rc != 0:
             sys.stderr.write(err.decode('utf-8'))
