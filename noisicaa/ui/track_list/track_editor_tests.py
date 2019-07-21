@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 import contextlib
 from fractions import Fraction
 from unittest import mock

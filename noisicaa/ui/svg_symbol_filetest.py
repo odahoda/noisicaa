@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 import os.path
 import glob
 

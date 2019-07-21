@@ -40,7 +40,8 @@ def build(ctx):
     ctx.py_module('project.py')
     ctx.py_module('project_client.py')
     ctx.py_test('project_client_test.py')
-    ctx.py_test('project_integration_test.py')
+    # mypy disabled, because it triggers https://github.com/JukkaL/mypy/issues/730
+    ctx.py_test('project_integration_test.py', mypy='disabled')
     ctx.py_test('project_test.py')
     ctx.py_module('render.py')
     ctx.py_test('render_test.py')

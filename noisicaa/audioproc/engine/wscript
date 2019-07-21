@@ -47,7 +47,7 @@ def build(ctx):
     ctx.cy_module('message_queue.pyx', use=['noisicaa-audioproc-engine'])
     ctx.cy_module('plugin_host.pyx', use=['noisicaa-audioproc-engine'])
     with ctx.group(ctx.GRP_BUILD_TESTS):
-        ctx.py_module('plugin_host_test.py')
+        ctx.py_module('plugin_host_test.py', mypy='loose')
     ctx.py_test('plugin_host_ladspa_test.py')
     ctx.py_test('plugin_host_lv2_test.py')
     ctx.cy_module('plugin_ui_host.pyx', use=['noisicaa-audioproc-engine'])

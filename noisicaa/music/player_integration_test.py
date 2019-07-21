@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# This file triggers https://github.com/JukkaL/mypy/issues/730
-# mypy: skip-file
 from typing import Any
 
 import asyncio

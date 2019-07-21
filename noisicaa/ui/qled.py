@@ -7,7 +7,6 @@
 
 # Ignore formatting of 3rd party code for now.
 # pylint: skip-file
-# mypy: skip-file
 
 from colorsys import rgb_to_hls, hls_to_rgb
 from PyQt5.QtGui import QPainter

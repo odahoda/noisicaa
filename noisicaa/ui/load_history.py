@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 import math
 from typing import List
 

@@ -27,6 +27,8 @@ def build(ctx):
     ctx.cy_module('lilv.pyx', use=['LILV'])
     ctx.cy_test('lilv_test.pyx', use=['LILV'])
     ctx.cy_module('sndfile.pyx', use=['SNDFILE'])
-    ctx.py_test('sndfile_test.py')
+    ctx.py_test('sndfile_test.py',
+                # This file triggers https://github.com/JukkaL/mypy/issues/730
+                mypy='disabled')
     ctx.cy_module('sratom.pyx', use=['SRATOM'])
     ctx.py_test('sratom_test.py')

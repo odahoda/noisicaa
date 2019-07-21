@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 import functools
 import pickle
 import uuid
