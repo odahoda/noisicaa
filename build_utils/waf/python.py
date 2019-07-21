@@ -85,8 +85,8 @@ class run_py_test(Task):
         ctx = self.generator.bld
 
         mod_path = self.inputs[0].relpath()
-        assert mod_path.endswith('.py')
-        mod_name = '.'.join(mod_path[:-3].split(os.sep))
+        assert mod_path.endswith('.py') or mod_path.endswith('.so')
+        mod_name = '.'.join(os.path.splitext(mod_path)[0].split(os.sep))
 
         cmd = [
             ctx.env.PYTHON[0],
@@ -102,16 +102,22 @@ class run_py_test(Task):
             Logs.info("Missing results.xml.")
             return 1
 
+
 @conf
-def py_test(ctx, source, timeout=None):
+def add_py_test_runner(ctx, target, timeout=None):
+    with ctx.group(ctx.GRP_RUN_TESTS):
+        if ctx.cmd == 'test':
+            task = run_py_test(env=ctx.env, timeout=timeout)
+            task.set_inputs(target)
+            ctx.add_to_group(task)
+
+
+@conf
+def py_test(ctx, source, **kwargs):
     if not ctx.env.ENABLE_TEST:
         return
 
     with ctx.group(ctx.GRP_BUILD_TESTS):
         target = ctx.py_module(source)
 
-    with ctx.group(ctx.GRP_RUN_TESTS):
-        if ctx.cmd == 'test':
-            task = run_py_test(env=ctx.env, timeout=timeout)
-            task.set_inputs(target)
-            ctx.add_to_group(task)
+    ctx.add_py_test_runner(target, **kwargs)

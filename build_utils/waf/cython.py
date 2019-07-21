@@ -99,10 +99,15 @@ def cy_module(ctx, source, use=None):
     if pyi.exists():
         ctx.static_file(pyi, install=False)
 
+    return mod
+
+
 @conf
-def cy_test(ctx, source, use=None):
+def cy_test(ctx, source, use=None, **kwargs):
     if not ctx.env.ENABLE_TEST:
         return
 
     with ctx.group(ctx.GRP_BUILD_TESTS):
-        ctx.cy_module(source, use=use)
+        target = ctx.cy_module(source, use=use)
+
+    ctx.add_py_test_runner(target, **kwargs)
