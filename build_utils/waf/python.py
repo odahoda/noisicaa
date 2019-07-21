@@ -28,6 +28,7 @@ import shutil
 
 from waflib.Configure import conf
 from waflib.Task import Task
+from waflib import Logs
 
 
 def copy_py_module(task):
@@ -90,13 +91,16 @@ class run_py_test(Task):
         cmd = [
             ctx.env.PYTHON[0],
             '-m', 'noisidev.test_runner',
+            '--store-result=%s' % os.path.join(ctx.TEST_RESULTS_PATH, mod_name),
             mod_name,
         ]
-        return self.exec_command(
+        self.exec_command(
             cmd,
             cwd=ctx.out_dir,
             timeout=self.__timeout)
-
+        if not os.path.isfile(os.path.join(ctx.TEST_RESULTS_PATH, mod_name, 'results.xml')):
+            Logs.info("Missing results.xml.")
+            return 1
 
 @conf
 def py_test(ctx, source, timeout=None):

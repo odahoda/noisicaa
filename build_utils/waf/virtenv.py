@@ -162,6 +162,7 @@ def configure(ctx):
     pip_mgr.check_package(BUILD, 'Jinja2')
     pip_mgr.check_package(BUILD, 'PyYAML')
     pip_mgr.check_package(BUILD, 'packaging', version='>=19.0')
+    pip_mgr.check_package(BUILD, 'xunitparser')
     pip_mgr.check_package(DEV, 'asynctest')
     pip_mgr.check_package(DEV, 'async-generator')
     pip_mgr.check_package(DEV, 'coverage')
@@ -169,6 +170,7 @@ def configure(ctx):
     pip_mgr.check_package(DEV, 'py-cpuinfo')
     pip_mgr.check_package(DEV, 'pyfakefs')
     pip_mgr.check_package(DEV, 'pylint', version='2.3.1')
+    pip_mgr.check_package(DEV, 'unittest-xml-reporting')
 
     # misc sys packages:
     sys_mgr.check_package(RUNTIME, 'ffmpeg')

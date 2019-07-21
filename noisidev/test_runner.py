@@ -28,6 +28,7 @@ import fnmatch
 import logging
 import os
 import os.path
+import random
 import re
 import shutil
 import subprocess
@@ -38,6 +39,7 @@ import threading
 import unittest
 
 import coverage
+import xmlrunner
 
 
 SITE_PACKAGES_DIR = os.path.join(
@@ -143,19 +145,19 @@ class DisplayManager(object):
             atexit.unregister(self.__xvfb_process.kill)
 
 
-class TestResult(unittest.TextTestResult):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+# class TestResult(unittest.TextTestResult):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
 
-        self.successes = set()
+#         self.successes = set()
 
-    def addSuccess(self, case):
-        super().addSuccess(case)
-        self.successes.add(case.id())
+#     def addSuccess(self, case):
+#         super().addSuccess(case)
+#         self.successes.add(case.id())
 
-    def addSkip(self, case, reason):
-        super().addSkip(case, reason)
-        self.successes.add(case.id())
+#     def addSkip(self, case, reason):
+#         super().addSkip(case, reason)
+#         self.successes.add(case.id())
 
 
 def main(argv):
@@ -166,6 +168,7 @@ def main(argv):
         choices=['debug', 'info', 'warning', 'error', 'critical'],
         default='critical',
         help="Minimum level for log messages written to STDERR.")
+    parser.add_argument('--store-results', default=None)
     parser.add_argument('--coverage', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--write-perf-stats', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--profile', nargs='?', type=bool_arg, const=True, default=False)
@@ -248,26 +251,46 @@ def main(argv):
         print('LD_PRELOAD=' + env['LD_PRELOAD'])
         os.execve(subargv[0], subargv, env)
 
+    if args.store_results:
+        if os.path.isdir(args.store_results):
+            shutil.rmtree(args.store_results)
+        os.makedirs(args.store_results)
+
+        # This is a workaround. Paths relative to test_data_path are very long - too long for
+        # sockets. So use a shorter path, which just symlinks to the real one.
+        test_data_path = '/tmp/noisicaa-tests-%016x' % random.getrandbits(63)
+        os.symlink(args.store_results, test_data_path)
+        atexit.register(os.unlink, test_data_path)
+
+    else:
+        test_data_path = tempfile.mkdtemp(prefix='noisicaa-tests-')
+        if not args.keep_temp:
+            atexit.register(shutil.rmtree, test_data_path)
+
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:
         root_logger.removeHandler(handler)
-    logging.basicConfig(
-        format='%(levelname)-8s:%(process)5s:%(thread)08x:%(name)s: %(message)s',
-        level={
-            'debug': logging.DEBUG,
-            'info': logging.INFO,
-            'warning': logging.WARNING,
-            'error': logging.ERROR,
-            'critical': logging.CRITICAL,
-        }[args.log_level])
+    if args.store_results:
+        logging.basicConfig(
+            format='%(levelname)-8s:%(process)5s:%(thread)08x:%(name)s: %(message)s',
+            filename=os.path.join(test_data_path, 'debug.log'),
+            filemode='w',
+            level=logging.DEBUG)
+
+    else:
+        logging.basicConfig(
+            format='%(levelname)-8s:%(process)5s:%(thread)08x:%(name)s: %(message)s',
+            level={
+                'debug': logging.DEBUG,
+                'info': logging.INFO,
+                'warning': logging.WARNING,
+                'error': logging.ERROR,
+                'critical': logging.CRITICAL,
+            }[args.log_level])
 
     # Make loggers of 3rd party modules less noisy.
     for other in ['quamash']:
         logging.getLogger(other).setLevel(logging.WARNING)
-
-    tmp_dir = tempfile.mkdtemp(prefix='noisicaa-tests-')
-    if not args.keep_temp:
-        atexit.register(shutil.rmtree, tmp_dir)
 
     if args.coverage:
         cov = coverage.Coverage(
@@ -282,7 +305,7 @@ def main(argv):
     constants.TEST_OPTS.ENABLE_PROFILER = args.profile
     constants.TEST_OPTS.PLAYBACK_BACKEND = args.playback_backend
     constants.TEST_OPTS.ALLOW_UI = (args.display != 'off')
-    constants.TEST_OPTS.TMP_DIR = tmp_dir
+    constants.TEST_OPTS.TMP_DIR = test_data_path
 
     from noisicaa import core
     core.init_pylogging()
@@ -309,12 +332,12 @@ def main(argv):
         assert tag in {'all', 'unit', 'lint', 'pylint', 'mypy', 'integration', 'perf'}
         tags_to_run.add(tag)
 
-    tests_to_run = None
-    if args.only_failed:
-        tests_to_run = set()
-        with open('/tmp/noisicaa-failed-tests.txt', 'r', encoding='utf-8') as fp:
-            for test_id in fp:
-                tests_to_run.add(test_id.strip())
+    # tests_to_run = None
+    # if args.only_failed:
+    #     tests_to_run = set()
+    #     with open('/tmp/noisicaa-failed-tests.txt', 'r', encoding='utf-8') as fp:
+    #         for test_id in fp:
+    #             tests_to_run.add(test_id.strip())
 
     flat_suite = unittest.TestSuite()
     for case in flatten_suite(suite):
@@ -322,18 +345,26 @@ def main(argv):
         if not hasattr(case, 'tags') or 'all' in tags_to_run or case.tags & tags_to_run:
             runit = True
 
-        if tests_to_run is not None and case.id() not in tests_to_run:
-            runit = False
+        # if tests_to_run is not None and case.id() not in tests_to_run:
+        #     runit = False
 
         if runit:
             flat_suite.addTest(case)
 
-    all_case_ids = set(case.id() for case in flat_suite)
+    # all_case_ids = set(case.id() for case in flat_suite)
 
-    runner = unittest.TextTestRunner(
-        resultclass=TestResult,
-        verbosity=2,
-        failfast=args.fail_fast)
+    if args.store_results:
+        runner = xmlrunner.XMLTestRunner(
+            stream=open(os.path.join(test_data_path, 'test.log'), 'w'),
+            output=open(os.path.join(test_data_path, 'results.xml'), 'wb'),
+            verbosity=2,
+            failfast=args.fail_fast)
+    else:
+        runner = unittest.TextTestRunner(
+            # resultclass=TestResult,
+            verbosity=2,
+            failfast=args.fail_fast)
+
     with DisplayManager(args.display):
         try:
             unittest.installHandler()
@@ -341,9 +372,9 @@ def main(argv):
         finally:
             unittest.removeHandler()
 
-    with open('/tmp/noisicaa-failed-tests.txt', 'w', encoding='utf-8') as fp:
-        for case_id in sorted(all_case_ids - result.successes):
-            fp.write(case_id + '\n')
+    # with open('/tmp/noisicaa-failed-tests.txt', 'w', encoding='utf-8') as fp:
+    #     for case_id in sorted(all_case_ids - result.successes):
+    #         fp.write(case_id + '\n')
 
     if args.coverage:
         cov.stop()

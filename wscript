@@ -92,6 +92,7 @@ def configure(ctx):
     ctx.load('compiler_c')
     ctx.load('python')
     ctx.load('build_utils.waf.install', tooldir='.')
+    ctx.load('build_utils.waf.test', tooldir='.')
     ctx.load('build_utils.waf.local_rpath', tooldir='.')
     ctx.load('build_utils.waf.proto', tooldir='.')
     ctx.load('build_utils.waf.python', tooldir='.')
@@ -136,8 +137,7 @@ def configure(ctx):
 
 
 def build(ctx):
-    if ctx.cmd == 'test' and not ctx.env.ENABLE_TEST:
-        ctx.fatal("noisicaä has been configured without --enable-tests")
+    ctx.init_test()
 
     ctx.GRP_BUILD_TOOLS = 'build:tools'
     ctx.GRP_BUILD_MAIN = 'build:main'
