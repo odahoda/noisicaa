@@ -21,9 +21,7 @@
 # @end:license
 
 import os.path
-import textwrap
 
-from . import unittest
 from noisicaa.audioproc import (
     MusicalTime,
     MusicalDuration,
@@ -37,10 +35,9 @@ from noisicaa.music import (
 )
 from noisicaa.builtin_nodes.score_track import model as score_track
 from noisicaa.builtin_nodes.beat_track import model as beat_track
-from noisicaa.builtin_nodes.control_track import model as control_track
 from noisicaa.builtin_nodes.sample_track import model as sample_track
 from noisicaa.builtin_nodes.instrument import model as instrument
-from noisicaa import instrument_db
+from . import unittest
 
 Note = score_track.Note
 

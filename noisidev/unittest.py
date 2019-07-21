@@ -20,16 +20,12 @@
 #
 # @end:license
 
-import asyncio
-import functools
 import inspect
 import logging
 import os.path
 import unittest
 
 import asynctest
-
-from noisicaa import constants
 
 logger = logging.getLogger(__name__)
 

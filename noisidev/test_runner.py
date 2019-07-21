@@ -22,14 +22,10 @@
 
 import argparse
 import atexit
-import contextlib
-import itertools
-import fnmatch
 import logging
 import os
 import os.path
 import random
-import re
 import shutil
 import subprocess
 import sys
@@ -138,7 +134,7 @@ class DisplayManager(object):
         logging.info("Started Xvfb server on display :%d", disp_num)
         os.environ['DISPLAY'] = ':%d' % disp_num
 
-    def __exit__(self, type, value, exc):
+    def __exit__(self, exc_type, exc_value, tb):
         if self.__xvfb_process is not None:
             self.__xvfb_process.terminate()
             self.__xvfb_process.wait()

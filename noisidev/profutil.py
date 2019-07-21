@@ -20,7 +20,6 @@
 #
 # @end:license
 
-import contextlib
 import cProfile
 import os.path
 import tempfile

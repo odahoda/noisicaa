@@ -20,9 +20,7 @@
 #
 # @end:license
 
-import asyncio
 import functools
-import inspect
 import logging
 import os.path
 import uuid
@@ -30,14 +28,12 @@ from typing import cast, Any, Dict
 
 from PyQt5 import QtWidgets
 from PyQt5 import QtCore
-import asynctest
 
 from noisicaa.constants import TEST_OPTS
 from noisicaa import runtime_settings as runtime_settings_lib
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import instrument_db
-from noisicaa import lv2
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa import editor_main_pb2
@@ -153,7 +149,7 @@ class MockProcess(core.ProcessBase):
         self.project = None
 
 
-class MockApp(ui_base.AbstractEditorApp):
+class MockApp(ui_base.AbstractEditorApp):  # pylint: disable=abstract-method
     def __init__(self):
         self.audioproc_client = None  # type: audioproc.AbstractAudioProcClient
         self.process = None  # type: core.ProcessBase

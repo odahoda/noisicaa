@@ -22,7 +22,7 @@
 
 import asyncio
 import logging
-from typing import cast, Any
+from typing import Any
 
 from noisicaa import core
 from noisicaa.core import ipc

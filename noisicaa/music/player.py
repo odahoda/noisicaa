@@ -24,7 +24,8 @@ import asyncio
 import concurrent.futures
 import logging
 import uuid
-from typing import cast, Optional, Iterator, Iterable, Dict, Tuple
+import typing
+from typing import Optional, Iterator, Iterable, Dict, Tuple
 
 from noisicaa import core
 from noisicaa.core import ipc
@@ -33,8 +34,10 @@ from noisicaa import audioproc
 from . import model_base
 from . import project as project_lib
 from . import graph
-from . import node_connector
 from . import session_value_store
+
+if typing.TYPE_CHECKING:
+    from . import node_connector
 
 logger = logging.getLogger(__name__)
 

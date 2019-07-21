@@ -21,13 +21,9 @@
 # @end:license
 
 import asyncio
-import functools
-import inspect
 import logging
-import os.path
 
 from PyQt5 import QtWidgets
-import asynctest
 import quamash
 
 from noisicaa import constants

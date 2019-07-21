@@ -121,7 +121,7 @@ class ProcessManagerMixin(object):
             finally:
                 await stub.close()
 
-        except ipc.Error as exc:
+        except ipc.Error:
             logger.info("Failed to send SHUTDOWN to %s", address)
 
     async def cleanup_testcase(self):
