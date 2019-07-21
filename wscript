@@ -27,24 +27,26 @@ import os.path
 import sys
 
 from waflib.Configure import conf
+from waflib.Build import BuildContext
 
 
 if sys.version_info < (3, 5):
     sys.stderr.write("At least python V3.5 required.\n")
     sys.exit(1)
 
-if 'VIRTUAL_ENV' not in os.environ:
+if 'VIRTUAL_ENV' not in os.environ or 'LD_LIBRARY_PATH' not in os.environ:
     venv_marker = '.venv'
     if os.path.isfile(venv_marker):
         venv_path = open(venv_marker, 'r').readline().strip()
         py_path = os.path.join(venv_path, 'bin', 'python')
         if os.path.isfile(py_path):
-            os.environ['VIRTUAL_ENV'] = venv_path
-            os.environ['LD_LIBRARY_PATH'] = os.path.join(venv_path, 'lib')
-            os.environ['PATH'] = os.pathsep.join(
+            env = dict(os.environ)
+            env['VIRTUAL_ENV'] = venv_path
+            env['LD_LIBRARY_PATH'] = os.path.join(venv_path, 'lib')
+            env['PATH'] = os.pathsep.join(
                 [os.path.join(venv_path, 'bin')] + os.environ.get('PATH', '').split(os.pathsep))
             argv = [py_path] + sys.argv
-            os.execv(argv[0], argv)
+            os.execve(argv[0], argv, env)
 
 
 top = '.'
@@ -134,14 +136,18 @@ def configure(ctx):
 
 
 def build(ctx):
+    if ctx.cmd == 'test' and not ctx.env.ENABLE_TEST:
+        ctx.fatal("noisicaä has been configured without --enable-tests")
 
     ctx.GRP_BUILD_TOOLS = 'build:tools'
     ctx.GRP_BUILD_MAIN = 'build:main'
     ctx.GRP_BUILD_TESTS = 'build:tests'
+    ctx.GRP_RUN_TESTS = 'run:tests'
 
     ctx.add_group(ctx.GRP_BUILD_TOOLS)
     ctx.add_group(ctx.GRP_BUILD_MAIN)
     ctx.add_group(ctx.GRP_BUILD_TESTS)
+    ctx.add_group(ctx.GRP_RUN_TESTS)
 
     ctx.set_group(ctx.GRP_BUILD_MAIN)
 
@@ -181,3 +187,9 @@ def build(ctx):
                     ctx.root.make_node(path))
 
     ctx.install_post_func()
+
+
+class TestContext(BuildContext):
+    """run unittests"""
+
+    cmd = 'test'

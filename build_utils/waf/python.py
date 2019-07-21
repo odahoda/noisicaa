@@ -21,11 +21,13 @@
 # @end:license
 
 import importlib.util
+import os
 import os.path
 import py_compile
 import shutil
 
 from waflib.Configure import conf
+from waflib.Task import Task
 
 
 def copy_py_module(task):
@@ -60,6 +62,33 @@ def py_module(ctx, source):
         ctx.install_files(
             os.path.join(ctx.env.LIBDIR, compiled_node.parent.relpath()), compiled_node)
 
+    return target_node
+
+
+class run_py_test(Task):
+    always_run = True
+
+    def __str__(self):
+        return self.inputs[0].relpath()
+
+    def keyword(self):
+        return 'Testing'
+
+    def run(self):
+        ctx = self.generator.bld
+
+        mod_path = self.inputs[0].relpath()
+        assert mod_path.endswith('.py')
+        mod_name = '.'.join(mod_path[:-3].split(os.sep))
+
+        cmd = [
+            ctx.env.PYTHON[0],
+            '-m', 'noisidev.test_runner',
+            '--display=off',
+            mod_name,
+        ]
+        return self.exec_command(cmd, cwd=ctx.out_dir)
+
 
 @conf
 def py_test(ctx, source):
@@ -68,3 +97,9 @@ def py_test(ctx, source):
 
     with ctx.group(ctx.GRP_BUILD_TESTS):
         target = ctx.py_module(source)
+
+    with ctx.group(ctx.GRP_RUN_TESTS):
+        if ctx.cmd == 'test':
+            task = run_py_test(env=ctx.env)
+            task.set_inputs(target)
+            ctx.add_to_group(task)

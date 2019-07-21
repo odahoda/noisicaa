@@ -34,3 +34,4 @@ def build(ctx):
                   use=['noisicaa-host_system', 'noisicaa-audioproc-engine'])
     ctx.py_module('uitest.py')
     ctx.py_module('demo_project.py')
+    ctx.py_module('test_runner.py')
