@@ -158,7 +158,7 @@ class DisplayManager(object):
 
 def main(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('test_mod', type=str)
+    parser.add_argument('module', type=str)
     parser.add_argument(
         '--log-level',
         choices=['debug', 'info', 'warning', 'error', 'critical'],
@@ -168,7 +168,7 @@ def main(argv):
     parser.add_argument('--coverage', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--write-perf-stats', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--profile', nargs='?', type=bool_arg, const=True, default=False)
-    parser.add_argument('--rtcheck', nargs='?', type=bool_arg, const=True, default=False)
+    parser.add_argument('--rtcheck', type=bool_arg, default=True)
     parser.add_argument('--gdb', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--pedantic', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--keep-temp', nargs='?', type=bool_arg, const=True, default=False)
@@ -210,10 +210,10 @@ def main(argv):
             '--quiet',
             '--command', '/tmp/noisicaa.gdbinit',
             '--args', sys.executable,
-            '-m', 'noisidev.runtests']
+            '-m', 'noisidev.test_runner']
         for arg, value in sorted(args.__dict__.items()):
             arg = arg.replace('_', '-')
-            if arg == 'test_mod':
+            if arg == 'module':
                 continue
             elif arg == 'gdb':
                 subargv.append('--%s=%s' % (arg, False))
@@ -221,16 +221,16 @@ def main(argv):
                 subargv.append('--%s=%s' % (arg, value))
 
         subargv.append('--')
-        subargv.extend(args.test_mode)
+        subargv.append(args.module)
 
         print(' '.join(subargv))
         os.execv(subargv[0], subargv)
 
     if args.rtcheck:
-        subargv = [sys.executable, '-m', 'noisidev.runtests']
+        subargv = [sys.executable, '-m', 'noisidev.test_runner']
         for arg, value in sorted(args.__dict__.items()):
             arg = arg.replace('_', '-')
-            if arg == 'test_mod':
+            if arg == 'module':
                 continue
             elif arg == 'rtcheck':
                 subargv.append('--%s=%s' % (arg, False))
@@ -238,13 +238,12 @@ def main(argv):
                 subargv.append('--%s=%s' % (arg, value))
 
         subargv.append('--')
-        subargv.extend(args.test_mod)
+        subargv.append(args.module)
 
         env = dict(**os.environ)
         env['LD_PRELOAD'] = ':'.join([
             os.path.join(LIBDIR, 'noisicaa', 'audioproc', 'engine', 'librtcheck.so'),
             os.path.join(LIBDIR, 'noisicaa', 'audioproc', 'engine', 'librtcheck_preload.so')])
-        print('LD_PRELOAD=' + env['LD_PRELOAD'])
         os.execve(subargv[0], subargv, env)
 
     if args.store_results:
@@ -307,13 +306,13 @@ def main(argv):
     from noisicaa.core import stacktrace
     stacktrace.init()
 
-    logging.info("Loading module %s...", args.test_mod)
-    __import__(args.test_mod)
+    logging.info("Loading module %s...", args.module)
+    __import__(args.module)
 
     loader = unittest.defaultTestLoader
-    suite = loader.loadTestsFromName(args.test_mod)
+    suite = loader.loadTestsFromName(args.module)
 
-    assert list(suite), "No tests found in %s" % args.test_mod
+    assert list(suite), "No tests found in %s" % args.module
 
     def flatten_suite(suite):
         for child in suite:
