@@ -252,11 +252,20 @@ def main(argv):
     for handler in root_logger.handlers:
         root_logger.removeHandler(handler)
     if args.store_results:
-        logging.basicConfig(
-            format='%(levelname)-8s:%(process)5s:%(thread)08x:%(name)s: %(message)s',
-            filename=os.path.join(test_data_path, 'debug.log'),
-            filemode='w',
-            level=logging.DEBUG)
+        formatter = logging.Formatter(
+            '%(levelname)-8s:%(process)5s:%(thread)08x:%(name)s: %(message)s')
+
+        root_logger.setLevel(logging.DEBUG)
+
+        handler = logging.FileHandler(os.path.join(test_data_path, 'debug.log'), 'w')
+        handler.setFormatter(formatter)
+        handler.setLevel(logging.DEBUG)
+        root_logger.addHandler(handler)
+
+        handler = logging.FileHandler(os.path.join(test_data_path, 'info.log'), 'w')
+        handler.setFormatter(formatter)
+        handler.setLevel(logging.INFO)
+        root_logger.addHandler(handler)
 
     else:
         logging.basicConfig(
