@@ -341,8 +341,8 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
             self.setHighlightedSample(None)
             return
 
-        closest_sample = None
-        closest_dist = None
+        closest_sample = None  # type: SampleItem
+        closest_dist = None  # type: int
         for sample in self.__samples:
             if self.__mouse_pos.x() < sample.pos().x():
                 dist = sample.pos().x() - self.__mouse_pos.x()

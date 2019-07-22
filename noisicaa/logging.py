@@ -32,9 +32,7 @@ from . import runtime_settings as runtime_settings_lib
 class WrappingFormatter(Formatter):
     def formatMessage(self, record: LogRecord) -> str:
         record.message = record.message.replace('\n', '\n\t')
-        # Typeshed doesn't know about formatMessage. It is also not documented, so it might
-        # not be the best idea to extend it...
-        return super().formatMessage(record)  # type: ignore
+        return super().formatMessage(record)
 
 
 class LogFilter(Filter):

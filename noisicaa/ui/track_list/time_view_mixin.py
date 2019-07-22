@@ -33,8 +33,12 @@ from noisicaa.ui import ui_base
 logger = logging.getLogger(__name__)
 
 
-# This should be a subclass of QtCore.QObject, but PyQt5 doesn't support
-# multiple inheritance of QObjects.
+# These mixins should be subclasses of QtCore.QObject, but PyQt5 doesn't support multiple
+# inheritance of QObjects.
+# I'm forcing mypy to treat these as QObject instance, by adding asserts. But that also triggers
+# "unreachable code" warnings.
+# mypy: warn-unreachable=False
+
 class ScaledTimeMixin(ui_base.ProjectMixin):
     scaleXChanged = QtCore.pyqtSignal(fractions.Fraction)
     contentWidthChanged = QtCore.pyqtSignal(int)
@@ -60,23 +64,23 @@ class ScaledTimeMixin(ui_base.ProjectMixin):
         return self.__content_width
 
     def setContentWidth(self, width: int) -> None:
+        assert isinstance(self, QtCore.QObject)
         if width == self.__content_width:
             return
 
         self.__content_width = width
-        assert isinstance(self, QtCore.QObject)
         self.contentWidthChanged.emit(self.__content_width)
 
     def scaleX(self) -> fractions.Fraction:
         return self.__scale_x
 
     def setScaleX(self, scale_x: fractions.Fraction) -> None:
+        assert isinstance(self, QtCore.QObject)
         if scale_x == self.__scale_x:
             return
 
         self.__scale_x = scale_x
         self.__updateContentWidth()
-        assert isinstance(self, QtCore.QObject)
         self.scaleXChanged.emit(self.__scale_x)
 
 
@@ -92,22 +96,20 @@ class ContinuousTimeMixin(ScaledTimeMixin):
         return audioproc.MusicalTime(x / self.scaleX())
 
 
-# TODO: This should really be a subclass of QtWidgets.QWidget, but somehow this screws up the
-#   signals... Because of that, there are a bunch of 'type: ignore' overrides below.
 class TimeViewMixin(ScaledTimeMixin):
     maximumXOffsetChanged = QtCore.pyqtSignal(int)
     xOffsetChanged = QtCore.pyqtSignal(int)
     pageWidthChanged = QtCore.pyqtSignal(int)
 
     def __init__(self, **kwargs: Any) -> None:
+        assert isinstance(self, QtCore.QObject)
         super().__init__(**kwargs)
 
         # pixels per beat
         self.__x_offset = 0
 
-        self.setMinimumWidth(100)  # type: ignore
+        self.setMinimumWidth(100)
 
-        assert isinstance(self, QtCore.QObject)
         self.contentWidthChanged.connect(self.__contentWidthChanged)
 
     def __contentWidthChanged(self, width: int) -> None:
@@ -116,29 +118,31 @@ class TimeViewMixin(ScaledTimeMixin):
         self.setXOffset(min(self.xOffset(), self.maximumXOffset()))
 
     def maximumXOffset(self) -> int:
-        return max(0, self.contentWidth() - self.width())  # type: ignore
+        assert isinstance(self, QtCore.QObject)
+        return max(0, self.contentWidth() - self.width())
 
     def pageWidth(self) -> int:
-        return self.width()  # type: ignore
+        assert isinstance(self, QtCore.QObject)
+        return self.width()
 
     def xOffset(self) -> int:
-        return self.__x_offset
+        return self.__x_offset  # type: ignore
 
     def setXOffset(self, offset: int) -> None:
+        assert isinstance(self, QtCore.QObject)
         offset = max(0, min(offset, self.maximumXOffset()))
         if offset == self.__x_offset:
             return
 
         dx = self.__x_offset - offset
         self.__x_offset = offset
-        assert isinstance(self, QtCore.QObject)
         self.xOffsetChanged.emit(self.__x_offset)
 
-        self.scroll(dx, 0)  # type: ignore
+        self.scroll(dx, 0)
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
-        super().resizeEvent(evt)  # type: ignore
-
         assert isinstance(self, QtCore.QObject)
+        super().resizeEvent(evt)
+
         self.maximumXOffsetChanged.emit(self.maximumXOffset())
-        self.pageWidthChanged.emit(self.width())  # type: ignore
+        self.pageWidthChanged.emit(self.width())

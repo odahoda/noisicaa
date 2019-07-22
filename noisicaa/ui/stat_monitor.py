@@ -106,7 +106,8 @@ class StatGraph(QtWidgets.QWidget):
             painter.drawText(5, self.height() - 10, str(vmin))
 
             for _, ts in self.__timeseries_set.items():
-                px, py = None, None
+                px = None  # type: int
+                py = None  # type: int
                 for idx, value in enumerate(ts):
                     x = self.width() - idx - 1
                     y = int((self.height() - 1) * (vmax - value.value) / (vmax - vmin))

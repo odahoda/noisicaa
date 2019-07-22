@@ -233,7 +233,7 @@ class MutationCollector(object):
     def clear(self) -> None:
         self.__proto.Clear()
 
-    def __handle_model_change(self, change: model_base.PropertyChange) -> None:
+    def __handle_model_change(self, change: model_base.Mutation) -> None:
         if isinstance(change, model_base.PropertyValueChange):
             old_slot_id = self.__add_slot(change.old_value)
             new_slot_id = self.__add_slot(change.new_value)

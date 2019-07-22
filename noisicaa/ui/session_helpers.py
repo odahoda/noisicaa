@@ -61,19 +61,19 @@ class ManagedWindowMixin(ui_base.ProjectMixin, QtWidgets.QDialog):
     def showEvent(self, evt: QtGui.QShowEvent) -> None:
         if self.__init_done:
             self.set_session_value('visible', True)
-        super().showEvent(evt)  # type: ignore
+        super().showEvent(evt)
 
     def hideEvent(self, evt: QtGui.QHideEvent) -> None:
         if self.__init_done:
             self.set_session_value('visible', False)
-        super().hideEvent(evt)  # type: ignore
+        super().hideEvent(evt)
 
     def moveEvent(self, evt: QtGui.QMoveEvent) -> None:
         if self.__init_done and self.isVisible():
             self.set_session_values({'x': evt.pos().x(), 'y': evt.pos().y()})
-        super().moveEvent(evt)  # type: ignore
+        super().moveEvent(evt)
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         if self.__init_done and self.isVisible():
             self.set_session_values({'w': evt.size().width(), 'h': evt.size().height()})
-        super().resizeEvent(evt)  # type: ignore
+        super().resizeEvent(evt)

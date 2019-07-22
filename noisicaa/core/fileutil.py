@@ -118,8 +118,7 @@ class File(object):
                 headers += b
 
             parser = email.parser.BytesParser()
-            # mypy doesn't now about BytesParser.parsebytes.
-            message = parser.parsebytes(headers)  # type: ignore
+            message = parser.parsebytes(headers)
 
             content = fp.read()
 
@@ -370,8 +369,7 @@ class MimeLogFile(object):
         headers_length = data.index(b'\n\n') + 2
 
         parser = email.parser.BytesParser()
-        # mypy doesn't now about BytesParser.parsebytes.
-        message = parser.parsebytes(data[:headers_length])  # type: ignore
+        message = parser.parsebytes(data[:headers_length])
         content = data[headers_length:]
 
         if 'Checksum' in message:

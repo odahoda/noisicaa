@@ -159,7 +159,7 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         if self.__visible:
             self.__pianoroll.disconnectSlots(self.__slot_connections, 'pianoroll')
             self.__visible = False
-        super().hideEvent(evt)  # type: ignore
+        super().hideEvent(evt)
 
     def __eventsChanged(self, change: music.PropertyListChange[value_types.MidiEvent]) -> None:
         if isinstance(change, music.PropertyListInsert):

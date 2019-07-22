@@ -1001,7 +1001,7 @@ class Pool(MutableMapping[int, ObjectBase]):
         pb = model_base_pb2.ObjectBase(id=id, type=proto_type)
         obj = cls(pb=pb, pool=self)
         self.__obj_map[id] = obj
-        obj.create(**kwargs)  # type: ignore
+        obj.create(**kwargs)
         obj.setup()
         obj.setup_complete()
         self.object_added(obj)

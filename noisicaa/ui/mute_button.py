@@ -41,8 +41,7 @@ class MuteButton(QtWidgets.QToolButton):
             os.path.join(constants.DATA_DIR, 'icons', 'track-not-muted.svg'))
 
         self.setIcon(self._not_muted_icon)
-        # TODO: toggled signal has wrong declaration.
-        self.toggled.connect(self.onToggled)  # type: ignore
+        self.toggled.connect(self.onToggled)
 
     def onToggled(self, checked: bool) -> None:
         if checked:
