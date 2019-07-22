@@ -248,14 +248,20 @@ def py_module(ctx, source, mypy='strict', pylint='enabled'):
         mypy = 'disabled'
         pylint = 'disabled'
 
-    if ctx.cmd == 'test' and {'all', 'lint', 'mypy'} & ctx.TEST_TAGS and mypy != 'disabled':
+    if (ctx.cmd == 'test'
+            and  ctx.should_run_test(target_node)
+            and {'all', 'lint', 'mypy'} & ctx.TEST_TAGS
+            and mypy != 'disabled'):
         with ctx.group(ctx.GRP_RUN_TESTS):
             task = run_mypy(env=ctx.env, strict=(mypy == 'strict'))
             task.set_inputs(target_node)
             if not ctx.options.only_failed or not ctx.get_test_state(task.test_id):
                 ctx.add_to_group(task)
 
-    if ctx.cmd == 'test' and {'all', 'lint', 'pylint'} & ctx.TEST_TAGS and pylint != 'disabled':
+    if (ctx.cmd == 'test'
+            and  ctx.should_run_test(target_node)
+            and {'all', 'lint', 'pylint'} & ctx.TEST_TAGS
+            and pylint != 'disabled'):
         with ctx.group(ctx.GRP_RUN_TESTS):
             task = run_pylint(env=ctx.env)
             task.set_inputs(target_node)
@@ -332,7 +338,7 @@ class run_py_test(Task):
 
 @conf
 def add_py_test_runner(ctx, target, timeout=None):
-    if ctx.cmd == 'test':
+    if ctx.cmd == 'test' and ctx.should_run_test(target):
         with ctx.group(ctx.GRP_RUN_TESTS):
             task = run_py_test(env=ctx.env, timeout=timeout)
             task.set_inputs(target)

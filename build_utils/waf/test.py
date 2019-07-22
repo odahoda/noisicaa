@@ -22,6 +22,7 @@
 
 import datetime
 import email
+import fnmatch
 import glob
 import json
 import os
@@ -48,6 +49,11 @@ def options(ctx):
         '--tags',
         default='unit,lint',
         help="Comma separated list of test classes to run (%s) [default: unit,lint]" % ', '.join(sorted(ALL_TAGS)))
+    grp.add_option(
+        '--tests',
+        action='append',
+        default=None,
+        help="Tests to run. Uses a prefix match and can contain globs. This flag can be used multiple times [default: all tests]")
     grp.add_option(
         '--fail-fast',
         action='store_true',
@@ -105,6 +111,24 @@ def test_complete(ctx):
 
     if ctx.tests_failed:
         ctx.fatal("Some tests failed")
+
+
+@conf
+def should_run_test(ctx, path):
+    if not ctx.options.tests:
+        return True
+
+    mparts = path.relpath().split(os.sep)
+    for selector in ctx.options.tests:
+        sparts = selector.rstrip(os.sep).split(os.sep)
+        if len(sparts) > len(mparts):
+            continue
+        matched = True
+        for mpart, spart in zip(mparts[:len(sparts)], sparts):
+            if not fnmatch.fnmatch(mpart, spart):
+                matched = False
+        if matched:
+            return True
 
 
 @conf
