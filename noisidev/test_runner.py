@@ -141,21 +141,6 @@ class DisplayManager(object):
             atexit.unregister(self.__xvfb_process.kill)
 
 
-# class TestResult(unittest.TextTestResult):
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-
-#         self.successes = set()
-
-#     def addSuccess(self, case):
-#         super().addSuccess(case)
-#         self.successes.add(case.id())
-
-#     def addSkip(self, case, reason):
-#         super().addSkip(case, reason)
-#         self.successes.add(case.id())
-
-
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('module', type=str)
@@ -165,15 +150,14 @@ def main(argv):
         default='critical',
         help="Minimum level for log messages written to STDERR.")
     parser.add_argument('--store-results', default=None)
-    parser.add_argument('--coverage', nargs='?', type=bool_arg, const=True, default=False)
-    parser.add_argument('--write-perf-stats', nargs='?', type=bool_arg, const=True, default=False)
-    parser.add_argument('--profile', nargs='?', type=bool_arg, const=True, default=False)
+    parser.add_argument('--coverage', type=bool_arg, default=False)
+    parser.add_argument('--write-perf-stats', type=bool_arg, default=False)
+    parser.add_argument('--profile', type=bool_arg, default=False)
     parser.add_argument('--rtcheck', type=bool_arg, default=True)
-    parser.add_argument('--gdb', nargs='?', type=bool_arg, const=True, default=False)
-    parser.add_argument('--pedantic', nargs='?', type=bool_arg, const=True, default=False)
-    parser.add_argument('--keep-temp', nargs='?', type=bool_arg, const=True, default=False)
-    parser.add_argument('--only-failed', nargs='?', type=bool_arg, const=True, default=False)
-    parser.add_argument('--fail-fast', nargs='?', type=bool_arg, const=True, default=False)
+    parser.add_argument('--gdb', type=bool_arg, default=False)
+    parser.add_argument('--pedantic', type=bool_arg, default=False)
+    parser.add_argument('--keep-temp', type=bool_arg, default=False)
+    parser.add_argument('--fail-fast', type=bool_arg, default=False)
     parser.add_argument('--playback-backend', type=str, default='null')
     parser.add_argument('--tags', default='unit,lint')
     parser.add_argument('--display', choices=['off', 'local', 'xvfb'], default='xvfb')
@@ -331,26 +315,10 @@ def main(argv):
         assert tag in {'all', 'unit', 'lint', 'pylint', 'mypy', 'integration', 'perf'}
         tags_to_run.add(tag)
 
-    # tests_to_run = None
-    # if args.only_failed:
-    #     tests_to_run = set()
-    #     with open('/tmp/noisicaa-failed-tests.txt', 'r', encoding='utf-8') as fp:
-    #         for test_id in fp:
-    #             tests_to_run.add(test_id.strip())
-
     flat_suite = unittest.TestSuite()
     for case in flatten_suite(suite):
-        runit = False
         if not hasattr(case, 'tags') or 'all' in tags_to_run or case.tags & tags_to_run:
-            runit = True
-
-        # if tests_to_run is not None and case.id() not in tests_to_run:
-        #     runit = False
-
-        if runit:
             flat_suite.addTest(case)
-
-    # all_case_ids = set(case.id() for case in flat_suite)
 
     if args.store_results:
         runner = xmlrunner.XMLTestRunner(
@@ -360,7 +328,6 @@ def main(argv):
             failfast=args.fail_fast)
     else:
         runner = unittest.TextTestRunner(
-            # resultclass=TestResult,
             verbosity=2,
             failfast=args.fail_fast)
 
@@ -370,10 +337,6 @@ def main(argv):
             result = runner.run(flat_suite)
         finally:
             unittest.removeHandler()
-
-    # with open('/tmp/noisicaa-failed-tests.txt', 'w', encoding='utf-8') as fp:
-    #     for case_id in sorted(all_case_ids - result.successes):
-    #         fp.write(case_id + '\n')
 
     if args.coverage:
         cov.stop()
