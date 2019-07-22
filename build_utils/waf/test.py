@@ -49,6 +49,11 @@ def options(ctx):
         default='unit,lint',
         help="Comma separated list of test classes to run (%s) [default: unit,lint]" % ', '.join(sorted(ALL_TAGS)))
     grp.add_option(
+        '--fail-fast',
+        action='store_true',
+        default=False,
+        help="Abort test run on first failure.")
+    grp.add_option(
         '--coverage',
         action='store_true',
         default=False,
@@ -193,7 +198,7 @@ def collect_mypy_results(ctx):
 
     for result_path in glob.glob(os.path.join(ctx.TEST_RESULTS_PATH, '*', 'mypy.log')):
         with open(result_path, 'r') as fp:
-            log = fp.read().strip()
+            log = fp.read()
             if log:
                 issues_found = True
                 sys.stderr.write(log)
@@ -215,7 +220,7 @@ def collect_pylint_results(ctx):
 
     for result_path in glob.glob(os.path.join(ctx.TEST_RESULTS_PATH, '*', 'pylint.log')):
         with open(result_path, 'r') as fp:
-            log = fp.read().strip()
+            log = fp.read()
             if log:
                 issues_found = True
                 sys.stderr.write(log)

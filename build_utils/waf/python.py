@@ -110,6 +110,7 @@ class run_mypy(Task):
 
             ctx.log_command(argv, kw)
             rc, out, err = Utils.run_process(argv, kw)
+            out = out.strip()
 
         finally:
             with mypy_cache_lock:
@@ -123,6 +124,12 @@ class run_mypy(Task):
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
         with open(out_path, 'wb') as fp:
             fp.write(out)
+
+        if out and ctx.options.fail_fast:
+            sys.stderr.write(out.decode('utf-8'))
+            sys.stderr.write('\n')
+            Logs.info(Logs.colors.RED + "mypy for %s failed." % mod_name)
+            return 1
 
 
 class run_pylint(Task):
@@ -158,6 +165,7 @@ class run_pylint(Task):
 
         ctx.log_command(argv, kw)
         rc, out, err = Utils.run_process(argv, kw)
+        out = out.strip()
 
         if rc != 0:
             sys.stderr.write(err.decode('utf-8'))
@@ -167,6 +175,12 @@ class run_pylint(Task):
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
         with open(out_path, 'wb') as fp:
             fp.write(out)
+
+        if out and ctx.options.fail_fast:
+            sys.stderr.write(out.decode('utf-8'))
+            sys.stderr.write('\n')
+            Logs.info(Logs.colors.RED + "pylint for %s failed." % mod_name)
+            return 1
 
 
 @conf
@@ -237,20 +251,30 @@ class run_py_test(Task):
         assert mod_path.endswith('.py') or mod_path.endswith('.so')
         mod_name = '.'.join(os.path.splitext(mod_path)[0].split(os.sep))
 
+        results_path = os.path.join(ctx.TEST_RESULTS_PATH, mod_name)
         cmd = [
             ctx.env.PYTHON[0],
             '-m', 'noisidev.test_runner',
-            '--store-result=%s' % os.path.join(ctx.TEST_RESULTS_PATH, mod_name),
+            '--store-result=%s' % results_path,
             '--coverage=%s' % ('true' if ctx.options.coverage else 'false'),
             '--tags=%s' % ','.join(ctx.TEST_TAGS),
             mod_name,
         ]
-        self.exec_command(
+        rc = self.exec_command(
             cmd,
             cwd=ctx.out_dir,
             timeout=self.__timeout)
-        if not os.path.isfile(os.path.join(ctx.TEST_RESULTS_PATH, mod_name, 'results.xml')):
+
+        if not os.path.isfile(os.path.join(results_path, 'results.xml')):
             Logs.info("Missing results.xml.")
+            return 1
+
+        if rc != 0 and ctx.options.fail_fast:
+            if os.path.isfile(os.path.join(results_path, 'test.log')):
+                with open(os.path.join(results_path, 'test.log'), 'r') as fp:
+                    sys.stderr.write(fp.read())
+
+            Logs.info(Logs.colors.RED + "Tests for %s failed." % mod_name)
             return 1
 
 
