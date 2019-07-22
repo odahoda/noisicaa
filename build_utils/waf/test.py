@@ -54,6 +54,11 @@ def options(ctx):
         default=False,
         help="Abort test run on first failure.")
     grp.add_option(
+        '--only-failed',
+        action='store_true',
+        default=False,
+        help="Only tests, which previously failed.")
+    grp.add_option(
         '--coverage',
         action='store_true',
         default=False,
@@ -66,6 +71,7 @@ def init_test(ctx):
         if not ctx.env.ENABLE_TEST:
             ctx.fatal("noisicaä has been configured without --enable-tests")
 
+        ctx.TEST_STATE_PATH = os.path.join(ctx.out_dir, 'teststates')
         ctx.TEST_RESULTS_PATH = os.path.join(ctx.out_dir, 'testresults')
         ctx.TEST_TAGS = set(ctx.options.tags.split(','))
         for tag in ctx.TEST_TAGS:
@@ -78,6 +84,9 @@ def init_test(ctx):
 def test_init(ctx):
     if os.path.isdir(ctx.TEST_RESULTS_PATH):
         shutil.rmtree(ctx.TEST_RESULTS_PATH)
+
+    if not ctx.options.only_failed and os.path.isdir(ctx.TEST_STATE_PATH):
+        shutil.rmtree(ctx.TEST_STATE_PATH)
 
 
 def test_complete(ctx):
@@ -96,6 +105,24 @@ def test_complete(ctx):
 
     if ctx.tests_failed:
         ctx.fatal("Some tests failed")
+
+
+@conf
+def record_test_state(ctx, test_name, state):
+    state_path = os.path.join(ctx.TEST_STATE_PATH, test_name)
+    os.makedirs(os.path.dirname(state_path), exist_ok=True)
+    with open(state_path, 'w') as fp:
+        fp.write('1' if state else '0')
+
+
+@conf
+def get_test_state(ctx, test_name):
+    state_path = os.path.join(ctx.TEST_STATE_PATH, test_name)
+    if os.path.isfile(state_path):
+        with open(state_path, 'r') as fp:
+            return bool(int(fp.read()))
+
+    return False
 
 
 class TestCase(xunitparser.TestCase):

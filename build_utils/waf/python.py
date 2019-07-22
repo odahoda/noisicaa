@@ -70,66 +70,83 @@ class run_mypy(Task):
     def keyword(self):
         return 'Lint (mypy)'
 
+    @property
+    def mod_name(self):
+        mod_path = self.inputs[0].relpath()
+        assert mod_path.endswith('.py') or mod_path.endswith('.so')
+        return '.'.join(os.path.splitext(mod_path)[0].split(os.sep))
+
+    @property
+    def test_id(self):
+        return self.mod_name + ':mypy'
+
     def run(self):
         ctx = self.generator.bld
 
-        mod_path = self.inputs[0].relpath()
-        assert mod_path.endswith('.py') or mod_path.endswith('.so')
-        mod_name = '.'.join(os.path.splitext(mod_path)[0].split(os.sep))
-
-        ini_path = os.path.join(ctx.top_dir, 'noisidev', 'mypy.ini')
-
-        with mypy_cache_lock:
-            if not mypy_caches:
-                global mypy_next_cache
-                cache_num = mypy_next_cache
-                mypy_next_cache += 1
-            else:
-                cache_num = mypy_caches.pop(-1)
-
+        success = True
         try:
-            argv = [
-                os.path.join(ctx.env.VIRTUAL_ENV, 'bin', 'mypy'),
-                '--config-file', ini_path,
-                '--cache-dir=%s' % os.path.join(ctx.out_dir, 'mypy-cache.%d' % cache_num),
-                '--show-traceback',
-                '-m', mod_name,
-            ]
-            if self.__strict:
-                argv.append('--disallow-untyped-defs')
+            ini_path = os.path.join(ctx.top_dir, 'noisidev', 'mypy.ini')
 
-            env = dict(os.environ)
-            env['MYPYPATH'] = os.path.join(ctx.top_dir, '3rdparty', 'typeshed')
+            with mypy_cache_lock:
+                if not mypy_caches:
+                    global mypy_next_cache
+                    cache_num = mypy_next_cache
+                    mypy_next_cache += 1
+                else:
+                    cache_num = mypy_caches.pop(-1)
 
-            kw = {
-                'cwd': ctx.out_dir,
-                'env': env,
-                'stdout': subprocess.PIPE,
-                'stderr': subprocess.PIPE,
-            }
+            try:
+                argv = [
+                    os.path.join(ctx.env.VIRTUAL_ENV, 'bin', 'mypy'),
+                    '--config-file', ini_path,
+                    '--cache-dir=%s' % os.path.join(ctx.out_dir, 'mypy-cache.%d' % cache_num),
+                    '--show-traceback',
+                    '-m', self.mod_name,
+                ]
+                if self.__strict:
+                    argv.append('--disallow-untyped-defs')
 
-            ctx.log_command(argv, kw)
-            rc, out, err = Utils.run_process(argv, kw)
-            out = out.strip()
+                env = dict(os.environ)
+                env['MYPYPATH'] = os.path.join(ctx.top_dir, '3rdparty', 'typeshed')
+
+                kw = {
+                    'cwd': ctx.out_dir,
+                    'env': env,
+                    'stdout': subprocess.PIPE,
+                    'stderr': subprocess.PIPE,
+                }
+
+                ctx.log_command(argv, kw)
+                rc, out, err = Utils.run_process(argv, kw)
+                out = out.strip()
+
+                if out:
+                    success = False
+
+            finally:
+                with mypy_cache_lock:
+                    mypy_caches.append(cache_num)
+
+            if err:
+                sys.stderr.write(err.decode('utf-8'))
+                raise RuntimeError("mypy is unhappy")
+
+            out_path = os.path.join(ctx.TEST_RESULTS_PATH, self.mod_name, 'mypy.log')
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            with open(out_path, 'wb') as fp:
+                fp.write(out)
+
+            if out and ctx.options.fail_fast:
+                sys.stderr.write(out.decode('utf-8'))
+                sys.stderr.write('\n')
+                raise RuntimeError("mypy for %s failed." % self.mod_name)
+
+        except Exception:
+            success = False
+            raise
 
         finally:
-            with mypy_cache_lock:
-                mypy_caches.append(cache_num)
-
-        if err:
-            sys.stderr.write(err.decode('utf-8'))
-            ctx.fatal("mypy is unhappy")
-
-        out_path = os.path.join(ctx.TEST_RESULTS_PATH, mod_name, 'mypy.log')
-        os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        with open(out_path, 'wb') as fp:
-            fp.write(out)
-
-        if out and ctx.options.fail_fast:
-            sys.stderr.write(out.decode('utf-8'))
-            sys.stderr.write('\n')
-            Logs.info(Logs.colors.RED + "mypy for %s failed." % mod_name)
-            return 1
+            ctx.record_test_state(self.test_id, success)
 
 
 class run_pylint(Task):
@@ -141,46 +158,63 @@ class run_pylint(Task):
     def keyword(self):
         return 'Lint (pylint)'
 
+    @property
+    def mod_name(self):
+        mod_path = self.inputs[0].relpath()
+        assert mod_path.endswith('.py') or mod_path.endswith('.so')
+        return '.'.join(os.path.splitext(mod_path)[0].split(os.sep))
+
+    @property
+    def test_id(self):
+        return self.mod_name + ':pylint'
+
     def run(self):
         ctx = self.generator.bld
 
-        mod_path = self.inputs[0].relpath()
-        assert mod_path.endswith('.py') or mod_path.endswith('.so')
-        mod_name = '.'.join(os.path.splitext(mod_path)[0].split(os.sep))
+        success = True
+        try:
+            argv = [
+                os.path.join(ctx.env.VIRTUAL_ENV, 'bin', 'pylint'),
+                '--rcfile=%s' % os.path.join(ctx.top_dir, 'bin', 'pylintrc'),
+                '--output-format=parseable',
+                '--score=no',
+                '--exit-zero',
+                self.mod_name,
+            ]
 
-        argv = [
-            os.path.join(ctx.env.VIRTUAL_ENV, 'bin', 'pylint'),
-            '--rcfile=%s' % os.path.join(ctx.top_dir, 'bin', 'pylintrc'),
-            '--output-format=parseable',
-            '--score=no',
-            '--exit-zero',
-            mod_name,
-        ]
+            kw = {
+                'cwd': ctx.out_dir,
+                'stdout': subprocess.PIPE,
+                'stderr': subprocess.PIPE,
+            }
 
-        kw = {
-            'cwd': ctx.out_dir,
-            'stdout': subprocess.PIPE,
-            'stderr': subprocess.PIPE,
-        }
+            ctx.log_command(argv, kw)
+            rc, out, err = Utils.run_process(argv, kw)
+            out = out.strip()
 
-        ctx.log_command(argv, kw)
-        rc, out, err = Utils.run_process(argv, kw)
-        out = out.strip()
+            if out:
+                success = False
 
-        if rc != 0:
-            sys.stderr.write(err.decode('utf-8'))
-            ctx.fatal("pylint is unhappy")
+            if rc != 0:
+                sys.stderr.write(err.decode('utf-8'))
+                raise RuntimeError("pylint is unhappy")
 
-        out_path = os.path.join(ctx.TEST_RESULTS_PATH, mod_name, 'pylint.log')
-        os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        with open(out_path, 'wb') as fp:
-            fp.write(out)
+            out_path = os.path.join(ctx.TEST_RESULTS_PATH, self.mod_name, 'pylint.log')
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            with open(out_path, 'wb') as fp:
+                fp.write(out)
 
-        if out and ctx.options.fail_fast:
-            sys.stderr.write(out.decode('utf-8'))
-            sys.stderr.write('\n')
-            Logs.info(Logs.colors.RED + "pylint for %s failed." % mod_name)
-            return 1
+            if out and ctx.options.fail_fast:
+                sys.stderr.write(out.decode('utf-8'))
+                sys.stderr.write('\n')
+                raise RuntimeError("pylint for %s failed." % self.mod_name)
+
+        except Exception:
+            success = False
+            raise
+
+        finally:
+            ctx.record_test_state(self.test_id, success)
 
 
 @conf
@@ -218,13 +252,15 @@ def py_module(ctx, source, mypy='strict', pylint='enabled'):
         with ctx.group(ctx.GRP_RUN_TESTS):
             task = run_mypy(env=ctx.env, strict=(mypy == 'strict'))
             task.set_inputs(target_node)
-            ctx.add_to_group(task)
+            if not ctx.options.only_failed or not ctx.get_test_state(task.test_id):
+                ctx.add_to_group(task)
 
     if ctx.cmd == 'test' and {'all', 'lint', 'pylint'} & ctx.TEST_TAGS and pylint != 'disabled':
         with ctx.group(ctx.GRP_RUN_TESTS):
             task = run_pylint(env=ctx.env)
             task.set_inputs(target_node)
-            ctx.add_to_group(task)
+            if not ctx.options.only_failed or not ctx.get_test_state(task.test_id):
+                ctx.add_to_group(task)
 
     return target_node
 
@@ -244,38 +280,54 @@ class run_py_test(Task):
     def keyword(self):
         return 'Testing'
 
+    @property
+    def mod_name(self):
+        mod_path = self.inputs[0].relpath()
+        assert mod_path.endswith('.py') or mod_path.endswith('.so')
+        return '.'.join(os.path.splitext(mod_path)[0].split(os.sep))
+
+    @property
+    def test_id(self):
+        return self.mod_name + ':unit'
+
     def run(self):
         ctx = self.generator.bld
 
-        mod_path = self.inputs[0].relpath()
-        assert mod_path.endswith('.py') or mod_path.endswith('.so')
-        mod_name = '.'.join(os.path.splitext(mod_path)[0].split(os.sep))
+        success = True
+        try:
+            results_path = os.path.join(ctx.TEST_RESULTS_PATH, self.mod_name)
+            cmd = [
+                ctx.env.PYTHON[0],
+                '-m', 'noisidev.test_runner',
+                '--store-result=%s' % results_path,
+                '--coverage=%s' % ('true' if ctx.options.coverage else 'false'),
+                '--tags=%s' % ','.join(ctx.TEST_TAGS),
+                self.mod_name,
+            ]
+            rc = self.exec_command(
+                cmd,
+                cwd=ctx.out_dir,
+                timeout=self.__timeout)
 
-        results_path = os.path.join(ctx.TEST_RESULTS_PATH, mod_name)
-        cmd = [
-            ctx.env.PYTHON[0],
-            '-m', 'noisidev.test_runner',
-            '--store-result=%s' % results_path,
-            '--coverage=%s' % ('true' if ctx.options.coverage else 'false'),
-            '--tags=%s' % ','.join(ctx.TEST_TAGS),
-            mod_name,
-        ]
-        rc = self.exec_command(
-            cmd,
-            cwd=ctx.out_dir,
-            timeout=self.__timeout)
+            if rc != 0:
+                success = False
 
-        if not os.path.isfile(os.path.join(results_path, 'results.xml')):
-            Logs.info("Missing results.xml.")
-            return 1
+            if not os.path.isfile(os.path.join(results_path, 'results.xml')):
+                raise RuntimeError("Missing results.xml.")
 
-        if rc != 0 and ctx.options.fail_fast:
-            if os.path.isfile(os.path.join(results_path, 'test.log')):
-                with open(os.path.join(results_path, 'test.log'), 'r') as fp:
-                    sys.stderr.write(fp.read())
+            if rc != 0 and ctx.options.fail_fast:
+                if os.path.isfile(os.path.join(results_path, 'test.log')):
+                    with open(os.path.join(results_path, 'test.log'), 'r') as fp:
+                        sys.stderr.write(fp.read())
 
-            Logs.info(Logs.colors.RED + "Tests for %s failed." % mod_name)
-            return 1
+                raise RuntimeError("Tests for %s failed." % self.mod_name)
+
+        except Exception:
+            success = False
+            raise
+
+        finally:
+            ctx.record_test_state(self.test_id, success)
 
 
 @conf
@@ -284,7 +336,8 @@ def add_py_test_runner(ctx, target, timeout=None):
         with ctx.group(ctx.GRP_RUN_TESTS):
             task = run_py_test(env=ctx.env, timeout=timeout)
             task.set_inputs(target)
-            ctx.add_to_group(task)
+            if not ctx.options.only_failed or not ctx.get_test_state(task.test_id):
+                ctx.add_to_group(task)
 
 
 @conf
