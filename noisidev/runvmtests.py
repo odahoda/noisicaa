@@ -20,21 +20,28 @@
 #
 # @end:license
 
+import asyncio
 import argparse
+import logging
 import os
 import os.path
 import sys
 
-from .vmtests import ubuntu
+from . import testvm
+from . import vmtests
 
-VMs = {}
+# VMs = {}
 
-def register_vm(vm):
-    assert vm.name not in VMs
-    VMs[vm.name] = vm
+# def register_vm(vm):
+#     assert vm.name not in VMs
+#     VMs[vm.name] = vm
 
-register_vm(ubuntu.Ubuntu_16_04())
-register_vm(ubuntu.Ubuntu_17_10())
+# register_vm(ubuntu.Ubuntu_16_04())
+# register_vm(ubuntu.Ubuntu_17_10())
+
+
+VM_BASE_DIR = os.path.abspath(
+    os.path.join(os.path.join(os.path.dirname(__file__), '..'), 'vmtests'))
 
 
 class TestSettings(object):
@@ -59,8 +66,13 @@ def bool_arg(value):
     raise TypeError("Invalid type '%s'." % type(value).__name__)
 
 
-def main(argv):
+async def main(event_loop, argv):
     argparser = argparse.ArgumentParser()
+    argparser.add_argument(
+        '--log-level',
+        choices=['debug', 'info', 'warning', 'error', 'critical'],
+        default='critical',
+        help="Minimum level for log messages written to STDERR.")
     argparser.add_argument('--source', type=str, choices=['local', 'git'], default='local')
     argparser.add_argument('--branch', type=str, default='master')
     argparser.add_argument(
@@ -80,29 +92,53 @@ def main(argv):
     argparser.add_argument('vms', nargs='*')
     args = argparser.parse_args(argv[1:])
 
-    if not args.vms:
-        args.vms = list(sorted(VMs.keys()))
+    # if not args.vms:
+    #     args.vms = list(sorted(VMs.keys()))
+
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        root_logger.removeHandler(handler)
+    logging.basicConfig(
+        format='%(levelname)-8s:%(process)5s:%(thread)08x:%(name)s: %(message)s',
+        level={
+            'debug': logging.DEBUG,
+            'info': logging.INFO,
+            'warning': logging.WARNING,
+            'error': logging.ERROR,
+            'critical': logging.CRITICAL,
+        }[args.log_level])
 
     settings = TestSettings(args)
 
-    results = {}
-    for _, vm in sorted(VMs.items()):
-        if vm.name in args.vms:
-            results[vm.name] = vm.runtest(settings)
+    vm = testvm.Ubuntu_16_04(name='ubuntu-16.04', base_dir=VM_BASE_DIR, event_loop=event_loop)
+    vm = testvm.Ubuntu_18_04(name='ubuntu-18.04', base_dir=VM_BASE_DIR, event_loop=event_loop)
+    #vm = testvm.Debian9(name='debian-9', base_dir=VM_BASE_DIR, event_loop=event_loop)
+    await vm.install()
+    await vm.start(gui=True)
+    try:
+        await vm.wait_for_state(vm.POWEROFF, timeout=3600)
+    finally:
+        await vm.poweroff()
 
-    if not all(results.values()):
-        print()
-        print('-' * 96)
-        print("%d/%d tests FAILED." % (
-            sum(1 for success in results.values() if not success), len(results)))
+    # results = {}
+    # for _, vm in sorted(VMs.items()):
+    #     if vm.name in args.vms:
+    #         results[vm.name] = vm.runtest(settings)
 
-        for vm, success in sorted(results.items(), key=lambda i: i[0]):
-            print("%s... %s" % (vm, 'SUCCESS' if success else 'FAILED'))
+    # if not all(results.values()):
+    #     print()
+    #     print('-' * 96)
+    #     print("%d/%d tests FAILED." % (
+    #         sum(1 for success in results.values() if not success), len(results)))
 
-        return 1
+    #     for vm, success in sorted(results.items(), key=lambda i: i[0]):
+    #         print("%s... %s" % (vm, 'SUCCESS' if success else 'FAILED'))
+
+    #     return 1
 
     return 0
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    loop = asyncio.get_event_loop()
+    sys.exit(loop.run_until_complete(main(loop, sys.argv)))
