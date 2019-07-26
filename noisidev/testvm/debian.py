@@ -76,9 +76,10 @@ class DebianLike(vm.VM):
         cfg.insert('d-i', 'keyboard-configuration/xkb-keymap', 'select', self.__get_xkb_layout())
 
         ### Network configuration
+        hostname = self.name.replace('.', '_')
         cfg.insert('d-i', 'netcfg/choose_interface', 'select', 'auto')
-        cfg.insert('d-i', 'netcfg/hostname', 'string', self.name)
-        cfg.insert('d-i', 'netcfg/get_hostname', 'string', self.name)
+        cfg.insert('d-i', 'netcfg/hostname', 'string', hostname)
+        cfg.insert('d-i', 'netcfg/get_hostname', 'string', hostname)
         cfg.insert('d-i', 'netcfg/get_domain', 'string', 'unnamed')
         cfg.insert('d-i', 'hw-detect/load_firmware', 'boolean', 'true')
         cfg.insert('d-i', 'netcfg/wireless_wep', 'string', None)
