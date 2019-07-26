@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import distutils.version
 import contextlib
 import glob
 import os
@@ -54,6 +55,9 @@ os.environ['WAF_CMD_FORMAT'] = 'string'
 
 top = '.'
 out = 'build'
+
+Version = distutils.version.LooseVersion
+
 
 def options(ctx):
     ctx.load('build_utils.waf.virtenv', tooldir='.')
@@ -92,6 +96,9 @@ def configure(ctx):
     # below should search for dependencies.
     ctx.load('build_utils.waf.virtenv', tooldir='.')
 
+    os_dist = ctx.env.OS_DIST
+    os_release = Version(ctx.env.OS_RELEASE)
+
     ctx.load('compiler_cxx')
     ctx.load('compiler_c')
     ctx.load('python')
@@ -123,13 +130,23 @@ def configure(ctx):
     ctx.pkg_config('AVUTIL', 'libavutil', '54')
     ctx.pkg_config('SWRESAMPLE', 'libswresample', '1.2')
     ctx.pkg_config('PORTAUDIO', 'portaudio-2.0', '19')
-    ctx.pkg_config('PROFILER', 'libprofiler', '2.4')
+    if os_dist == 'ubuntu' and os_release < Version('18.04'):
+        # libgoogle-perftools-dev in xenial does not contain libprofiler.pc
+        ctx.check(header_name='gperftools/profiler.h', features='cxx cxxprogram')
+        ctx.check(lib='profiler', features='cxx cxxprogram')
+    else:
+        ctx.pkg_config('PROFILER', 'libprofiler', '2.4')
 
     ctx.env.LIB_CSOUND = ['csound64']
     ctx.env.CFLAGS_CSOUND = ['-DHAVE_PTHREAD_SPIN_LOCK']
     ctx.env.CXXFLAGS_CSOUND = ['-DHAVE_PTHREAD_SPIN_LOCK']
 
     ctx.env.append_value('CXXFLAGS', ['-g', '-O2', '-std=c++11', '-Wall', '-pedantic'])
+    if os_dist == 'ubuntu' and os_release < Version('18.04'):
+        # gcc on ubuntu xenial complains about unused variables in generated proto files.
+        ctx.env.append_value('CXXFLAGS', ['-Wno-error=unused-variable'])
+        # gcc on ubuntu xenial doesn't like some pointer arithmetics...
+        ctx.env.append_value('CXXFLAGS', ['-Wno-error=strict-aliasing'])
     ctx.env.append_value('CFLAGS', ['-g', '-O2'])
     ctx.env.append_value('LIBPATH', [os.path.join(ctx.env.VIRTUAL_ENV, 'lib')])
     ctx.env.append_value('INCLUDES', [os.path.join(ctx.env.VIRTUAL_ENV, 'include')])

@@ -116,6 +116,9 @@ def configure(ctx):
         os_release = Version(os_release)
         ctx.end_msg("%s %s" % (os_dist, os_release))
 
+    ctx.env.OS_DIST = os_dist
+    ctx.env.OS_RELEASE = str(os_release)
+
     ctx.start_msg("Query pip for installed packages")
     pip_mgr = PipManager(ctx)
     pip_mgr.update_packages()
@@ -187,6 +190,9 @@ def configure(ctx):
     sys_mgr.check_package(DEV, 'gdb')
     sys_mgr.check_package(DEV, 'xvfb')
     sys_mgr.check_package(DEV, 'intltool')
+
+    # git is needed to fetch PIP packages from 'git+https://...' sources.
+    sys_mgr.check_package(BUILD, 'git')
 
     # mypy
     pip_mgr.check_package(DEV, 'mypy', version='0.720')
