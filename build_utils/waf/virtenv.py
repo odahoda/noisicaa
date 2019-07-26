@@ -319,6 +319,7 @@ def check_virtual_env(ctx):
         ctx.to_log("  ok.")
 
     ctx.env.VIRTUAL_ENV = venvdir
+    ctx.env.PYTHON = [os.path.join(venvdir, 'bin', 'python')]
     ctx.environ['PATH'] = os.pathsep.join(
         [os.path.join(venvdir, 'bin')] + ctx.environ.get('PATH', '').split(os.pathsep))
 
