@@ -304,39 +304,6 @@ async def main(event_loop, argv):
 
         return
 
-    if args.login:
-        assert len(args.vms) == 1
-
-        vm_name = args.vms[0]
-        vm_cls = ALL_VMTESTS[vm_name]
-        vm = vm_cls(name=vm_name, **vm_args)
-
-        assert vm.is_installed
-        try:
-            await vm.start(gui=True)
-
-            client = await asyncssh.connect(
-                host='localhost',
-                port=5555,
-                options=asyncssh.SSHClientConnectionOptions(
-                    username='testuser',
-                    password='123',
-                    known_hosts=None),
-                loop=event_loop)
-            try:
-                await client.run(
-                    term_type='xterm',
-                    stdin=sys.stdin,
-                    stdout=sys.stdout,
-                    stderr=sys.stderr)
-            finally:
-                client.close()
-
-        finally:
-            await vm.poweroff()
-
-        return
-
     results = {}
     for vm_name in args.vms:
         vm_cls = ALL_VMTESTS[vm_name]

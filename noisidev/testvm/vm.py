@@ -132,6 +132,9 @@ class VM(object):
                 except asyncio.TimeoutError:
                     pass
 
+    async def wait_for_ssh(self, *, timeout=300):
+        # TODO: figure out how to wait until the SSH service is ready.
+        pass
 
     async def start(self, *, gui=True):
         assert self.__qproc is None
