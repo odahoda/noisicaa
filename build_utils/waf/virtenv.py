@@ -438,7 +438,7 @@ class PipManager(PackageManager):
         p = subprocess.run(
             self.__pip_cmd + ['list', '--format=json'],
             stdout=subprocess.PIPE, check=True)
-        self._packages = {p['name']: p['version'] for p in json.loads(p.stdout)}
+        self._packages = {p['name']: p['version'] for p in json.loads(p.stdout.decode('utf-8'))}
 
     def get_pip_spec(self, name, version=None, source=None):
         if source:
