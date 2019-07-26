@@ -64,7 +64,7 @@ def install_runtime_pip_packages(ctx):
         stdout=subprocess.PIPE, check=True)
     installed_packages = {
         packaging.utils.canonicalize_name(p['name']): (p['name'], p['version'])
-        for p in json.loads(p.stdout)}
+        for p in json.loads(p.stdout.decode('utf-8'))}
 
     required_packages = set()
 
@@ -108,7 +108,7 @@ def install_runtime_pip_packages(ctx):
                     # File is not under site-packages.
                     continue
 
-                dest_path = os.path.join(ctx.env.LIBDIR, rel_path)
+                dest_path = os.path.join(ctx.env.LIBDIR, str(rel_path))
 
                 if not ctx.progress_bar:
                     Logs.info(
@@ -118,5 +118,5 @@ def install_runtime_pip_packages(ctx):
 
                 if not os.path.isdir(os.path.dirname(dest_path)):
                     os.makedirs(os.path.dirname(dest_path))
-                shutil.copyfile(src_path, dest_path)
-                shutil.copystat(src_path, dest_path)
+                shutil.copyfile(str(src_path), dest_path)
+                shutil.copystat(str(src_path), dest_path)
