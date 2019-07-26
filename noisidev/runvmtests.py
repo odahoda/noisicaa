@@ -227,6 +227,9 @@ async def main(event_loop, argv):
         '--shutdown', type=bool_arg, default=True,
         help="Shut the VM down after running the tests.")
     argparser.add_argument(
+        '--gui', type=bool_arg, default=None,
+        help="Force showing/hiding the UI.")
+    argparser.add_argument(
         '--cores', type=int, default=len(os.sched_getaffinity(0)),
         help="Number of emulated cores in the VM.")
     argparser.add_argument('vms', nargs='*')
@@ -269,7 +272,7 @@ async def main(event_loop, argv):
 
         assert vm.is_installed
         try:
-            await vm.start(gui=True)
+            await vm.start(gui=args.gui if args.gui is not None else True)
             await vm.wait_for_state(vm.POWEROFF, timeout=3600)
         finally:
             await vm.poweroff()
@@ -285,7 +288,7 @@ async def main(event_loop, argv):
 
         assert vm.is_installed
         try:
-            await vm.start(gui=False)
+            await vm.start(gui=args.gui if args.gui is not None else False)
             await vm.wait_for_ssh()
 
             proc = await asyncio.create_subprocess_exec(
@@ -317,7 +320,7 @@ async def main(event_loop, argv):
             await vm.restore_snapshot('clean')
 
         try:
-            await vm.start(gui=False)
+            await vm.start(gui=args.gui if args.gui is not None else False)
             results[vm.name] = await vm.run_test(settings)
 
         finally:
