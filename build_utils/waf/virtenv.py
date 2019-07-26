@@ -309,6 +309,14 @@ def check_virtual_env(ctx):
         except Exception as exc:  # pylint: disable=broad-except
             shutil.rmtree(venvdir)
             ctx.fatal("Failed to create virtual env: %s" % exc)
+
+        # Always update PIP to something more recent than what ensurepip has installed. We need at
+        # least 9.0 for 'pip list --format=json' to work.
+        ctx.cmd_and_log(
+            [os.path.join(venvdir, 'bin', 'pip'),
+             '--disable-pip-version-check', 'install', '-U', 'pip>=9.0'],
+            output=BOTH)
+
         ctx.to_log("  ok.")
 
     old_venvdir = None
