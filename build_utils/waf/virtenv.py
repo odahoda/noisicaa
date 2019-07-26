@@ -493,7 +493,7 @@ class DebManager(PackageManager):
             cmd += ['--askpass']
         else:
             cmd += ['--non-interactive']
-        cmd += ['--', '/usr/bin/apt-get', 'install', name]
+        cmd += ['--', '/usr/bin/apt-get', '-q', '-y', 'install', name]
 
         self._ctx.cmd_and_log(cmd, output=BOTH, env=env)
 
