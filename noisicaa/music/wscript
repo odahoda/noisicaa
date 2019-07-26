@@ -25,8 +25,9 @@ def build(ctx):
 
     ctx.py_module('__init__.py')
     ctx.py_module('base_track.py')
-    with ctx.group(ctx.GRP_BUILD_TESTS):
-        ctx.py_module('base_track_test.py')
+    if ctx.env.ENABLE_TEST:
+        with ctx.group(ctx.GRP_BUILD_TESTS):
+            ctx.py_module('base_track_test.py')
     ctx.py_module('graph.py')
     ctx.py_test('graph_test.py')
     ctx.py_module('metadata.py')

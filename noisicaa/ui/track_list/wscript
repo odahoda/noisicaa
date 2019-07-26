@@ -32,5 +32,7 @@ def build(ctx):
     ctx.py_module('tools.py')
     ctx.py_module('view.py')
 
-    with ctx.group(ctx.GRP_BUILD_TESTS):
-        ctx.py_module('track_editor_tests.py', mypy='loose')
+    if ctx.env.ENABLE_TEST:
+        with ctx.group(ctx.GRP_BUILD_TESTS):
+            ctx.py_module('track_editor_tests.py', mypy='loose')
+
