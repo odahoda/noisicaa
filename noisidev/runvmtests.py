@@ -285,11 +285,17 @@ async def main(event_loop, argv):
 
         assert vm.is_installed
         try:
-            await vm.start(gui=True)
+            await vm.start(gui=False)
             await vm.wait_for_ssh()
 
             proc = await asyncio.create_subprocess_exec(
-                '/usr/bin/sshpass', '-p123', '/usr/bin/ssh', '-p5555', 'testuser@localhost',
+                '/usr/bin/sshpass', '-p123',
+                '/usr/bin/ssh',
+                '-p5555',
+                '-oStrictHostKeyChecking=off',
+                '-oUserKnownHostsFile=/dev/null',
+                '-oLogLevel=quiet',
+                'testuser@localhost',
                 loop=event_loop)
             await proc.wait()
 
