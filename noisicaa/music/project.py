@@ -264,7 +264,7 @@ class BaseProject(_model.Project, model_base.ObjectBase):
             self, *,
             mode: str,
             src_objs: Sequence[model_base_pb2.ObjectTree],
-            targets: Sequence[base_track.MeasureReference],
+            targets: Sequence[base_track.MeasureReference]
     ) -> None:
         affected_track_ids = set(obj.track.id for obj in targets)
         assert len(affected_track_ids) == 1
@@ -344,7 +344,7 @@ class Project(BaseProject):
             path: str,
             pool: 'Pool',
             writer: writer_client.WriterClient,
-            node_db: node_db_lib.NodeDBClient,
+            node_db: node_db_lib.NodeDBClient
     ) -> 'Project':
         checkpoint_serialized, actions = await writer.open(path)
 
@@ -382,7 +382,7 @@ class Project(BaseProject):
             path: str,
             pool: 'Pool',
             node_db: node_db_lib.NodeDBClient,
-            writer: writer_client.WriterClient,
+            writer: writer_client.WriterClient
     ) -> 'Project':
         project = pool.create(cls, writer=writer, node_db=node_db)
         pool.set_root(project)
