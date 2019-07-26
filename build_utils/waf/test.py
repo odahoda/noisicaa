@@ -34,9 +34,6 @@ import sys
 import textwrap
 import unittest
 
-import coverage
-import xunitparser
-
 from waflib.Configure import conf
 from waflib import Logs
 
@@ -149,26 +146,34 @@ def get_test_state(ctx, test_name):
     return False
 
 
-class TestCase(xunitparser.TestCase):
-    # This override only exists, because the original has a docstring, which shows up in the
-    # output...
-    def runTest(self):
-        super().runTest()
-
-
-class TextTestResult(unittest.TextTestResult, xunitparser.TestResult):
-    def addSuccess(self, test):
-        if self.showAll and test.time is not None:
-            self.stream.write('[%dms] ' % (test.time / datetime.timedelta(milliseconds=1)))
-        super().addSuccess(test)
-
-
-class Parser(xunitparser.Parser):
-    TC_CLASS = TestCase
-
-
 @conf
 def collect_unittest_results(ctx):
+    import xunitparser
+
+    class TestCase(xunitparser.TestCase):
+        # This override only exists, because the original has a docstring, which shows up in the
+        # output...
+        def runTest(self):
+            super().runTest()
+
+
+    class TestSuite(xunitparser.TestSuite):
+        # Prevent tests from being None'ed in run().
+        _cleanup = False
+
+
+    class TextTestResult(unittest.TextTestResult, xunitparser.TestResult):
+        def addSuccess(self, test):
+            if self.showAll and test.time is not None:
+                self.stream.write('[%dms] ' % (test.time / datetime.timedelta(milliseconds=1)))
+            super().addSuccess(test)
+
+
+    class Parser(xunitparser.Parser):
+        TC_CLASS = TestCase
+        TS_CLASS = TestSuite
+
+
     def flatten_suite(suite):
         for child in suite:
             if isinstance(child, unittest.TestSuite):
@@ -184,13 +189,13 @@ def collect_unittest_results(ctx):
 
         try:
             ts, tr = Parser().parse(result_path)
+            for tc in flatten_suite(ts):
+                all_tests.addTest(tc)
+                if tc.time is not None:
+                    total_time += tc.time
         except Exception as exc:
             print("Failed to parse %s" % result_path)
             raise
-        for tc in flatten_suite(ts):
-            all_tests.addTest(tc)
-            if tc.time is not None:
-                total_time += tc.time
 
     if not list(all_tests):
         return
@@ -288,6 +293,8 @@ def collect_pylint_results(ctx):
 @conf
 def collect_coverage_results(ctx):
     Logs.info(Logs.colors.BLUE + "Collecting coverage data...")
+
+    import coverage
 
     cov = coverage.Coverage()
     data = cov.get_data()
