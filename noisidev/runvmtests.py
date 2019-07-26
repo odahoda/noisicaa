@@ -25,20 +25,153 @@ import argparse
 import logging
 import os
 import os.path
+import subprocess
 import sys
+import time
+import traceback
+
+import asyncssh
 
 from . import testvm
-from . import vmtests
 
-# VMs = {}
+logger = logging.getLogger(__name__)
 
-# def register_vm(vm):
-#     assert vm.name not in VMs
-#     VMs[vm.name] = vm
+ROOT_DIR = os.path.abspath(
+    os.path.join(os.path.join(os.path.dirname(__file__), '..')))
 
-# register_vm(ubuntu.Ubuntu_16_04())
-# register_vm(ubuntu.Ubuntu_17_10())
 
+TEST_SCRIPT = r'''#!/bin/bash
+
+SOURCE="{settings.source}"
+BRANCH="{settings.branch}"
+
+set -e
+set -x
+
+sudo apt-get -q -y install python3 python3-venv
+
+rm -fr noisicaa/
+
+if [ $SOURCE == git ]; then
+  sudo apt-get -q -y install git
+  git clone --branch=$BRANCH --single-branch https://github.com/odahoda/noisicaa
+elif [ $SOURCE == local ]; then
+  mkdir noisicaa/
+  tar -x -z -Cnoisicaa/ -flocal.tar.gz
+fi
+
+cd noisicaa/
+
+./waf configure --venvdir=../venv --download --install-system-packages
+./waf build
+
+./waf configure --venvdir=../venv --download --install-system-packages --enable-tests
+./waf build
+./waf test --tags=unit
+'''
+
+
+class TestMixin(testvm.VM):
+    async def run_test(self, settings):
+        sys.stdout.write("Running test '%s'... " % self.name)
+        sys.stdout.flush()
+        try:
+            await self.do_test(settings)
+        except Exception as exc:
+            sys.stdout.write('\n')
+            traceback.print_exc()
+            return False
+        else:
+            sys.stdout.write('SUCCESS\n')
+            return True
+
+    async def do_test(self, settings):
+        logger.info("Waiting for SSH port to open...")
+
+        import socket
+
+        deadline = time.time() + 300
+        while True:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(1.0)
+                    s.connect(('localhost', 5555))
+                    s.sendall(b'Hello, world')
+                    logger.info("ok")
+            except socket.timeout as exc:
+                logger.debug("Failed to connect: %s", exc)
+                if time.time() > deadline:
+                    raise TimeoutError("Failed to connect to VM")
+            else:
+                break
+
+        logger.info("Connecting to VM...")
+        client = await asyncssh.connect(
+            host='localhost',
+            port=5555,
+            options=asyncssh.SSHClientConnectionOptions(
+                username='testuser',
+                password='123',
+                known_hosts=None),
+            loop=self.event_loop)
+        try:
+            sftp = await client.start_sftp_client()
+            try:
+                logger.info("Copy runtest.sh...")
+                async with sftp.open('runtest.sh', 'w') as fp:
+                    await fp.write(TEST_SCRIPT.format(settings=settings))
+                await sftp.chmod('runtest.sh', 0o775)
+
+                if settings.source == 'local':
+                    logger.info("Copy local.tar.gz...")
+                    proc = subprocess.Popen(
+                        ['git', 'config', 'core.quotepath', 'off'],
+                        cwd=ROOT_DIR)
+                    proc.wait()
+                    assert proc.returncode == 0
+
+                    proc = subprocess.Popen(
+                        ['bash', '-c', 'tar -c -z -T<(git ls-tree --full-tree -r --name-only HEAD) -f-'],
+                        cwd=ROOT_DIR,
+                        stdout=subprocess.PIPE)
+                    async with sftp.open('local.tar.gz', 'wb') as fp:
+                        while True:
+                            buf = proc.stdout.read(1024)
+                            if not buf:
+                                break
+                            await fp.write(buf)
+                    proc.wait()
+                    assert proc.returncode == 0
+
+            finally:
+                sftp.exit()
+
+            proc = await client.create_process("./runtest.sh")
+            async def dumper(fp_in, fp_out):
+                while not fp_in.at_eof():
+                    fp_out.write(await fp_in.readline())
+            stdout_dumper = self.event_loop.create_task(dumper(proc.stdout, sys.stdout))
+            stderr_dumper = self.event_loop.create_task(dumper(proc.stderr, sys.stderr))
+            await proc.wait()
+            await stdout_dumper
+            await stderr_dumper
+            assert proc.returncode == 0
+
+        finally:
+            client.close()
+
+
+class Ubuntu_16_04(TestMixin, testvm.Ubuntu_16_04):
+    pass
+
+class Ubuntu_18_04(TestMixin, testvm.Ubuntu_18_04):
+    pass
+
+
+ALL_VMTESTS = {
+    'ubuntu-16.04': Ubuntu_16_04,
+    'ubuntu-18.04': Ubuntu_18_04,
+}
 
 VM_BASE_DIR = os.path.abspath(
     os.path.join(os.path.join(os.path.dirname(__file__), '..'), 'vmtests'))
@@ -83,17 +216,28 @@ async def main(event_loop, argv):
         help=("Restore the VM from the 'clean' snapshot (which was created after the VM has"
               " been setup) before running the tests."))
     argparser.add_argument(
-        '--just-start', type=bool_arg, default=False,
+        '--just-start', action='store_true', default=False,
         help=("Just start the VM in the current state (not restoring the clean snapshot)"
               " and don't run the tests."))
     argparser.add_argument(
+        '--login', action='store_true', default=False,
+        help=("Start the VM in the current state (not restoring the clean snapshot)"
+              " and open a shell session. The VM is powered off when the shell is closed."))
+    argparser.add_argument(
         '--shutdown', type=bool_arg, default=True,
         help="Shut the VM down after running the tests.")
+    argparser.add_argument(
+        '--cores', type=int, default=len(os.sched_getaffinity(0)),
+        help="Number of emulated cores in the VM.")
     argparser.add_argument('vms', nargs='*')
     args = argparser.parse_args(argv[1:])
 
-    # if not args.vms:
-    #     args.vms = list(sorted(VMs.keys()))
+    if not args.vms:
+        args.vms = list(sorted(ALL_VMTESTS.keys()))
+
+    for vm_name in args.vms:
+        if vm_name not in ALL_VMTESTS:
+            raise ValueError("'%s' is not a valid test name" % vm_name)
 
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:
@@ -110,31 +254,91 @@ async def main(event_loop, argv):
 
     settings = TestSettings(args)
 
-    vm = testvm.Ubuntu_16_04(name='ubuntu-16.04', base_dir=VM_BASE_DIR, event_loop=event_loop)
-    vm = testvm.Ubuntu_18_04(name='ubuntu-18.04', base_dir=VM_BASE_DIR, event_loop=event_loop)
-    #vm = testvm.Debian9(name='debian-9', base_dir=VM_BASE_DIR, event_loop=event_loop)
-    await vm.install()
-    await vm.start(gui=True)
-    try:
-        await vm.wait_for_state(vm.POWEROFF, timeout=3600)
-    finally:
-        await vm.poweroff()
+    vm_args = {
+        'base_dir': VM_BASE_DIR,
+        'event_loop': event_loop,
+        'cores': args.cores,
+        'memory': 2 << 30,
+    }
+    if args.just_start:
+        assert len(args.vms) == 1
 
-    # results = {}
-    # for _, vm in sorted(VMs.items()):
-    #     if vm.name in args.vms:
-    #         results[vm.name] = vm.runtest(settings)
+        vm_name = args.vms[0]
+        vm_cls = ALL_VMTESTS[vm_name]
+        vm = vm_cls(name=vm_name, **vm_args)
 
-    # if not all(results.values()):
-    #     print()
-    #     print('-' * 96)
-    #     print("%d/%d tests FAILED." % (
-    #         sum(1 for success in results.values() if not success), len(results)))
+        assert vm.is_installed
+        try:
+            await vm.start(gui=True)
+            await vm.wait_for_state(vm.POWEROFF, timeout=3600)
+        finally:
+            await vm.poweroff()
 
-    #     for vm, success in sorted(results.items(), key=lambda i: i[0]):
-    #         print("%s... %s" % (vm, 'SUCCESS' if success else 'FAILED'))
+        return
 
-    #     return 1
+    if args.login:
+        assert len(args.vms) == 1
+
+        vm_name = args.vms[0]
+        vm_cls = ALL_VMTESTS[vm_name]
+        vm = vm_cls(name=vm_name, **vm_args)
+
+        assert vm.is_installed
+        try:
+            await vm.start(gui=True)
+
+            client = await asyncssh.connect(
+                host='localhost',
+                port=5555,
+                options=asyncssh.SSHClientConnectionOptions(
+                    username='testuser',
+                    password='123',
+                    known_hosts=None),
+                loop=event_loop)
+            try:
+                await client.run(
+                    term_type='xterm',
+                    stdin=sys.stdin,
+                    stdout=sys.stdout,
+                    stderr=sys.stderr)
+            finally:
+                client.close()
+
+        finally:
+            await vm.poweroff()
+
+        return
+
+    results = {}
+    for vm_name in args.vms:
+        vm_cls = ALL_VMTESTS[vm_name]
+        vm = vm_cls(name=vm_name, **vm_args)
+
+        if not vm.is_installed:
+            await vm.install()
+            await vm.create_snapshot('clean')
+
+        elif args.clean_snapshot:
+            await vm.restore_snapshot('clean')
+
+        try:
+            await vm.start(gui=False)
+            results[vm.name] = await vm.run_test(settings)
+
+        finally:
+            await vm.poweroff()
+
+    if not all(results.values()):
+        print()
+        print('-' * 96)
+        print("%d/%d tests FAILED." % (
+            sum(1 for success in results.values() if not success), len(results)))
+        print()
+
+        for vm, success in sorted(results.items(), key=lambda i: i[0]):
+            print("%s... %s" % (vm, 'SUCCESS' if success else 'FAILED'))
+
+        return 1
 
     return 0
 
