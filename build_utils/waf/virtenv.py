@@ -145,6 +145,8 @@ def configure(ctx):
     pip_mgr.check_package(BUILD, 'pip', version='>=19.0')
     pip_mgr.check_package(BUILD, 'setuptools', version='>=41.0')
     pip_mgr.check_package(BUILD, 'wheel', version='>=0.33')
+    sys_mgr.check_package(BUILD, 'build-essential')
+    sys_mgr.check_package(BUILD, 'python3-dev')
 
     # Misc pip packages:
     pip_mgr.check_package(RUNTIME, 'eventfd')
@@ -174,6 +176,7 @@ def configure(ctx):
 
     # misc sys packages:
     sys_mgr.check_package(RUNTIME, 'ffmpeg')
+    sys_mgr.check_package(RUNTIME, 'libxkbcommon-x11-0')
     sys_mgr.check_package(BUILD, 'cmake')
     sys_mgr.check_package(BUILD, 'python3-dev')
     sys_mgr.check_package(BUILD, 'portaudio19-dev')
@@ -188,6 +191,9 @@ def configure(ctx):
     # mypy
     pip_mgr.check_package(DEV, 'mypy', version='0.720')
     pip_mgr.check_package(RUNTIME, 'mypy-extensions')
+
+    # sndfile
+    sys_mgr.check_package(BUILD, 'libsndfile1-dev')
 
     # csound
     sys_mgr.check_package(BUILD, 'libsamplerate0-dev')
@@ -215,9 +221,6 @@ def configure(ctx):
     # Faust
     FaustBuilder(ctx).check(BUILD, version='2.15.11')
     FaustLibrariesBuilder(ctx).check(BUILD, version='64a57f56')  # snapshot from 2019-03-30
-
-    # sndfile
-    sys_mgr.check_package(BUILD, 'libsndfile1-dev')
 
     # libswresample
     sys_mgr.check_package(BUILD, 'libswresample-dev')
@@ -258,11 +261,12 @@ def configure(ctx):
     pip_mgr.check_package(BUILD, 'mypy-protobuf', source='git+https://github.com/odahoda/mypy-protobuf.git#egg=mypy-protobuf&subdirectory=python')
 
     # profiling
-    sys_mgr.check_package(DEV, 'google-perftools')
+    sys_mgr.check_package(RUNTIME, 'google-perftools')
     sys_mgr.check_package(RUNTIME, 'libgoogle-perftools4')
     sys_mgr.check_package(BUILD, 'libgoogle-perftools-dev')
 
     # indicator-cpufreq
+    sys_mgr.check_package(DEV, 'libdbus-1-dev')
     pip_mgr.check_package(DEV, 'dbus-python')
     sys_mgr.check_package(DEV, 'bzr')
     pip_mgr.check_package(DEV, 'python-distutils-extra', source='bzr+lp:python-distutils-extra#egg=python-distutils-extra')

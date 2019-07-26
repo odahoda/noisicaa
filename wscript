@@ -115,15 +115,15 @@ def configure(ctx):
     ctx.pkg_config('GTK2', 'gtk+-2.0', '2.24')
     ctx.pkg_config('PROTOBUF', 'protobuf', '3.7')
     ctx.pkg_config('UNWIND', 'libunwind-generic', '1.1')
-    ctx.pkg_config('SRATOM', 'sratom-0', '0.6')
+    ctx.pkg_config('SRATOM', 'sratom-0', '0.4')
     ctx.pkg_config('LILV', 'lilv-0', '0.22')
     ctx.pkg_config('SUIL', 'suil-0', '0.10.0')
     ctx.pkg_config('SNDFILE', 'sndfile', '1.0')
     ctx.pkg_config('FLUIDSYNTH', 'fluidsynth', '1.1.6')
-    ctx.pkg_config('AVUTIL', 'libavutil', '55')
-    ctx.pkg_config('SWRESAMPLE', 'libswresample', '2.9')
+    ctx.pkg_config('AVUTIL', 'libavutil', '54')
+    ctx.pkg_config('SWRESAMPLE', 'libswresample', '1.2')
     ctx.pkg_config('PORTAUDIO', 'portaudio-2.0', '19')
-    ctx.pkg_config('PROFILER', 'libprofiler', '2.5')
+    ctx.pkg_config('PROFILER', 'libprofiler', '2.4')
 
     ctx.env.LIB_CSOUND = ['csound64']
     ctx.env.CFLAGS_CSOUND = ['-DHAVE_PTHREAD_SPIN_LOCK']
