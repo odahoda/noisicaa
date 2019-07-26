@@ -671,7 +671,7 @@ class CSoundBuilder(ThirdPartyBuilder):
             ],
             cwd=make_path)
         self._ctx.cmd_and_log(
-            ['make', '-j8'],
+            ['make', '-j%d' % len(os.sched_getaffinity(0))],
             cwd=make_path)
 
     def install(self, src_path):
@@ -691,7 +691,7 @@ class FaustBuilder(ThirdPartyBuilder):
     def build(self, src_path):
         self._ctx.cmd_and_log(
             ['make',
-             '-j8',
+             '-j%d' % len(os.sched_getaffinity(0)),
              'PREFIX=' + self._ctx.env.VIRTUAL_ENV,
              'compiler'],
             cwd=src_path)
@@ -833,7 +833,7 @@ class ProtocBuilder(ThirdPartyBuilder):
             ],
             cwd=src_path)
         self._ctx.cmd_and_log(
-            ['make', '-j8'],
+            ['make', '-j%d' % len(os.sched_getaffinity(0))],
             cwd=src_path)
 
     def install(self, src_path):
