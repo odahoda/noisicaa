@@ -280,9 +280,12 @@ def configure(ctx):
     sys_mgr.check_package(DEV, 'indicator-cpufreq')
 
     # vmtest
-    pip_mgr.check_package(VMTEST, 'paramiko')
-    pip_mgr.check_package(VMTEST, 'python-xlib')
-    sys_mgr.check_package(VMTEST, 'virtualbox')
+    pip_mgr.check_package(VMTEST, 'qemu-system-x86')
+    pip_mgr.check_package(VMTEST, 'qemu-block-extra')
+    pip_mgr.check_package(VMTEST, 'libvirt-bin')
+    pip_mgr.check_package(VMTEST, 'asyncssh')
+    sys_mgr.check_package(VMTEST, 'sshpass')
+    sys_mgr.check_package(VMTEST, 'openssh-client')
 
     # pylint: enable=line-too-long
 
