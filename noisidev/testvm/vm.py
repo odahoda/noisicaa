@@ -81,8 +81,9 @@ class VM(object):
     POWEROFF = 'poweroff'
     RUNNING = 'running'
 
-    def __init__(self, *, name, base_dir, event_loop, cores=1, memory=1 << 30, disk_size=10 << 30):
+    def __init__(self, *, name, base_dir, event_loop, hostname=None, cores=1, memory=1 << 30, disk_size=10 << 30):
         self.name = name
+        self.hostname = hostname or re.sub(r'[^-a-zA-Z0-9]', '', name)
         self.base_dir = base_dir
         self.event_loop = event_loop
 
