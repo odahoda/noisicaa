@@ -22,6 +22,7 @@
 
 import asyncio
 import io
+import logging
 import random
 import sys
 import time
@@ -35,6 +36,8 @@ from . import process_manager
 from . import empty_message_pb2
 from . import ipc
 from . import ipc_test_pb2
+
+logger = logging.getLogger(__name__)
 
 
 class IPCTest(unittest.AsyncTestCase):
@@ -241,12 +244,17 @@ class IPCPerfTest(unittest.AsyncTestCase):
         while cpufreq.cpu_exists(maxcpu) == 0:
             maxcpu += 1
         self.cpus = [dbus.UInt32(cpu) for cpu in range(maxcpu)]
-        self.old_governor = cpufreq.get_policy(self.cpus[0])[2]
-        self.bus = dbus.SystemBus()
-        self.proxy = self.bus.get_object(
-            'com.ubuntu.IndicatorCpufreqSelector', '/Selector', introspect=False)
-        self.proxy.SetGovernor(
-            self.cpus, 'performance', dbus_interface='com.ubuntu.IndicatorCpufreqSelector')
+        try:
+            self.old_governor = cpufreq.get_policy(self.cpus[0])[2]
+        except ValueError as exc:
+            logger.error("Failed to query current CPU govenor: %s", exc)
+            logger.error("Cannot set CPU to 'performance' for the perf tests.")
+        else:
+            self.bus = dbus.SystemBus()
+            self.proxy = self.bus.get_object(
+                'com.ubuntu.IndicatorCpufreqSelector', '/Selector', introspect=False)
+            self.proxy.SetGovernor(
+                self.cpus, 'performance', dbus_interface='com.ubuntu.IndicatorCpufreqSelector')
 
     async def cleanup_testcase(self):
         if self.old_governor is not None:
