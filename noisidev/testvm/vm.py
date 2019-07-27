@@ -90,7 +90,7 @@ class VM(object):
         self.event_loop = event_loop
 
         self.vm_dir = os.path.join(base_dir, self.name)
-        self.installed_sentinel = os.path.join(self.vm_dir, 'installed')
+        self.cache_dir = os.path.join(base_dir, '_cache')
 
         self.__cores = cores
         self.__memory = memory
@@ -154,7 +154,8 @@ class VM(object):
                         '-netdev', 'user,id=net0,hostfwd=tcp::5555-:22'])
         cmdline.extend(['--drive', 'format=qcow2,file=%s' % self.__hd_path])
         if self.__iso_path is not None:
-            cmdline.extend(['--drive', 'media=cdrom,file=%s,readonly' % self.__iso_path])
+            cmdline.extend(['--drive', 'media=cdrom,file=%s,readonly' % self.__iso_path,
+                            '-boot', 'd'])
         cmdline.extend(['-qmp', 'unix:%s,server,nowait' % self.__qmp_socket_path])
         if gui:
             cmdline.extend(['-display', 'sdl'])
@@ -344,7 +345,13 @@ class VM(object):
             logger.info("Running command %s", ' '.join(cmd))
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 loop=self.event_loop)
+            self.event_loop.create_task(
+                self.__qproc_logger(proc.stdout, logger.info))
+            self.event_loop.create_task(
+                self.__qproc_logger(proc.stderr, logger.warning))
             await proc.wait()
 
     async def attach_iso(self, path):
@@ -359,24 +366,17 @@ class VM(object):
 
         self.__iso_path = None
 
-    @property
-    def is_installed(self):
-        return os.path.isfile(self.installed_sentinel)
-
     async def install(self):
-        if not self.is_installed:
-            if not os.path.isdir(self.vm_dir):
-                os.makedirs(self.vm_dir)
+        if not os.path.isdir(self.vm_dir):
+            os.makedirs(self.vm_dir)
 
-            logger.info("Setting up VM %s...", self.name)
-            await self.setup_vm()
-            logger.info("Setup complete.")
+        logger.info("Setting up VM %s...", self.name)
+        await self.setup_vm()
+        logger.info("Setup complete.")
 
-            logger.info("Installing VM %s...", self.name)
-            await self.do_install()
-            logger.info("Installation complete.")
-
-            open(self.installed_sentinel, 'w').close()
+        logger.info("Installing VM %s...", self.name)
+        await self.do_install()
+        logger.info("Installation complete.")
 
     async def do_install(self):
         raise NotImplementedError

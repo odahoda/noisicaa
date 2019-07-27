@@ -208,6 +208,7 @@ class Ubuntu_16_04(Ubuntu):
         super().__init__(
             iso_url=('http://archive.ubuntu.com/ubuntu/dists/xenial-updates/main/'
                      'installer-amd64/current/images/netboot/mini.iso'),
+            iso_name='ubuntu-xenial-amd64-netboot.iso',
             **kwargs,
         )
 
@@ -217,6 +218,7 @@ class Ubuntu_18_04(Ubuntu):
         super().__init__(
             iso_url=('http://archive.ubuntu.com/ubuntu/dists/bionic-updates/main/'
                      'installer-amd64/current/images/netboot/mini.iso'),
+            iso_name='ubuntu-bionic-amd64-netboot.iso',
             **kwargs,
         )
 

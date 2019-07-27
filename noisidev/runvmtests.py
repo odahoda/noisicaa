@@ -22,6 +22,8 @@
 
 import asyncio
 import argparse
+import datetime
+import glob
 import logging
 import os
 import os.path
@@ -73,38 +75,80 @@ sudo ./waf install
 
 
 class TestMixin(testvm.VM):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.__installed_sentinel = os.path.join(self.vm_dir, 'installed')
+
+    @property
+    def is_installed(self):
+        return os.path.isfile(self.__installed_sentinel)
+
+    async def __spinner(self, prefix, result):
+        start_time = datetime.datetime.now()
+        spinner = '-\|/'
+        spinner_idx = 0
+        while True:
+            duration = (datetime.datetime.now() - start_time).total_seconds()
+            minutes = duration // 60
+            seconds = duration - 60 * minutes
+            sys.stdout.write('\033[2K\r%s [%02d:%02d] ... ' % (prefix, minutes, seconds))
+            if not result.empty():
+                sys.stdout.write(await result.get())
+                sys.stdout.write('\n')
+                break
+
+            sys.stdout.write('(%s)' % spinner[spinner_idx])
+            spinner_idx = (spinner_idx + 1) % len(spinner)
+            sys.stdout.flush()
+            await asyncio.sleep(0.2, loop=self.event_loop)
+
+    async def install(self):
+        logger.info("Installing VM '%s'...", self.name)
+
+        result = asyncio.Queue(loop=self.event_loop)
+        spinner_task = self.event_loop.create_task(self.__spinner("Installing VM '%s'" % self.name, result))
+        try:
+            if os.path.isfile(self.__installed_sentinel):
+                os.unlink(self.__installed_sentinel)
+            for img_path in glob.glob(os.path.join(self.vm_dir, '*.img')):
+                os.unlink(img_path)
+            await super().install()
+            await self.create_snapshot('clean')
+            open(self.__installed_sentinel, 'w').close()
+        except:
+            logger.error("Installation of VM '%s' failed.", self.name)
+            result.put_nowait('FAILED')
+            raise
+        else:
+            logger.info("Installed VM '%s'...", self.name)
+            result.put_nowait('OK')
+        finally:
+            await spinner_task
+
     async def run_test(self, settings):
-        sys.stdout.write("Running test '%s'... " % self.name)
-        sys.stdout.flush()
+        logger.info("Running test '%s'... ", self.name)
+
+        result = asyncio.Queue(loop=self.event_loop)
+        spinner_task = self.event_loop.create_task(self.__spinner("Running test '%s'" % self.name, result))
         try:
             await self.do_test(settings)
         except Exception as exc:
-            sys.stdout.write('\n')
-            traceback.print_exc()
+            logger.error("Test '%s' failed with an exception:\n%s", self.name, traceback.format_exc())
+            result.put_nowait('FAILED')
             return False
         else:
-            sys.stdout.write('SUCCESS\n')
+            logger.info("Test '%s' completed successfully.")
+            result.put_nowait('SUCCESS')
             return True
+        finally:
+            await spinner_task
 
     async def do_test(self, settings):
+        vm_logger = logging.getLogger(self.name)
+
         logger.info("Waiting for SSH port to open...")
-
-        import socket
-
-        deadline = time.time() + 300
-        while True:
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.settimeout(1.0)
-                    s.connect(('localhost', 5555))
-                    s.sendall(b'Hello, world')
-                    logger.info("ok")
-            except socket.timeout as exc:
-                logger.debug("Failed to connect: %s", exc)
-                if time.time() > deadline:
-                    raise TimeoutError("Failed to connect to VM")
-            else:
-                break
+        await self.wait_for_ssh()
 
         logger.info("Connecting to VM...")
         client = await asyncssh.connect(
@@ -147,15 +191,15 @@ class TestMixin(testvm.VM):
             finally:
                 sftp.exit()
 
-            proc = await client.create_process("./runtest.sh")
-            async def dumper(fp_in, fp_out):
+            proc = await client.create_process("./runtest.sh", stderr=subprocess.STDOUT)
+            async def dumper(fp_in, out_func):
                 while not fp_in.at_eof():
-                    fp_out.write(await fp_in.readline())
-            stdout_dumper = self.event_loop.create_task(dumper(proc.stdout, sys.stdout))
-            stderr_dumper = self.event_loop.create_task(dumper(proc.stderr, sys.stderr))
+                    line = await fp_in.readline()
+                    line = line.rstrip('\r\n')
+                    out_func(line)
+            stdout_dumper = self.event_loop.create_task(dumper(proc.stdout, vm_logger.info))
             await proc.wait()
             await stdout_dumper
-            await stderr_dumper
             assert proc.returncode == 0
 
         finally:
@@ -182,9 +226,6 @@ class TestSettings(object):
     def __init__(self, args):
         self.branch = args.branch
         self.source = args.source
-        self.rebuild_vm = args.rebuild_vm
-        self.just_start = args.just_start
-        self.clean_snapshot = args.clean_snapshot
         self.shutdown = args.shutdown
 
 
@@ -231,6 +272,9 @@ async def main(event_loop, argv):
         '--gui', type=bool_arg, default=None,
         help="Force showing/hiding the UI.")
     argparser.add_argument(
+        '--force-install', action="store_true", default=False,
+        help="Force reinstallation of operating system before starting VM.")
+    argparser.add_argument(
         '--cores', type=int,
         default=min(4, len(os.sched_getaffinity(0))),
         help="Number of emulated cores in the VM.")
@@ -247,101 +291,133 @@ async def main(event_loop, argv):
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:
         root_logger.removeHandler(handler)
-    logging.basicConfig(
-        format='%(levelname)-8s:%(process)5s:%(thread)08x:%(name)s: %(message)s',
-        level={
-            'debug': logging.DEBUG,
-            'info': logging.INFO,
-            'warning': logging.WARNING,
-            'error': logging.ERROR,
-            'critical': logging.CRITICAL,
+    formatter = logging.Formatter(
+        '%(relativeCreated)8d:%(levelname)-8s:%(name)s: %(message)s')
+
+    root_logger.setLevel(logging.DEBUG)
+
+    log_path = os.path.join(VM_BASE_DIR, time.strftime('debug-%Y%m%d-%H%M%S.log'))
+    current_log_path = os.path.join(VM_BASE_DIR, 'debug.log')
+    if os.path.isfile(current_log_path) or os.path.islink(current_log_path):
+        os.unlink(current_log_path)
+    os.symlink(log_path, current_log_path)
+
+    handler = logging.FileHandler(log_path, 'w')
+    handler.setFormatter(formatter)
+    handler.setLevel(logging.DEBUG)
+    root_logger.addHandler(handler)
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    handler.setLevel(
+        {'debug': logging.DEBUG,
+         'info': logging.INFO,
+         'warning': logging.WARNING,
+         'error': logging.ERROR,
+         'critical': logging.CRITICAL,
         }[args.log_level])
+    root_logger.addHandler(handler)
 
-    settings = TestSettings(args)
+    try:
+        logger.info(' '.join(argv))
 
-    vm_args = {
-        'base_dir': VM_BASE_DIR,
-        'event_loop': event_loop,
-        'cores': args.cores,
-        'memory': 2 << 30,
-    }
-    if args.just_start:
-        assert len(args.vms) == 1
+        settings = TestSettings(args)
 
-        vm_name = args.vms[0]
-        vm_cls = ALL_VMTESTS[vm_name]
-        vm = vm_cls(name=vm_name, **vm_args)
+        vm_args = {
+            'base_dir': VM_BASE_DIR,
+            'event_loop': event_loop,
+            'cores': args.cores,
+            'memory': 2 << 30,
+        }
+        if args.just_start:
+            assert len(args.vms) == 1
 
-        assert vm.is_installed
-        try:
-            await vm.start(gui=args.gui if args.gui is not None else True)
-            await vm.wait_for_state(vm.POWEROFF, timeout=3600)
-        finally:
-            await vm.poweroff()
+            vm_name = args.vms[0]
+            vm_cls = ALL_VMTESTS[vm_name]
+            vm = vm_cls(name=vm_name, **vm_args)
 
-        return
+            if args.force_install:
+                await vm.install()
 
-    if args.login:
-        assert len(args.vms) == 1
+            assert vm.is_installed
+            try:
+                await vm.start(gui=args.gui if args.gui is not None else True)
+                await vm.wait_for_state(vm.POWEROFF, timeout=3600)
+            finally:
+                await vm.poweroff()
 
-        vm_name = args.vms[0]
-        vm_cls = ALL_VMTESTS[vm_name]
-        vm = vm_cls(name=vm_name, **vm_args)
+            return
 
-        assert vm.is_installed
-        try:
-            await vm.start(gui=args.gui if args.gui is not None else False)
-            await vm.wait_for_ssh()
+        if args.login:
+            assert len(args.vms) == 1
 
-            proc = await asyncio.create_subprocess_exec(
-                '/usr/bin/sshpass', '-p123',
-                '/usr/bin/ssh',
-                '-p5555',
-                '-X',
-                '-oStrictHostKeyChecking=off',
-                '-oUserKnownHostsFile=/dev/null',
-                '-oLogLevel=quiet',
-                'testuser@localhost',
-                loop=event_loop)
-            await proc.wait()
+            vm_name = args.vms[0]
+            vm_cls = ALL_VMTESTS[vm_name]
+            vm = vm_cls(name=vm_name, **vm_args)
 
-        finally:
-            await vm.poweroff()
+            if args.force_install:
+                await vm.install()
 
-        return
+            assert vm.is_installed
+            try:
+                await vm.start(gui=args.gui if args.gui is not None else False)
+                await vm.wait_for_ssh()
 
-    results = {}
-    for vm_name in args.vms:
-        vm_cls = ALL_VMTESTS[vm_name]
-        vm = vm_cls(name=vm_name, **vm_args)
+                proc = await asyncio.create_subprocess_exec(
+                    '/usr/bin/sshpass', '-p123',
+                    '/usr/bin/ssh',
+                    '-p5555',
+                    '-X',
+                    '-oStrictHostKeyChecking=off',
+                    '-oUserKnownHostsFile=/dev/null',
+                    '-oLogLevel=quiet',
+                    'testuser@localhost',
+                    loop=event_loop)
+                await proc.wait()
 
-        if not vm.is_installed:
-            await vm.install()
-            await vm.create_snapshot('clean')
+            finally:
+                await vm.poweroff()
 
-        elif args.clean_snapshot:
-            await vm.restore_snapshot('clean')
+            return
 
-        try:
-            await vm.start(gui=args.gui if args.gui is not None else False)
-            results[vm.name] = await vm.run_test(settings)
+        results = {}
+        for vm_name in args.vms:
+            vm_cls = ALL_VMTESTS[vm_name]
+            vm = vm_cls(name=vm_name, **vm_args)
 
-        finally:
-            await vm.poweroff()
+            if not vm.is_installed or args.force_install:
+                await vm.install()
 
-    if not all(results.values()):
-        print()
-        print('-' * 96)
-        print("%d/%d tests FAILED." % (
-            sum(1 for success in results.values() if not success), len(results)))
-        print()
+            elif args.clean_snapshot:
+                await vm.restore_snapshot('clean')
 
-        for vm, success in sorted(results.items(), key=lambda i: i[0]):
-            print("%s... %s" % (vm, 'SUCCESS' if success else 'FAILED'))
+            try:
+                await vm.start(gui=args.gui if args.gui is not None else False)
+                results[vm.name] = await vm.run_test(settings)
 
-        return 1
+            finally:
+                await vm.poweroff()
 
-    return 0
+        if not all(results.values()):
+            print()
+            print('-' * 96)
+            print("%d/%d tests FAILED." % (
+                sum(1 for success in results.values() if not success), len(results)))
+            print()
+
+            for vm, success in sorted(results.items(), key=lambda i: i[0]):
+                print("%s... %s" % (vm, 'SUCCESS' if success else 'FAILED'))
+
+            return 1
+
+        return 0
+
+    except:
+        logger.error("runvmtests failed with an exception:\n%s", traceback.format_exc())
+        raise
+
+    finally:
+        print("Full logs at %s" % log_path)
 
 
 if __name__ == '__main__':

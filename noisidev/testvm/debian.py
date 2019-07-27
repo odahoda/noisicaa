@@ -45,17 +45,18 @@ class PreseedCfg(object):
 
 
 class DebianLike(vm.VM):
-    def __init__(self, *, iso_url, **kwargs):
+    def __init__(self, *, iso_url, iso_name, **kwargs):
         super().__init__(**kwargs)
 
         self.__iso_url = iso_url
+        self.__iso_name = iso_name
 
     async def do_install(self):
-        orig_iso_path = os.path.join(self.vm_dir, 'installer-orig.iso')
+        orig_iso_path = os.path.join(self.cache_dir, self.__iso_name)
         iso_path = os.path.join(self.vm_dir, 'installer.iso')
 
         if not os.path.isfile(orig_iso_path):
-            self.download_file(self.__iso_url, orig_iso_path)
+            await self.download_file(self.__iso_url, orig_iso_path)
 
         if not os.path.isfile(iso_path):
             self.patch_iso(orig_iso_path, iso_path)
@@ -139,7 +140,7 @@ class DebianLike(vm.VM):
         else:
             cmd_str = ' '.join(cmd)
 
-        print(cmd_str)
+        logger.info(cmd_str)
 
         proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs)
@@ -147,7 +148,7 @@ class DebianLike(vm.VM):
         proc.wait()
 
         if proc.returncode != 0:
-            print(out)
+            logger.info(out)
             raise RuntimeError(
                 "Command '%s' failed with rc=%d" % (cmd_str, proc.returncode))
 
@@ -342,5 +343,6 @@ class Debian9(Debian):
     def __init__(self, **kwargs):
         super().__init__(
             iso_url='https://cdimage.debian.org/cdimage/archive/9.9.0/amd64/iso-cd/debian-9.9.0-amd64-netinst.iso',
+            iso_name='debian-9.9.0-amd64-netinst.iso',
             **kwargs,
         )
