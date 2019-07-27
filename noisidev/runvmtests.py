@@ -297,6 +297,7 @@ async def main(event_loop, argv):
                 '/usr/bin/sshpass', '-p123',
                 '/usr/bin/ssh',
                 '-p5555',
+                '-X',
                 '-oStrictHostKeyChecking=off',
                 '-oUserKnownHostsFile=/dev/null',
                 '-oLogLevel=quiet',
