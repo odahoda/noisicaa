@@ -215,7 +215,7 @@ class TestMixin(testvm.VM):
                         stdout=subprocess.PIPE)
                     async with sftp.open('local.tar.gz', 'wb') as fp:
                         while True:
-                            buf = proc.stdout.read(1024)
+                            buf = proc.stdout.read(1 << 20)
                             if not buf:
                                 break
                             await fp.write(buf)
