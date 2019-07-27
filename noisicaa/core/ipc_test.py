@@ -130,7 +130,7 @@ class IPCTest(unittest.AsyncTestCase):
             endpoint = ipc.ServerEndpoint('main')
             async def handler(request, response):
                 self.loop.create_task(server.cleanup())
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.1, loop=self.loop)
                 response.num = request.num + 1
             endpoint.add_handler(
                 'foo', handler, ipc_test_pb2.TestRequest, ipc_test_pb2.TestResponse)
@@ -174,7 +174,7 @@ class IPCTest(unittest.AsyncTestCase):
                 while True:
                     if pending[0] > 3:
                         break
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.1, loop=self.loop)
 
                 response.num = request.num + 1
 
