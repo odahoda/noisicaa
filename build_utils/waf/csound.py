@@ -54,11 +54,23 @@ class compile_csound(Task):
 
 
 @conf
-def rendered_csound(ctx, source):
+def rendered_csound(ctx, source, install=None, install_to=None, chmod=0o644):
     assert source.endswith('.csnd')
+
+    wav_path = os.path.splitext(source)[0] + '.wav'
+    target = ctx.path.get_bld().make_node(wav_path)
 
     task = compile_csound(env=ctx.env)
     task.set_inputs(ctx.path.find_resource(source))
-    wav_path = os.path.splitext(source)[0] + '.wav'
-    task.set_outputs(ctx.path.get_bld().make_node(wav_path))
+    task.set_outputs(target)
     ctx.add_to_group(task)
+
+    if install is None:
+        install = ctx.in_group(ctx.GRP_BUILD_MAIN)
+
+    if install:
+        if install_to is None:
+            install_to = os.path.join(
+                ctx.env.DATADIR, target.parent.path_from(ctx.bldnode.make_node('data')))
+
+        ctx.install_files(install_to, target, chmod=chmod)
