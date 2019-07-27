@@ -336,14 +336,6 @@ class VM(object):
         os.rename(path + '.partial', path)
         print('Downloaded %s: %d bytes' % (url, total_bytes))
 
-    def get_default_if(self):
-        proc = subprocess.run(['route', '-n'], check=True, stdout=subprocess.PIPE)
-        for line in proc.stdout.decode('utf-8').splitlines():
-            if line.startswith('0.0.0.0'):
-                return line.split()[-1]
-
-        raise RuntimeError
-
     async def delete(self):
         raise NotImplementedError
 
