@@ -80,6 +80,34 @@ sudo ./waf install
 '''
 
 
+async def log_dumper(fp_in, out_func, encoding=None):
+    if encoding is None:
+        line = ''
+        lf = '\n'
+    else:
+        line = bytearray()
+        lf = b'\n'
+
+    while not fp_in.at_eof():
+        c = await fp_in.read(1)
+        if c == lf:
+            if encoding is not None:
+                line = line.decode(encoding)
+            out_func(line)
+            if encoding is None:
+                line = ''
+            else:
+                line = bytearray()
+
+        else:
+            line += c
+
+    if line:
+        if encoding is not None:
+            line = line.decode(encoding)
+        out_func(buf)
+
+
 class TestMixin(testvm.VM):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -198,12 +226,7 @@ class TestMixin(testvm.VM):
                 sftp.exit()
 
             proc = await client.create_process("./runtest.sh", stderr=subprocess.STDOUT)
-            async def dumper(fp_in, out_func):
-                while not fp_in.at_eof():
-                    line = await fp_in.readline()
-                    line = line.rstrip('\r\n')
-                    out_func(line)
-            stdout_dumper = self.event_loop.create_task(dumper(proc.stdout, vm_logger.info))
+            stdout_dumper = self.event_loop.create_task(log_dumper(proc.stdout, vm_logger.info))
             await proc.wait()
             await stdout_dumper
             assert proc.returncode == 0
@@ -332,22 +355,30 @@ async def main(event_loop, argv):
     try:
         logger.info(' '.join(argv))
 
-        logger.info("Starting local devpi server on port %d...", args.devpi_port)
         devpi_logger = logging.getLogger('devpi')
+        devpi_serverdir = os.path.join(ROOT_DIR, 'vmtests', '_cache', 'devpi')
+        if not os.path.isdir(devpi_serverdir):
+            logger.info("Initializing devpi cache at '%s'...", devpi_serverdir)
+            devpi = await asyncio.create_subprocess_exec(
+                'devpi-server',
+                '--serverdir=%s' % devpi_serverdir,
+                '--init',
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                loop=event_loop)
+            devpi_stdout_dumper = event_loop.create_task(log_dumper(devpi.stdout, devpi_logger.debug, encoding='utf-8'))
+            await devpi.wait()
+            await devpi_stdout_dumper
+
+        logger.info("Starting local devpi server on port %d...", args.devpi_port)
         devpi = await asyncio.create_subprocess_exec(
             'devpi-server',
-            '--serverdir=%s' % os.path.join(ROOT_DIR, 'vmtests', '_cache', 'devpi'),
+            '--serverdir=%s' % devpi_serverdir,
             '--port=%d' % args.devpi_port,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             loop=event_loop)
-        async def dumper(fp_in, out_func):
-            while not fp_in.at_eof():
-                line = await fp_in.readline()
-                line = line.decode('utf-8')
-                line = line.rstrip('\r\n')
-                out_func(line)
-        devpi_stdout_dumper = event_loop.create_task(dumper(devpi.stdout, devpi_logger.debug))
+        devpi_stdout_dumper = event_loop.create_task(log_dumper(devpi.stdout, devpi_logger.debug, encoding='utf-8'))
         try:
             settings = TestSettings(args)
             vm_args = {
