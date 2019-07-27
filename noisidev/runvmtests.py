@@ -231,7 +231,8 @@ async def main(event_loop, argv):
         '--gui', type=bool_arg, default=None,
         help="Force showing/hiding the UI.")
     argparser.add_argument(
-        '--cores', type=int, default=len(os.sched_getaffinity(0)),
+        '--cores', type=int,
+        default=min(4, len(os.sched_getaffinity(0))),
         help="Number of emulated cores in the VM.")
     argparser.add_argument('vms', nargs='*')
     args = argparser.parse_args(argv[1:])
