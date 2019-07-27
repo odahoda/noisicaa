@@ -210,6 +210,7 @@ class Debian(DebianLike):
         ### Preseeding other packages
         cfg.insert('d-i', 'preseed/late_command', 'string', textwrap.dedent('''\
             /bin/echo >/target/etc/sudoers.d/testuser "testuser ALL=(ALL) NOPASSWD:ALL"
+            adduser testuser audio
         '''))
 
         return cfg

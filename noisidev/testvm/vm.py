@@ -147,6 +147,7 @@ class VM(object):
         cmdline.extend(['--enable-kvm'])
         cmdline.extend(['-m', '%dM' % (self.__memory // (1<<20))])
         cmdline.extend(['-smp', '%d' % self.__cores])
+        cmdline.extend(['-soundhw', 'ac97'])
         cmdline.extend(['-device', 'e1000,netdev=net0',
                         '-netdev', 'user,id=net0,hostfwd=tcp::5555-:22'])
         cmdline.extend(['--drive', 'format=qcow2,file=%s' % self.__hd_path])
