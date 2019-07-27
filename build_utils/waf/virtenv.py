@@ -154,11 +154,14 @@ def configure(ctx):
     # Misc pip packages:
     pip_mgr.check_package(RUNTIME, 'eventfd')
     pip_mgr.check_package(RUNTIME, 'lucky-humanize')
-    pip_mgr.check_package(RUNTIME, 'numpy')
+    # numpy.core.numeric.asarray is gone from numpy 1.17
+    pip_mgr.check_package(RUNTIME, 'numpy', version='1.16.4')
     pip_mgr.check_package(RUNTIME, 'portalocker')
     pip_mgr.check_package(RUNTIME, 'posix-ipc')
-    pip_mgr.check_package(RUNTIME, 'psutil')
-    pip_mgr.check_package(RUNTIME, 'pyparsing')
+    # psutil 5.6.3 has an empty __init__.py...
+    pip_mgr.check_package(RUNTIME, 'psutil', version='5.6.2')
+    # pyparsing 2.4.1 causes issues with packaging
+    pip_mgr.check_package(RUNTIME, 'pyparsing', version='2.4.0')
     pip_mgr.check_package(RUNTIME, 'sortedcontainers')
     pip_mgr.check_package(RUNTIME, 'toposort')
     pip_mgr.check_package(RUNTIME, 'urwid')
