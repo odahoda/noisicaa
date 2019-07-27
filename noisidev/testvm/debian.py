@@ -105,9 +105,10 @@ class DebianLike(vm.VM):
         cfg.insert('d-i', 'pkgsel/include', 'string', 'openssh-server')
         cfg.insert('d-i', 'pkgsel/upgrade', 'select', 'full-upgrade')
 
-        ### Preseeding other packages
+        ### Final tweaks to the system
         cfg.insert('d-i', 'preseed/late_command', 'string', textwrap.dedent('''\
-            /bin/echo >/target/etc/sudoers.d/testuser "testuser ALL=(ALL) NOPASSWD:ALL"
+            /bin/echo >/target/etc/sudoers.d/testuser "testuser ALL=(ALL) NOPASSWD:ALL";
+            in-target /usr/sbin/adduser testuser audio;
         '''))
 
         ### Boot loader installation
@@ -207,12 +208,6 @@ class Debian(DebianLike):
         cfg.insert('d-i', 'grub-installer/only_debian', 'boolean', 'true')
         cfg.insert('d-i', 'grub-installer/with_other_os', 'boolean', 'true')
         cfg.insert('d-i', 'grub-installer/bootdev ', 'string', '/dev/sda')
-
-        ### Preseeding other packages
-        cfg.insert('d-i', 'preseed/late_command', 'string', textwrap.dedent('''\
-            /bin/echo >/target/etc/sudoers.d/testuser "testuser ALL=(ALL) NOPASSWD:ALL"
-            adduser testuser audio
-        '''))
 
         return cfg
 
