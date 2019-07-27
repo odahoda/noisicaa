@@ -50,6 +50,7 @@ BRANCH="{settings.branch}"
 set -e
 set -x
 
+mkdir -p ~/.pip
 cat >~/.pip/pip.conf <<EOF
 [global]
 index-url = http://_gateway:{settings.devpi_port}/root/pypi/+simple/
