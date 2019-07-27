@@ -19,6 +19,8 @@ import traceback
 import urllib.parse
 import urllib.request
 
+import aiohttp
+
 logger = logging.getLogger(__name__)
 
 
@@ -310,31 +312,24 @@ class VM(object):
             self.__qproc_logger(proc.stderr, logger.warning))
         await proc.wait()
 
-    def download_file(self, url, path):
+    async def download_file(self, url, path):
         logging.info("Downloading '%s' to '%s'...", url, path)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         total_bytes = 0
-        with urllib.request.urlopen(url) as fp_in:
-            with open(path + '.partial', 'wb') as fp_out:
-                last_report = time.time()
-                try:
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                resp.raise_for_status()
+                with open(path + '.partial', 'wb') as fp_out:
                     while True:
-                        dat = fp_in.read(10240)
+                        dat = await resp.content.read(10240)
                         if not dat:
                             break
                         fp_out.write(dat)
                         total_bytes += len(dat)
-                        if time.time() - last_report > 1:
-                            sys.stderr.write(
-                                'Downloading %s: %d bytes\r'
-                                % (url, total_bytes))
-                            sys.stderr.flush()
-                            last_report = time.time()
-                finally:
-                    sys.stderr.write('\033[K')
-                    sys.stderr.flush()
 
         os.rename(path + '.partial', path)
-        print('Downloaded %s: %d bytes' % (url, total_bytes))
+        logging.info("Downloaded %s: %d bytes", url, total_bytes)
 
     async def delete(self):
         raise NotImplementedError

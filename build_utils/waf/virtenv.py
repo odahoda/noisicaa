@@ -286,6 +286,7 @@ def configure(ctx):
     pip_mgr.check_package(VMTEST, 'asyncssh')
     sys_mgr.check_package(VMTEST, 'sshpass')
     sys_mgr.check_package(VMTEST, 'openssh-client')
+    sys_mgr.check_package(VMTEST, 'aiohttp')
 
     # pylint: enable=line-too-long
 
