@@ -50,6 +50,12 @@ BRANCH="{settings.branch}"
 set -e
 set -x
 
+cat >~/.pip/pip.conf <<EOF
+[global]
+index-url = http://_gateway:{settings.devpi_port}/root/pypi/+simple/
+trusted-host = _gateway
+EOF
+
 sudo apt-get -q -y install python3 python3-venv
 
 rm -fr noisicaa/
@@ -227,6 +233,7 @@ class TestSettings(object):
         self.branch = args.branch
         self.source = args.source
         self.shutdown = args.shutdown
+        self.devpi_port = args.devpi_port
 
 
 def bool_arg(value):
@@ -278,6 +285,10 @@ async def main(event_loop, argv):
         '--cores', type=int,
         default=min(4, len(os.sched_getaffinity(0))),
         help="Number of emulated cores in the VM.")
+    argparser.add_argument(
+        '--devpi-port', type=int,
+        default=18000,
+        help="Local port for devpi server.")
     argparser.add_argument('vms', nargs='*')
     args = argparser.parse_args(argv[1:])
 
@@ -321,96 +332,118 @@ async def main(event_loop, argv):
     try:
         logger.info(' '.join(argv))
 
-        settings = TestSettings(args)
+        logger.info("Starting local devpi server on port %d...", args.devpi_port)
+        devpi_logger = logging.getLogger('devpi')
+        devpi = await asyncio.create_subprocess_exec(
+            'devpi-server',
+            '--serverdir=%s' % os.path.join(ROOT_DIR, 'vmtests', '_cache', 'devpi'),
+            '--port=%d' % args.devpi_port,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            loop=event_loop)
+        async def dumper(fp_in, out_func):
+            while not fp_in.at_eof():
+                line = await fp_in.readline()
+                line = line.decode('utf-8')
+                line = line.rstrip('\r\n')
+                out_func(line)
+        devpi_stdout_dumper = event_loop.create_task(dumper(devpi.stdout, devpi_logger.debug))
+        try:
+            settings = TestSettings(args)
+            vm_args = {
+                'base_dir': VM_BASE_DIR,
+                'event_loop': event_loop,
+                'cores': args.cores,
+                'memory': 2 << 30,
+            }
 
-        vm_args = {
-            'base_dir': VM_BASE_DIR,
-            'event_loop': event_loop,
-            'cores': args.cores,
-            'memory': 2 << 30,
-        }
-        if args.just_start:
-            assert len(args.vms) == 1
+            if args.just_start:
+                assert len(args.vms) == 1
 
-            vm_name = args.vms[0]
-            vm_cls = ALL_VMTESTS[vm_name]
-            vm = vm_cls(name=vm_name, **vm_args)
+                vm_name = args.vms[0]
+                vm_cls = ALL_VMTESTS[vm_name]
+                vm = vm_cls(name=vm_name, **vm_args)
 
-            if args.force_install:
-                await vm.install()
+                if args.force_install:
+                    await vm.install()
 
-            assert vm.is_installed
-            try:
-                await vm.start(gui=args.gui if args.gui is not None else True)
-                await vm.wait_for_state(vm.POWEROFF, timeout=3600)
-            finally:
-                await vm.poweroff()
+                assert vm.is_installed
+                try:
+                    await vm.start(gui=args.gui if args.gui is not None else True)
+                    await vm.wait_for_state(vm.POWEROFF, timeout=3600)
+                finally:
+                    await vm.poweroff()
 
-            return
+                return
 
-        if args.login:
-            assert len(args.vms) == 1
+            if args.login:
+                assert len(args.vms) == 1
 
-            vm_name = args.vms[0]
-            vm_cls = ALL_VMTESTS[vm_name]
-            vm = vm_cls(name=vm_name, **vm_args)
+                vm_name = args.vms[0]
+                vm_cls = ALL_VMTESTS[vm_name]
+                vm = vm_cls(name=vm_name, **vm_args)
 
-            if args.force_install:
-                await vm.install()
+                if args.force_install:
+                    await vm.install()
 
-            assert vm.is_installed
-            try:
-                await vm.start(gui=args.gui if args.gui is not None else False)
-                await vm.wait_for_ssh()
+                assert vm.is_installed
+                try:
+                    await vm.start(gui=args.gui if args.gui is not None else False)
+                    await vm.wait_for_ssh()
 
-                proc = await asyncio.create_subprocess_exec(
-                    '/usr/bin/sshpass', '-p123',
-                    '/usr/bin/ssh',
-                    '-p5555',
-                    '-X',
-                    '-oStrictHostKeyChecking=off',
-                    '-oUserKnownHostsFile=/dev/null',
-                    '-oLogLevel=quiet',
-                    'testuser@localhost',
-                    loop=event_loop)
-                await proc.wait()
+                    proc = await asyncio.create_subprocess_exec(
+                        '/usr/bin/sshpass', '-p123',
+                        '/usr/bin/ssh',
+                        '-p5555',
+                        '-X',
+                        '-oStrictHostKeyChecking=off',
+                        '-oUserKnownHostsFile=/dev/null',
+                        '-oLogLevel=quiet',
+                        'testuser@localhost',
+                        loop=event_loop)
+                    await proc.wait()
 
-            finally:
-                await vm.poweroff()
+                finally:
+                    await vm.poweroff()
 
-            return
+                return
 
-        results = {}
-        for vm_name in args.vms:
-            vm_cls = ALL_VMTESTS[vm_name]
-            vm = vm_cls(name=vm_name, **vm_args)
+            results = {}
+            for vm_name in args.vms:
+                vm_cls = ALL_VMTESTS[vm_name]
+                vm = vm_cls(name=vm_name, **vm_args)
 
-            if not vm.is_installed or args.force_install:
-                await vm.install()
+                if not vm.is_installed or args.force_install:
+                    await vm.install()
 
-            elif args.clean_snapshot:
-                await vm.restore_snapshot('clean')
+                elif args.clean_snapshot:
+                    await vm.restore_snapshot('clean')
 
-            try:
-                await vm.start(gui=args.gui if args.gui is not None else False)
-                results[vm.name] = await vm.run_test(settings)
+                try:
+                    await vm.start(gui=args.gui if args.gui is not None else False)
+                    results[vm.name] = await vm.run_test(settings)
 
-            finally:
-                await vm.poweroff()
+                finally:
+                    await vm.poweroff()
 
-        if not all(results.values()):
-            print()
-            print('-' * 96)
-            print("%d/%d tests FAILED." % (
-                sum(1 for success in results.values() if not success), len(results)))
-            print()
+            if not all(results.values()):
+                print()
+                print('-' * 96)
+                print("%d/%d tests FAILED." % (
+                    sum(1 for success in results.values() if not success), len(results)))
+                print()
 
-            for vm, success in sorted(results.items(), key=lambda i: i[0]):
-                print("%s... %s" % (vm, 'SUCCESS' if success else 'FAILED'))
+                for vm, success in sorted(results.items(), key=lambda i: i[0]):
+                    print("%s... %s" % (vm, 'SUCCESS' if success else 'FAILED'))
 
-            return 1
+                return 1
 
-        return 0
+            return 0
+
+        finally:
+            devpi.terminate()
+            await devpi.wait()
+            await devpi_stdout_dumper
 
     except:
         logger.error("runvmtests failed with an exception:\n%s", traceback.format_exc())
