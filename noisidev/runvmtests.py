@@ -64,6 +64,7 @@ cd noisicaa/
 
 ./waf configure --venvdir=../venv --download --install-system-packages
 ./waf build
+sudo ./waf install
 
 ./waf configure --venvdir=../venv --download --install-system-packages --enable-tests
 ./waf build
