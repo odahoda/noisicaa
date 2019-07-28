@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include "noisicaa/core/logging.h"
 #include "noisicaa/core/pump.inl.h"
+#include "noisicaa/audioproc/engine/rtcheck.h"
 
 namespace noisicaa {
 
@@ -55,6 +56,9 @@ PyLogSink::PyLogSink(void* handle, callback_t callback)
     _callback(callback) {}
 
 void PyLogSink::emit(const char* logger, LogLevel level, const char* msg) {
+  // In unittests engine code calls directly into the PyLogSink, not using the RTSafePyLogSink. So
+  // not complain about any RT violations.
+  RTUnsafe rtu;
   _callback(_handle, logger, level, msg);
 }
 
