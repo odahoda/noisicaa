@@ -115,8 +115,8 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         self.__warning_font.setPointSizeF(0.9 * self.__warning_font.pointSizeF())
         self.__warning_font.setBold(True)
         self.__warning_font_metrics = QtGui.QFontMetrics(self.__warning_font)
-        self.__warning_pixmap = QtGui.QIcon(QtGui.QIcon.fromTheme(
-            os.path.join(constants.DATA_DIR, 'icons', 'warning.svg'))).pixmap(
+        self.__warning_pixmap = QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'warning.svg')).pixmap(
                 4 + self.__warning_font_metrics.capHeight(),
                 4 + self.__warning_font_metrics.capHeight())
 
