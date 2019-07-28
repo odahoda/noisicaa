@@ -24,12 +24,15 @@ import asyncio
 import os
 import os.path
 import shutil
+import sys
 import time
 
+import Cython
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
 
 from noisidev import qttest
+from noisidev import unittest
 from noisidev import unittest_mixins
 from noisicaa.constants import TEST_OPTS
 from noisicaa import runtime_settings
@@ -154,6 +157,9 @@ class EditorAppTest(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
 
         open_button.click()
 
+    @unittest.skipIf(
+        sys.version_info < (3, 6) and Cython.__version__ < '3',
+        "broken under py3.5 by https://github.com/cython/cython/issues/2306")
     async def test_open_blank_project(self):
         await self.create_blank_project('blank-project')
         await self.create_app()
@@ -177,6 +183,9 @@ class EditorAppTest(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         # Wait until the "open project" dialog is visible again.
         await self.project_tab_wait_for_page(tab, 'open-project')
 
+    @unittest.skipIf(
+        sys.version_info < (3, 6) and Cython.__version__ < '3',
+        "broken under py3.5 by https://github.com/cython/cython/issues/2306")
     async def test_open_project_from_cmdline(self):
         path = await self.create_blank_project('blank-project')
         await self.create_app([path])
@@ -194,6 +203,9 @@ class EditorAppTest(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         # Wait until the "open project" dialog is visible again.
         await self.project_tab_wait_for_page(tab, 'open-project')
 
+    @unittest.skipIf(
+        sys.version_info < (3, 6) and Cython.__version__ < '3',
+        "broken under py3.5 by https://github.com/cython/cython/issues/2306")
     async def test_open_corrupt_project(self):
         path = await self.create_blank_project('broken-project')
         os.unlink(os.path.join(path, 'log.index'))
