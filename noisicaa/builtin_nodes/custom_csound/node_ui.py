@@ -21,6 +21,7 @@
 # @end:license
 
 import logging
+import os.path
 from typing import cast, Any, Dict, Iterator, Callable
 
 from PyQt5.QtCore import Qt
@@ -28,6 +29,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa import core
 from noisicaa import music
 from noisicaa import node_db
@@ -339,7 +341,8 @@ class Editor(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QDialog):
         icon_size = QtCore.QSize(32, 32)
 
         self.__apply_action = QtWidgets.QAction("Apply", self)
-        self.__apply_action.setIcon(QtGui.QIcon.fromTheme('document-save'))
+        self.__apply_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'document-save.svg')))
         self.__apply_action.setEnabled(False)
         self.__apply_action.triggered.connect(self.__apply)
 

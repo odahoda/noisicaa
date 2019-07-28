@@ -28,6 +28,7 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa import core
 from noisicaa import music
 from noisicaa.ui import ui_base
@@ -53,7 +54,8 @@ class MetronomeNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets
         self.add_cleanup_function(self.__sample_path_connector.cleanup)
 
         self.__sample_dialog_action = QtWidgets.QAction("Select sample...", self)
-        self.__sample_dialog_action.setIcon(QtGui.QIcon.fromTheme('document-open'))
+        self.__sample_dialog_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'document-open.svg')))
         self.__sample_dialog_action.triggered.connect(self.__showSampleDialog)
 
         self.__sample_dialog_button = QtWidgets.QToolButton()

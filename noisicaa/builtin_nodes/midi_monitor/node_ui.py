@@ -21,12 +21,14 @@
 # @end:license
 
 import logging
+import os.path
 from typing import Any, Dict
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import music
@@ -59,7 +61,8 @@ class MidiMonitorNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidge
         self.__paused = False
 
         self.__pause_action = QtWidgets.QAction("Pause", self)
-        self.__pause_action.setIcon(QtGui.QIcon.fromTheme('media-playback-pause'))
+        self.__pause_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-playback-pause.svg')))
         self.__pause_action.setCheckable(True)
         self.__pause_action.toggled.connect(self.__pauseToggled)
         self.__slot_connections.connect(
@@ -69,7 +72,8 @@ class MidiMonitorNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidge
             False)
 
         self.__clear_action = QtWidgets.QAction("Clear", self)
-        self.__clear_action.setIcon(QtGui.QIcon.fromTheme('edit-delete'))
+        self.__clear_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'edit-delete.svg')))
         self.__clear_action.triggered.connect(self.__clearClicked)
 
         self.__pause = QtWidgets.QToolButton()
@@ -106,10 +110,12 @@ class MidiMonitorNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidge
 
     def __pauseToggled(self, paused: bool) -> None:
         if paused:
-            self.__pause_action.setIcon(QtGui.QIcon.fromTheme('media-playback-start'))
+            self.__pause_action.setIcon(QtGui.QIcon(
+                os.path.join(constants.DATA_DIR, 'icons', 'media-playback-start.svg')))
             self.__pause_action.setText("Resume")
         else:
-            self.__pause_action.setIcon(QtGui.QIcon.fromTheme('media-playback-pause'))
+            self.__pause_action.setIcon(QtGui.QIcon(
+                os.path.join(constants.DATA_DIR, 'icons', 'media-playback-pause.svg')))
             self.__pause_action.setText("Pause")
 
     def __clearClicked(self) -> None:

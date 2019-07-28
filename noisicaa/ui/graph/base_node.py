@@ -22,6 +22,7 @@
 
 import functools
 import logging
+import os.path
 from typing import cast, Any, Optional, Dict, List, Iterable
 
 from PyQt5.QtCore import Qt
@@ -30,6 +31,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtSvg
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import value_types
@@ -554,7 +556,8 @@ class Node(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QGraphicsItem)
         if self.__node.removable:
             remove_button = QtWidgets.QToolButton()
             remove_button.setAutoRaise(True)
-            remove_button.setIcon(QtGui.QIcon.fromTheme('window-close'))
+            remove_button.setIcon(QtGui.QIcon(
+                os.path.join(constants.DATA_DIR, 'icons', 'window-close.svg')))
             remove_button.clicked.connect(self.onRemove)
             yield remove_button
 

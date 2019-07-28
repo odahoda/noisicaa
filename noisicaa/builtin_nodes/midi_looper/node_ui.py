@@ -22,6 +22,7 @@
 
 import enum
 import logging
+import os.path
 from typing import Any, Dict, List
 
 from PyQt5.QtCore import Qt
@@ -29,6 +30,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import music
@@ -58,7 +60,7 @@ class RecordButton(slots.SlotContainer, QtWidgets.QPushButton):
         super().__init__()
 
         self.setText("Record")
-        self.setIcon(QtGui.QIcon.fromTheme('media-record'))
+        self.setIcon(QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', 'media-record.svg')))
 
         self.__default_bg = self.palette().color(QtGui.QPalette.Button)
 

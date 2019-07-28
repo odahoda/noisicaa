@@ -21,6 +21,7 @@
 # @end:license
 
 import logging
+import os.path
 from typing import Any
 
 from PyQt5.QtCore import Qt
@@ -29,6 +30,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtSvg
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from . import ui_base
 
 
@@ -55,7 +57,8 @@ class AudioThreadProfiler(ui_base.CommonMixin, QtWidgets.QWidget):
         icon_size = QtCore.QSize(32, 32)
 
         zoom_in_action = QtWidgets.QAction("Zoom in", self)
-        zoom_in_action.setIcon(QtGui.QIcon.fromTheme('zoom-in'))
+        zoom_in_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'zoom-in.svg')))
         zoom_in_action.triggered.connect(self.zoomIn)
 
         zoom_in_button = QtWidgets.QToolButton(self)
@@ -64,7 +67,8 @@ class AudioThreadProfiler(ui_base.CommonMixin, QtWidgets.QWidget):
         zoom_in_button.setDefaultAction(zoom_in_action)
 
         zoom_out_action = QtWidgets.QAction("Zoom out", self)
-        zoom_out_action.setIcon(QtGui.QIcon.fromTheme('zoom-out'))
+        zoom_out_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'zoom-out.svg')))
         zoom_out_action.triggered.connect(self.zoomOut)
 
         zoom_out_button = QtWidgets.QToolButton(self)

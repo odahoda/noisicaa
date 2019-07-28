@@ -45,11 +45,15 @@ def copy_file(task):
 
 
 @conf
-def static_file(ctx, source, install=None, install_to=None, rewrite=False, chmod=0o644):
+def static_file(ctx, source, target=None, install=None, install_to=None, rewrite=False, chmod=0o644):
     if not isinstance(source, Node):
         source = ctx.path.make_node(source)
 
-    target = source.get_bld()
+    if target is None:
+        target = source.get_bld()
+
+    if not isinstance(target, Node):
+        target = ctx.path.make_node(target).get_bld()
 
     ctx(rule=copy_file,
         source=source,

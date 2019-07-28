@@ -22,6 +22,7 @@
 
 import functools
 import logging
+import os.path
 from typing import Any, Dict, List, Set, Sequence, Iterator, Callable, Generic, TypeVar
 
 from PyQt5.QtCore import Qt
@@ -29,6 +30,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa import core
 from noisicaa import music
 
@@ -253,7 +255,8 @@ class ObjectListEditor(core.AutoCleanupMixin, QtWidgets.QWidget):
 
         self.__add_action = QtWidgets.QAction("Add", self)
         self.__add_action.setObjectName('add_object')
-        self.__add_action.setIcon(QtGui.QIcon.fromTheme('list-add'))
+        self.__add_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'list-add.svg')))
         self.__add_action.triggered.connect(self.onAdd)
 
         self.__add_button = QtWidgets.QToolButton()
@@ -263,7 +266,8 @@ class ObjectListEditor(core.AutoCleanupMixin, QtWidgets.QWidget):
 
         self.__remove_action = QtWidgets.QAction("Remove", self)
         self.__remove_action.setObjectName('remove_objects')
-        self.__remove_action.setIcon(QtGui.QIcon.fromTheme('list-remove'))
+        self.__remove_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'list-remove.svg')))
         self.__remove_action.triggered.connect(self.onRemove)
 
         self.__remove_button = QtWidgets.QToolButton()

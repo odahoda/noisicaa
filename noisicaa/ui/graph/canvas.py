@@ -72,10 +72,12 @@ class NodeFilter(QtWidgets.QLineEdit):
         self.__node_list = node_list
 
         self.addAction(
-            QtGui.QIcon.fromTheme('edit-find'), QtWidgets.QLineEdit.LeadingPosition)
+            QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', 'edit-find.svg')),
+            QtWidgets.QLineEdit.LeadingPosition)
 
         clear_action = QtWidgets.QAction("Clear search string", self)
-        clear_action.setIcon(QtGui.QIcon.fromTheme('edit-clear'))
+        clear_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'edit-clear.svg')))
         clear_action.triggered.connect(self.clear)
         self.addAction(clear_action, QtWidgets.QLineEdit.TrailingPosition)
 
@@ -769,7 +771,8 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
         self.__update_timer.timeout.connect(self.__updateCanvas)
 
         self.__select_all_action = QtWidgets.QAction("Select all nodes")
-        self.__select_all_action.setIcon(QtGui.QIcon.fromTheme('edit-select-all'))
+        self.__select_all_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'edit-select-all.svg')))
         self.__select_all_action.triggered.connect(self.__scene.selectAllNodes)
 
         self.__mini_map = MiniMap(scene=self.__scene, parent=self)

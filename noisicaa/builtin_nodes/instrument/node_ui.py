@@ -21,12 +21,14 @@
 # @end:license
 
 import logging
+import os.path
 from typing import Any
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa import core
 from noisicaa import music
 from noisicaa.ui import ui_base
@@ -51,7 +53,8 @@ class InstrumentNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         body.setAttribute(Qt.WA_NoSystemBackground, True)
 
         select_instrument = QtWidgets.QToolButton(self)
-        select_instrument.setIcon(QtGui.QIcon.fromTheme('document-open'))
+        select_instrument.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'document-open.svg')))
         select_instrument.setAutoRaise(True)
         select_instrument.clicked.connect(lambda: self.call_async(self.__selectInstrument()))
 

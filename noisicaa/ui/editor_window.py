@@ -23,6 +23,7 @@
 import asyncio
 import contextlib
 import logging
+import os.path
 import time
 import traceback
 import typing
@@ -33,6 +34,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa.core import storage
 from noisicaa import audioproc
 from . import project_view
@@ -438,37 +440,43 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._dump_project_action.triggered.connect(self.dumpProject)
 
         self._player_move_to_start_action = QtWidgets.QAction("Move to start", self)
-        self._player_move_to_start_action.setIcon(QtGui.QIcon.fromTheme('media-skip-backward'))
+        self._player_move_to_start_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-skip-backward.svg')))
         self._player_move_to_start_action.setShortcut(QtGui.QKeySequence('Home'))
         self._player_move_to_start_action.setShortcutContext(Qt.ApplicationShortcut)
         self._player_move_to_start_action.triggered.connect(lambda: self.onPlayerMoveTo('start'))
 
         self._player_move_to_end_action = QtWidgets.QAction("Move to end", self)
-        self._player_move_to_end_action.setIcon(QtGui.QIcon.fromTheme('media-skip-forward'))
+        self._player_move_to_end_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-skip-forward.svg')))
         self._player_move_to_end_action.setShortcut(QtGui.QKeySequence('End'))
         self._player_move_to_end_action.setShortcutContext(Qt.ApplicationShortcut)
         self._player_move_to_end_action.triggered.connect(lambda: self.onPlayerMoveTo('end'))
 
         self._player_move_to_prev_action = QtWidgets.QAction("Move to previous measure", self)
-        self._player_move_to_prev_action.setIcon(QtGui.QIcon.fromTheme('media-seek-backward'))
+        self._player_move_to_prev_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-seek-backward.svg')))
         self._player_move_to_prev_action.setShortcut(QtGui.QKeySequence('PgUp'))
         self._player_move_to_prev_action.setShortcutContext(Qt.ApplicationShortcut)
         self._player_move_to_prev_action.triggered.connect(lambda: self.onPlayerMoveTo('prev'))
 
         self._player_move_to_next_action = QtWidgets.QAction("Move to next measure", self)
-        self._player_move_to_next_action.setIcon(QtGui.QIcon.fromTheme('media-seek-forward'))
+        self._player_move_to_next_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-seek-forward.svg')))
         self._player_move_to_next_action.setShortcut(QtGui.QKeySequence('PgDown'))
         self._player_move_to_next_action.setShortcutContext(Qt.ApplicationShortcut)
         self._player_move_to_next_action.triggered.connect(lambda: self.onPlayerMoveTo('next'))
 
         self._player_toggle_action = QtWidgets.QAction("Play", self)
-        self._player_toggle_action.setIcon(QtGui.QIcon.fromTheme('media-playback-start'))
+        self._player_toggle_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-playback-start.svg')))
         self._player_toggle_action.setShortcut(QtGui.QKeySequence('Space'))
         self._player_toggle_action.setShortcutContext(Qt.ApplicationShortcut)
         self._player_toggle_action.triggered.connect(self.onPlayerToggle)
 
         self._player_loop_action = QtWidgets.QAction("Loop playback", self)
-        self._player_loop_action.setIcon(QtGui.QIcon.fromTheme('media-playlist-repeat'))
+        self._player_loop_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-playlist-repeat.svg')))
         self._player_loop_action.setCheckable(True)
         self._player_loop_action.toggled.connect(self.onPlayerLoop)
 
@@ -679,10 +687,10 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     def onPlayingChanged(self, playing: bool) -> None:
         if playing:
             self._player_toggle_action.setIcon(
-                QtGui.QIcon.fromTheme('media-playback-pause'))
+                QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', 'media-playback-pause.svg')))
         else:
             self._player_toggle_action.setIcon(
-                QtGui.QIcon.fromTheme('media-playback-start'))
+                QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', 'media-playback-start.svg')))
 
     def onLoopEnabledChanged(self, loop_enabled: bool) -> None:
         self._player_loop_action.setChecked(loop_enabled)
