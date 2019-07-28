@@ -27,6 +27,7 @@ import glob
 import logging
 import os
 import os.path
+import shutil
 import subprocess
 import sys
 import time
@@ -53,8 +54,8 @@ set -x
 mkdir -p ~/.pip
 cat >~/.pip/pip.conf <<EOF
 [global]
-index-url = http://_gateway:{settings.devpi_port}/root/pypi/+simple/
-trusted-host = _gateway
+index-url = http://10.0.2.2:{settings.devpi_port}/root/pypi/+simple/
+trusted-host = 10.0.2.2
 EOF
 
 sudo apt-get -q -y install python3 python3-venv
@@ -144,10 +145,8 @@ class TestMixin(testvm.VM):
         result = asyncio.Queue(loop=self.event_loop)
         spinner_task = self.event_loop.create_task(self.__spinner("Installing VM '%s'" % self.name, result))
         try:
-            if os.path.isfile(self.__installed_sentinel):
-                os.unlink(self.__installed_sentinel)
-            for img_path in glob.glob(os.path.join(self.vm_dir, '*.img')):
-                os.unlink(img_path)
+            if os.path.isdir(self.vm_dir):
+                shutil.rmtree(self.vm_dir)
             await super().install()
             await self.create_snapshot('clean')
             open(self.__installed_sentinel, 'w').close()
@@ -313,6 +312,10 @@ async def main(event_loop, argv):
         '--devpi-port', type=int,
         default=18000,
         help="Local port for devpi server.")
+    argparser.add_argument(
+        '--apt-cacher-port', type=int,
+        default=3142,
+        help="Local port for apt-cacher-ng server.")
     argparser.add_argument('vms', nargs='*')
     args = argparser.parse_args(argv[1:])
 
@@ -381,96 +384,114 @@ async def main(event_loop, argv):
             loop=event_loop)
         devpi_stdout_dumper = event_loop.create_task(log_dumper(devpi.stdout, devpi_logger.debug, encoding='utf-8'))
         try:
-            settings = TestSettings(args)
-            vm_args = {
-                'base_dir': VM_BASE_DIR,
-                'event_loop': event_loop,
-                'cores': args.cores,
-                'memory': 2 << 30,
-            }
+            logger.info("Starting local apt-cacher-ng server on port %d...", args.devpi_port)
+            apt_cacher_logger = logging.getLogger('apt-cacher-ng')
+            apt_cacher = await asyncio.create_subprocess_exec(
+                os.path.join(os.environ['VIRTUAL_ENV'], 'sbin', 'apt-cacher-ng'),
+                'ForeGround=1',
+                'Port=%d' % args.apt_cacher_port,
+                'CacheDir=%s' % os.path.join(ROOT_DIR, 'vmtests', '_cache', 'apt-cacher-ng'),
+                'LogDir=%s' % os.path.join(ROOT_DIR, 'vmtests', '_cache', 'apt-cacher-ng'),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                loop=event_loop)
+            apt_cacher_stdout_dumper = event_loop.create_task(log_dumper(apt_cacher.stdout, apt_cacher_logger.debug, encoding='utf-8'))
+            try:
+                settings = TestSettings(args)
+                vm_args = {
+                    'base_dir': VM_BASE_DIR,
+                    'event_loop': event_loop,
+                    'cores': args.cores,
+                    'memory': 2 << 30,
+                }
 
-            if args.just_start:
-                assert len(args.vms) == 1
+                if args.just_start:
+                    assert len(args.vms) == 1
 
-                vm_name = args.vms[0]
-                vm_cls = ALL_VMTESTS[vm_name]
-                vm = vm_cls(name=vm_name, **vm_args)
+                    vm_name = args.vms[0]
+                    vm_cls = ALL_VMTESTS[vm_name]
+                    vm = vm_cls(name=vm_name, **vm_args)
 
-                if args.force_install:
-                    await vm.install()
+                    if args.force_install:
+                        await vm.install()
 
-                assert vm.is_installed
-                try:
-                    await vm.start(gui=args.gui if args.gui is not None else True)
-                    await vm.wait_for_state(vm.POWEROFF, timeout=3600)
-                finally:
-                    await vm.poweroff()
+                    assert vm.is_installed
+                    try:
+                        await vm.start(gui=args.gui if args.gui is not None else True)
+                        await vm.wait_for_state(vm.POWEROFF, timeout=3600)
+                    finally:
+                        await vm.poweroff()
 
-                return
+                    return
 
-            if args.login:
-                assert len(args.vms) == 1
+                if args.login:
+                    assert len(args.vms) == 1
 
-                vm_name = args.vms[0]
-                vm_cls = ALL_VMTESTS[vm_name]
-                vm = vm_cls(name=vm_name, **vm_args)
+                    vm_name = args.vms[0]
+                    vm_cls = ALL_VMTESTS[vm_name]
+                    vm = vm_cls(name=vm_name, **vm_args)
 
-                if args.force_install:
-                    await vm.install()
+                    if args.force_install:
+                        await vm.install()
 
-                assert vm.is_installed
-                try:
-                    await vm.start(gui=args.gui if args.gui is not None else False)
-                    await vm.wait_for_ssh()
+                    assert vm.is_installed
+                    try:
+                        await vm.start(gui=args.gui if args.gui is not None else False)
+                        await vm.wait_for_ssh()
 
-                    proc = await asyncio.create_subprocess_exec(
-                        '/usr/bin/sshpass', '-p123',
-                        '/usr/bin/ssh',
-                        '-p5555',
-                        '-X',
-                        '-oStrictHostKeyChecking=off',
-                        '-oUserKnownHostsFile=/dev/null',
-                        '-oLogLevel=quiet',
-                        'testuser@localhost',
-                        loop=event_loop)
-                    await proc.wait()
+                        proc = await asyncio.create_subprocess_exec(
+                            '/usr/bin/sshpass', '-p123',
+                            '/usr/bin/ssh',
+                            '-p5555',
+                            '-X',
+                            '-oStrictHostKeyChecking=off',
+                            '-oUserKnownHostsFile=/dev/null',
+                            '-oLogLevel=quiet',
+                            'testuser@localhost',
+                            loop=event_loop)
+                        await proc.wait()
 
-                finally:
-                    await vm.poweroff()
+                    finally:
+                        await vm.poweroff()
 
-                return
+                    return
 
-            results = {}
-            for vm_name in args.vms:
-                vm_cls = ALL_VMTESTS[vm_name]
-                vm = vm_cls(name=vm_name, **vm_args)
+                results = {}
+                for vm_name in args.vms:
+                    vm_cls = ALL_VMTESTS[vm_name]
+                    vm = vm_cls(name=vm_name, **vm_args)
 
-                if not vm.is_installed or args.force_install:
-                    await vm.install()
+                    if not vm.is_installed or args.force_install:
+                        await vm.install()
 
-                elif args.clean_snapshot:
-                    await vm.restore_snapshot('clean')
+                    elif args.clean_snapshot:
+                        await vm.restore_snapshot('clean')
 
-                try:
-                    await vm.start(gui=args.gui if args.gui is not None else False)
-                    results[vm.name] = await vm.run_test(settings)
+                    try:
+                        await vm.start(gui=args.gui if args.gui is not None else False)
+                        results[vm.name] = await vm.run_test(settings)
 
-                finally:
-                    await vm.poweroff()
+                    finally:
+                        await vm.poweroff()
 
-            if not all(results.values()):
-                print()
-                print('-' * 96)
-                print("%d/%d tests FAILED." % (
-                    sum(1 for success in results.values() if not success), len(results)))
-                print()
+                if not all(results.values()):
+                    print()
+                    print('-' * 96)
+                    print("%d/%d tests FAILED." % (
+                        sum(1 for success in results.values() if not success), len(results)))
+                    print()
 
-                for vm, success in sorted(results.items(), key=lambda i: i[0]):
-                    print("%s... %s" % (vm, 'SUCCESS' if success else 'FAILED'))
+                    for vm, success in sorted(results.items(), key=lambda i: i[0]):
+                        print("%s... %s" % (vm, 'SUCCESS' if success else 'FAILED'))
 
-                return 1
+                    return 1
 
-            return 0
+                return 0
+
+            finally:
+                apt_cacher.terminate()
+                await apt_cacher.wait()
+                await apt_cacher_stdout_dumper
 
         finally:
             devpi.terminate()

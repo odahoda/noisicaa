@@ -84,6 +84,9 @@ class DebianLike(vm.VM):
         cfg.insert('d-i', 'hw-detect/load_firmware', 'boolean', 'true')
         cfg.insert('d-i', 'netcfg/wireless_wep', 'string', None)
 
+        ### Mirror settings
+        cfg.insert('d-i', 'mirror/http/proxy', 'string', 'http://10.0.2.2:3142')
+
         ### Account setup
         cfg.insert('d-i', 'passwd/root-login', 'boolean', 'false')
         cfg.insert('d-i', 'passwd/make-user', 'boolean', 'true')
@@ -162,7 +165,6 @@ class Debian(DebianLike):
         cfg.insert('d-i', 'mirror/country', 'string', 'manual')
         cfg.insert('d-i', 'mirror/http/hostname', 'string', 'http.us.debian.org')
         cfg.insert('d-i', 'mirror/http/directory', 'string', '/debian')
-        cfg.insert('d-i', 'mirror/http/proxy', 'string', None)
 
         ### Partitioning
         ## Partitioning example

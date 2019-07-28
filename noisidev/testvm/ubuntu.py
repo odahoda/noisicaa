@@ -25,7 +25,6 @@ class Ubuntu(debian.DebianLike):
         cfg.insert('d-i', 'mirror/country', 'string', 'manual')
         cfg.insert('d-i', 'mirror/http/hostname', 'string', 'archive.ubuntu.com')
         cfg.insert('d-i', 'mirror/http/directory', 'string', '/ubuntu')
-        cfg.insert('d-i', 'mirror/http/proxy', 'string', None)
 
         ### Account setup
         cfg.insert('d-i', 'user-setup/allow-password-weak', 'boolean', 'true')

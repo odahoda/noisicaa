@@ -283,13 +283,14 @@ def configure(ctx):
     sys_mgr.check_package(DEV, 'indicator-cpufreq')
 
     # vmtest
-    pip_mgr.check_package(VMTEST, 'qemu-system-x86')
-    pip_mgr.check_package(VMTEST, 'qemu-block-extra')
-    pip_mgr.check_package(VMTEST, 'libvirt-bin')
+    sys_mgr.check_package(VMTEST, 'qemu-system-x86')
+    sys_mgr.check_package(VMTEST, 'qemu-block-extra')
+    sys_mgr.check_package(VMTEST, 'libvirt-bin')
     pip_mgr.check_package(VMTEST, 'asyncssh')
     sys_mgr.check_package(VMTEST, 'sshpass')
     sys_mgr.check_package(VMTEST, 'openssh-client')
-    sys_mgr.check_package(VMTEST, 'aiohttp')
+    pip_mgr.check_package(VMTEST, 'aiohttp')
+    AptCacherNGBuilder(ctx).check(VMTEST, version='3.2')
 
     # pylint: enable=line-too-long
 
@@ -865,4 +866,24 @@ class ProtocBuilder(ThirdPartyBuilder):
     def install(self, src_path):
         self._ctx.cmd_and_log(
             ['make', 'install'],
+            cwd=src_path)
+
+
+class AptCacherNGBuilder(ThirdPartyBuilder):
+    def __init__(self, ctx):
+        super().__init__(ctx, 'apt-cacher-ng', '.tar.xz')
+
+    def download_url(self, version):
+        return 'http://ftp.debian.org/debian/pool/main/a/apt-cacher-ng/apt-cacher-ng_%s.orig.tar.xz' % version
+
+    def build(self, src_path):
+        self._ctx.cmd_and_log(
+            ['./build.sh',
+             '-DCMAKE_INSTALL_PREFIX=%s' % self._ctx.env.VIRTUAL_ENV,
+            ],
+            cwd=src_path)
+
+    def install(self, src_path):
+        self._ctx.cmd_and_log(
+            ['make', '-C', 'builddir', 'install'],
             cwd=src_path)
