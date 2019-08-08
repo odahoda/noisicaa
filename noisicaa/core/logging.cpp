@@ -88,7 +88,7 @@ void RTSafePyLogSink::emit(const char* logger, LogLevel level, const char* msg) 
   header->magic = 0x87b6c23a;
   header->seq = _seq++;
   header->level = level;
-  strcpy(header->logger, logger);
+  strncpy(header->logger, logger, MaxLoggerNameLength);
   header->length = min(length, 1024 - sizeof(LogRecordHeader));
   memcpy(block.data + sizeof(LogRecordHeader), msg, header->length);
   msg += header->length;
@@ -115,7 +115,7 @@ void RTSafePyLogSink::consume(Block block) {
     assert(header->magic == 0x87b6c23a);
     _record.seq = header->seq;
     _record.level = header->level;
-    strcpy(_record.logger, header->logger);
+    strncpy(_record.logger, header->logger, MaxLoggerNameLength);
     _record.continued = header->continued;
     _msg = string(block.data + sizeof(LogRecordHeader), header->length);
   } else {

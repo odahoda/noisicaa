@@ -72,10 +72,6 @@ public:
 class Player {
 public:
   Player(const string& realm_name, HostSystem* host_system);
-  virtual ~Player();
-
-  virtual Status setup();
-  virtual void cleanup();
 
   void update_state(const string& state_serialized);
 

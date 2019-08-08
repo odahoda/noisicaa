@@ -31,7 +31,7 @@ namespace noisicaa {
 
 using namespace std;
 
-string sprintf(const string& fmt, ...);
+string sprintf(const char* fmt, ...);
 
 }  // namespace noisicaa
 

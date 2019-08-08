@@ -35,16 +35,9 @@ cdef class PyPlayer(object):
     cdef Player* release(self) nogil:
         return self.__player_ptr.release()
 
-    def setup(self):
-        with nogil:
-            check(self.__player.setup())
-
     def cleanup(self):
-        # Only do cleanup, when we still own the player.
-        cdef Player* player = self.__player_ptr.get()
-        if player != NULL:
-            with nogil:
-                player.cleanup()
+        self.__player_ptr.reset()
+        self.__player = NULL
 
     def update_state(self, state):
         self.__player.update_state(state.SerializeToString())

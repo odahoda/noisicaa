@@ -201,4 +201,4 @@ cdef class PySpec(object):
             else:
                 assert False, spec
 
-        check(self.__spec.append_opcode_args(op, opargs))
+        check(self.__spec.append_opcode(op, opargs))

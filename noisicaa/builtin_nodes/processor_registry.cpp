@@ -103,7 +103,7 @@ StatusOr<Processor*> create_processor(
     return new ProcessorOscilloscope(realm_name, node_id, host_system, desc);
   }
 
-  return ERROR_STATUS("Invalid processor type %d", desc.processor().type());
+  return ERROR_STATUS("Invalid processor type %s", desc.processor().type().c_str());
 }
 
 }  // namespace noisicaa

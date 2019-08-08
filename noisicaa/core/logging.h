@@ -46,7 +46,7 @@ static const size_t MaxLoggerNameLength = 128;
 
 class LogSink {
 public:
-  ~LogSink();
+  virtual ~LogSink();
 
   virtual void emit(const char* logger, LogLevel level, const char* msg) = 0;
 };

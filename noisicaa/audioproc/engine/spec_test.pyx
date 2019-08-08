@@ -48,9 +48,15 @@ class TestSpec(unittest.TestCase):
         check(spec.append_buffer(b'buf2', new FloatAudioBlockBuffer(node_db.PortDescription.AUDIO)))
         check(spec.append_buffer(b'buf3', new FloatAudioBlockBuffer(node_db.PortDescription.AUDIO)))
 
-        check(spec.append_opcode(OpCode.NOOP))
-        check(spec.append_opcode(OpCode.COPY, b'buf1', b'buf2'))
-        check(spec.append_opcode(OpCode.MUL, b'buf3', 0.5))
+        check(spec.append_opcode(OpCode.NOOP, vector[OpArg]()))
+        cdef vector[OpArg] a
+        a.push_back(OpArg(<int64_t>spec.get_buffer_idx(b'buf1').result()))
+        a.push_back(OpArg(<int64_t>spec.get_buffer_idx(b'buf2').result()))
+        check(spec.append_opcode(OpCode.COPY, a))
+        cdef vector[OpArg] b
+        b.push_back(OpArg(<int64_t>spec.get_buffer_idx(b'buf3').result()))
+        b.push_back(OpArg(<float>0.5))
+        check(spec.append_opcode(OpCode.MUL, b))
         self.assertEqual(spec.num_ops(), 3)
 
         self.assertEqual(spec.get_opcode(0), OpCode.NOOP)

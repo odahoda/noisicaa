@@ -40,8 +40,7 @@ cdef extern from "noisicaa/audioproc/engine/spec.h" namespace "noisicaa" nogil:
         void set_duration(MusicalDuration duration)
         MusicalDuration duration() const
 
-        Status append_opcode(OpCode opcode, ...)
-        Status append_opcode_args(OpCode opcode, const vector[OpArg]& args)
+        Status append_opcode(OpCode opcode, const vector[OpArg]& args)
         int num_ops() const
         OpCode get_opcode(int idx) const
         const OpArg& get_oparg(int idx, int arg) const

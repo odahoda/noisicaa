@@ -114,7 +114,7 @@ Status ProcessorPlugin::process_block_internal(BlockContext* ctxt, TimeMapper* t
     RETURN_IF_ERROR(pipe_write(buf, strlen(buf), deadline));
 
     PluginMemoryMapping mapping;
-    strcpy(mapping.shmem_path, ctxt->buffer_arena->name().c_str());
+    strncpy(mapping.shmem_path, ctxt->buffer_arena->name().c_str(), PATH_MAX);
     mapping.cond_offset = _buffers[plugin_cond_idx]->data() - ctxt->buffer_arena->address();
     mapping.block_size = _host_system->block_size();
     mapping.num_buffers = _desc.ports_size();

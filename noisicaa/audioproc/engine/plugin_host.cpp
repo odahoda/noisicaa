@@ -251,7 +251,7 @@ Status PluginHost::handle_memory_map(PluginMemoryMapping* map, PluginMemoryMappi
       return OSERROR_STATUS("Failed to open shmem %s", map->shmem_path);
     }
 
-    strcpy(_shmem_path, map->shmem_path);
+    strncpy(_shmem_path, map->shmem_path, PATH_MAX);
 
     struct stat s;
     if (fstat(_shmem_fd, &s) < 0) {
