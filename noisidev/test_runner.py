@@ -321,7 +321,7 @@ def main(argv):
     tags_to_run = set()
     for tag in args.tags.split(','):
         tag = tag.strip()
-        assert tag in {'all', 'unit', 'lint', 'pylint', 'mypy', 'integration', 'perf'}
+        assert tag in {'all', 'unit', 'lint', 'pylint', 'mypy', 'clang-tidy', 'integration', 'perf'}
         tags_to_run.add(tag)
 
     flat_suite = unittest.TestSuite()

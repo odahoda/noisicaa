@@ -132,3 +132,5 @@ def cpp_proto(ctx, source):
     task.set_outputs(ctx.path.get_bld().make_node(
         os.path.splitext(source)[0] + '.pb.h'))
     ctx.add_to_group(task)
+
+    return os.path.splitext(source)[0] + '.pb.cc'

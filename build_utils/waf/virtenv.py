@@ -282,6 +282,13 @@ def configure(ctx):
     pip_mgr.check_package(DEV, 'indicator-cpufreq', source='bzr+lp:indicator-cpufreq#egg=indicator-cpufreq')
     sys_mgr.check_package(DEV, 'indicator-cpufreq')
 
+    # clang-tidy
+    if ctx.env.ENABLE_TEST:
+        # clang-tidy is optional, let's install it on systems where we known that V8 is
+        # available. On other systems it's up to the user to install it.
+        if os_dist == 'ubuntu' and os_release >= Version('18.04'):
+            sys_mgr.check_package(DEV, 'clang-tidy-8')
+
     # vmtest
     sys_mgr.check_package(VMTEST, 'qemu-system-x86')
     sys_mgr.check_package(VMTEST, 'qemu-block-extra')

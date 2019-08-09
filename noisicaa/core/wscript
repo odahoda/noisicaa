@@ -58,13 +58,13 @@ def build(ctx):
     ctx.shlib(
         target='noisicaa-core',
         source=[
-            'logging.cpp',
-            'perf_stats.cpp',
-            'refcount.cpp',
-            'status.cpp',
-            'stacktrace.cpp',
+            ctx.cpp_module('logging.cpp'),
+            ctx.cpp_module('perf_stats.cpp'),
+            ctx.cpp_module('refcount.cpp'),
+            ctx.cpp_module('status.cpp'),
+            ctx.cpp_module('stacktrace.cpp'),
         ],
-        use=['NOISELIB', 'UNWIND'],
+        use=['UNWIND', 'rtcheck'],
     )
 
     ctx.recurse('stats')

@@ -38,7 +38,7 @@ from waflib.Configure import conf
 from waflib import Logs
 
 
-ALL_TAGS = {'all', 'unit', 'lint', 'pylint', 'mypy', 'integration', 'perf'}
+ALL_TAGS = {'all', 'unit', 'lint', 'pylint', 'mypy', 'clang-tidy', 'integration', 'perf'}
 
 def options(ctx):
     grp = ctx.add_option_group('Test options')
@@ -102,6 +102,9 @@ def test_complete(ctx):
 
     if {'all', 'lint', 'pylint'} & ctx.TEST_TAGS:
         ctx.collect_pylint_results()
+
+    if {'all', 'lint', 'clang-tidy'} & ctx.TEST_TAGS:
+        ctx.collect_clang_tidy_results()
 
     if ctx.options.coverage:
         ctx.collect_coverage_results()
@@ -285,6 +288,28 @@ def collect_pylint_results(ctx):
     if issues_found:
         ctx.tests_failed = True
         Logs.info(Logs.colors.RED + "pylint found some issues")
+    else:
+        Logs.info(Logs.colors.GREEN + "No issues found")
+        Logs.info('')
+
+
+@conf
+def collect_clang_tidy_results(ctx):
+    Logs.info(Logs.colors.BLUE + "Collecting clang-tidy data...")
+
+    issues_found = False
+
+    for result_path in glob.glob(os.path.join(ctx.TEST_RESULTS_PATH, '*', 'clang-tidy.log')):
+        with open(result_path, 'r') as fp:
+            log = fp.read()
+            if log:
+                issues_found = True
+                sys.stderr.write(log)
+                sys.stderr.write('\n\n')
+
+    if issues_found:
+        ctx.tests_failed = True
+        Logs.info(Logs.colors.RED + "clang-tidy found some issues")
     else:
         Logs.info(Logs.colors.GREEN + "No issues found")
         Logs.info('')

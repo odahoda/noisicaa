@@ -106,6 +106,7 @@ def configure(ctx):
     ctx.load('build_utils.waf.test', tooldir='.')
     ctx.load('build_utils.waf.local_rpath', tooldir='.')
     ctx.load('build_utils.waf.proto', tooldir='.')
+    ctx.load('build_utils.waf.cpp', tooldir='.')
     ctx.load('build_utils.waf.python', tooldir='.')
     ctx.load('build_utils.waf.cython', tooldir='.')
     ctx.load('build_utils.waf.model', tooldir='.')
@@ -141,15 +142,11 @@ def configure(ctx):
     ctx.env.CFLAGS_CSOUND = ['-DHAVE_PTHREAD_SPIN_LOCK']
     ctx.env.CXXFLAGS_CSOUND = ['-DHAVE_PTHREAD_SPIN_LOCK']
 
-    ctx.env.append_value('CXXFLAGS', ['-g', '-O2', '-std=c++11', '-Wall', '-pedantic'])
-    if os_dist == 'ubuntu' and os_release < Version('18.04'):
-        # gcc on ubuntu xenial complains about unused variables in generated proto files.
-        ctx.env.append_value('CXXFLAGS', ['-Wno-error=unused-variable'])
-        # gcc on ubuntu xenial doesn't like some pointer arithmetics...
-        ctx.env.append_value('CXXFLAGS', ['-Wno-error=strict-aliasing'])
+    ctx.env.append_value('CXXFLAGS', ['-g', '-O2', '-std=c++11', '-w'])
     ctx.env.append_value('CFLAGS', ['-g', '-O2'])
     ctx.env.append_value('LIBPATH', [os.path.join(ctx.env.VIRTUAL_ENV, 'lib')])
-    ctx.env.append_value('INCLUDES', [os.path.join(ctx.env.VIRTUAL_ENV, 'include')])
+    ctx.env.append_value('LIB', ['pthread'])
+    ctx.env.append_value('INCLUDES', [ctx.srcnode.abspath(), ctx.bldnode.abspath(), os.path.join(ctx.env.VIRTUAL_ENV, 'include')])
 
     ctx.env.DATADIR = os.path.join(ctx.env.PREFIX, 'share', 'noisicaa')
     ctx.env.LIBDIR = os.path.join(ctx.env.PREFIX, 'lib', 'noisicaa')
@@ -175,13 +172,6 @@ def build(ctx):
     # A dummy library with the common include dirs, etc.
     # noisicaä libraries should use this lib to pull in those settings.
     ctx(name='NOISELIB',
-        export_includes=[
-            ctx.srcnode,
-            ctx.bldnode,
-        ],
-        export_lib=[
-            'pthread',
-        ],
         use=[])
 
     with ctx.group(ctx.GRP_BUILD_TOOLS):

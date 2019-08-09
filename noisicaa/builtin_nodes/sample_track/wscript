@@ -36,28 +36,22 @@ def build(ctx):
     ctx.py_proto('ipc.proto')
     ctx.py_proto('processor_messages.proto')
 
-    ctx.cpp_proto('processor_messages.proto')
-
     ctx.shlib(
         target='noisicaa-builtin_nodes-sample_track-processor_messages',
-        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
-            'processor_messages.pb.cc',
+            ctx.cpp_proto('processor_messages.proto'),
         ],
         use=[
-            'NOISELIB',
             'noisicaa-audioproc-public',
         ]
     )
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-sample_track-processor',
-        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
-            'processor.cpp',
+            ctx.cpp_module('processor.cpp'),
         ],
         use=[
-            'NOISELIB',
             'noisicaa-audioproc-public',
             'noisicaa-host_system',
             'noisicaa-builtin_nodes-processor_message_registry',

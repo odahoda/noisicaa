@@ -28,14 +28,12 @@ def build(ctx):
     ctx.py_proto('model_registry.proto')
     ctx.py_proto('processor_message_registry.proto')
 
-    ctx.cpp_proto('processor_message_registry.proto')
-
     ctx.shlib(
         target='noisicaa-builtin_nodes-processor_message_registry',
-        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
-        source='processor_message_registry.pb.cc',
+        source=[
+            ctx.cpp_proto('processor_message_registry.proto'),
+        ],
         use=[
-            'NOISELIB',
             'noisicaa-audioproc-public',
             'noisicaa-builtin_nodes-control_track-processor_messages',
             'noisicaa-builtin_nodes-sample_track-processor_messages',
@@ -49,10 +47,10 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-processors',
-        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
-        source='processor_registry.cpp',
+        source=[
+            ctx.cpp_module('processor_registry.cpp'),
+        ],
         use=[
-            'NOISELIB',
             'noisicaa-builtin_nodes-control_track-processor',
             'noisicaa-builtin_nodes-sample_track-processor',
             'noisicaa-builtin_nodes-instrument-processor',

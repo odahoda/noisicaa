@@ -56,7 +56,6 @@ def faust_dsp(ctx, cls_name, source='processor.dsp'):
         target='noisicaa-builtin_nodes-%s-processor' % cls_name.lower(),
         source='processor.cpp',
         use=[
-            'NOISELIB',
             'noisicaa-audioproc-public',
             'noisicaa-host_system',
         ],
