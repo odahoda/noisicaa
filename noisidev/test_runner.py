@@ -44,7 +44,10 @@ SITE_PACKAGES_DIR = os.path.join(
     'python%d.%d' % (sys.version_info[0], sys.version_info[1]),
     'site-packages')
 
-ROOTDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+ROOTDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+while not os.path.isfile(os.path.join(ROOTDIR, '.venv')):
+    ROOTDIR = os.path.abspath(os.path.join(ROOTDIR, '..'))
+
 SRCDIR = ROOTDIR
 LIBDIR = os.path.join(ROOTDIR, 'build')
 sys.path.insert(0, LIBDIR)
@@ -154,6 +157,7 @@ def main(argv):
     parser.add_argument('--write-perf-stats', type=bool_arg, default=False)
     parser.add_argument('--profile', type=bool_arg, default=False)
     parser.add_argument('--rtcheck', type=bool_arg, default=True)
+    parser.add_argument('--strict-rtcheck', type=bool_arg, default=False)
     parser.add_argument('--gdb', type=bool_arg, default=False)
     parser.add_argument('--pedantic', type=bool_arg, default=False)
     parser.add_argument('--keep-temp', type=bool_arg, default=False)
@@ -215,7 +219,7 @@ def main(argv):
             arg = arg.replace('_', '-')
             if arg == 'module':
                 continue
-            elif arg == 'rtcheck':
+            elif arg in ('rtcheck', 'strict-rtcheck'):
                 subargv.append('--%s=%s' % (arg, False))
             elif value != parser.get_default(arg):
                 subargv.append('--%s=%s' % (arg, value))
@@ -227,6 +231,8 @@ def main(argv):
         env['LD_PRELOAD'] = ':'.join([
             os.path.join(LIBDIR, 'noisicaa', 'audioproc', 'engine', 'librtcheck.so'),
             os.path.join(LIBDIR, 'noisicaa', 'audioproc', 'engine', 'librtcheck_preload.so')])
+        if args.strict_rtcheck:
+            env['RTCHECK_ABORT'] = '1'
         os.execve(subargv[0], subargv, env)
 
     if args.store_results:
