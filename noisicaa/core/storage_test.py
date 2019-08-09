@@ -43,7 +43,6 @@ class StorageTest(unittest.TestCase):
         self.stubs.SmartSet(fileutil, 'os', self.fake_os)
         self.stubs.SmartSet(builtins, 'open', self.fake_open)
 
-    @unittest.skip("broken")
     def test_index_management(self):
         ps = storage.ProjectStorage.create('/foo')
         try:
@@ -138,7 +137,6 @@ class StorageTest(unittest.TestCase):
         self.assertTrue(
             self.fake_os.path.isfile('/foo/log.000000'))
 
-    @unittest.skip("broken")
     def test_undo_the_undone(self):
         ps = storage.ProjectStorage.create('/foo')
         try:
@@ -166,7 +164,6 @@ class StorageTest(unittest.TestCase):
         finally:
             ps.close()
 
-    @unittest.skip("broken")
     def test_open(self):
         ps = storage.ProjectStorage.create('/foo')
         try:
@@ -216,7 +213,6 @@ class StorageTest(unittest.TestCase):
         finally:
             ps.close()
 
-    @unittest.skip("broken")
     def test_checkpoints(self):
         ps = storage.ProjectStorage.create('/foo')
         try:
