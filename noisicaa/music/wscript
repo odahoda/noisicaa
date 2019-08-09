@@ -36,7 +36,7 @@ def build(ctx):
     ctx.py_module('mutations.py')
     ctx.py_module('node_connector.py')
     ctx.py_module('player.py')
-    ctx.py_test('player_integration_test.py')
+    ctx.py_test('player_integration_test.py', tags={'integration'})
     ctx.py_test('player_test.py')
     ctx.py_module('project.py')
     ctx.py_module('project_client.py')

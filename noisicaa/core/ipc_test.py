@@ -220,7 +220,7 @@ class TestSubprocess(process_manager.SubprocessMixin, process_manager.ProcessBas
         response.num = 2
 
 
-class IPCPerfTest(unittest.AsyncTestCase):
+class IPCPerfTestBase(unittest.AsyncTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -296,22 +296,11 @@ class IPCPerfTest(unittest.AsyncTestCase):
             % (wt, ct))
         out.write("Per request: \033[32m%.2fµsec\033[37;0m\n" % (1e6 * wt / num_requests))
 
+
+class IPCPerfTest(IPCPerfTestBase):
     async def test_smoke(self):
         # Not a real perf test, just execute the code during normal unit test runs to make sure it
         # doesn't bitrot.
         request = ipc_test_pb2.TestRequest()
         request.t.add(numerator=random.randint(0, 4), denominator=random.randint(1, 2))
         await self.run_test(request, 10, out=io.StringIO())
-
-    @unittest.tag('perf')
-    async def test_small_messages(self):
-        request = ipc_test_pb2.TestRequest()
-        request.t.add(numerator=random.randint(0, 4), denominator=random.randint(1, 2))
-        await self.run_test(request, 5000)
-
-    @unittest.tag('perf')
-    async def test_large_messages(self):
-        request = ipc_test_pb2.TestRequest()
-        for _ in range(10000):
-            request.t.add(numerator=random.randint(0, 4), denominator=random.randint(1, 2))
-        await self.run_test(request, 100)

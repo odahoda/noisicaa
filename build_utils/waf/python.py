@@ -307,7 +307,6 @@ class run_py_test(Task):
                 '-m', 'noisidev.test_runner',
                 '--store-result=%s' % results_path,
                 '--coverage=%s' % ('true' if ctx.options.coverage else 'false'),
-                '--tags=%s' % ','.join(ctx.TEST_TAGS),
                 self.mod_name,
             ]
             rc = self.exec_command(
@@ -337,8 +336,10 @@ class run_py_test(Task):
 
 
 @conf
-def add_py_test_runner(ctx, target, timeout=None):
-    if ctx.cmd == 'test' and ctx.should_run_test(target):
+def add_py_test_runner(ctx, target, tags={'unit'}, timeout=None):
+    if (ctx.cmd == 'test'
+            and ('all' in ctx.TEST_TAGS or tags & ctx.TEST_TAGS)
+            and ctx.should_run_test(target)):
         with ctx.group(ctx.GRP_RUN_TESTS):
             task = run_py_test(env=ctx.env, timeout=timeout)
             task.set_inputs(target)

@@ -159,7 +159,6 @@ def main(argv):
     parser.add_argument('--keep-temp', type=bool_arg, default=False)
     parser.add_argument('--fail-fast', type=bool_arg, default=False)
     parser.add_argument('--playback-backend', type=str, default='null')
-    parser.add_argument('--tags', default='unit,lint')
     parser.add_argument('--display', choices=['off', 'local', 'xvfb'], default='xvfb')
     args = parser.parse_args(argv[1:])
 
@@ -318,16 +317,9 @@ def main(argv):
             else:
                 yield child
 
-    tags_to_run = set()
-    for tag in args.tags.split(','):
-        tag = tag.strip()
-        assert tag in {'all', 'unit', 'lint', 'pylint', 'mypy', 'clang-tidy', 'integration', 'perf'}
-        tags_to_run.add(tag)
-
     flat_suite = unittest.TestSuite()
     for case in flatten_suite(suite):
-        if not hasattr(case, 'tags') or 'all' in tags_to_run or case.tags & tags_to_run:
-            flat_suite.addTest(case)
+        flat_suite.addTest(case)
 
     if args.store_results:
         runner = xmlrunner.XMLTestRunner(
