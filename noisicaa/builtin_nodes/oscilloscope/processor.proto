@@ -25,7 +25,6 @@ syntax = "proto2";
 package noisicaa.pb;
 
 import "noisicaa/audioproc/public/node_parameters.proto";
-import "noisicaa/audioproc/public/transfer_function.proto";
 
 message OscilloscopeSpec {
   required int32 foo = 1;

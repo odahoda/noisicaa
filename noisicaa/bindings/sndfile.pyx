@@ -203,7 +203,7 @@ cdef extern from "sndfile.h":
 
     ctypedef int64_t sf_count_t
 
-    cdef struct SF_INFO:
+    cdef struct _SF_INFO_s:
         sf_count_t frames
         int samplerate
         int channels
@@ -211,7 +211,7 @@ cdef extern from "sndfile.h":
         int sections
         int seekable
 
-    ctypedef SF_INFO SF_INFO
+    ctypedef _SF_INFO_s SF_INFO
 
     cdef struct _SF_FORMAT_INFO_s:
         int format
@@ -302,14 +302,14 @@ cdef extern from "sndfile.h":
 
     ctypedef sf_count_t (*sf_vio_tell)(void* user_data)
 
-    cdef struct SF_VIRTUAL_IO:
+    cdef struct _SF_VIRTUAL_IO_s:
         sf_vio_get_filelen get_filelen
         sf_vio_seek seek
         sf_vio_read read
         sf_vio_write write
         sf_vio_tell tell
 
-    ctypedef SF_VIRTUAL_IO SF_VIRTUAL_IO
+    ctypedef _SF_VIRTUAL_IO_s SF_VIRTUAL_IO
 
     SNDFILE* sf_open(char* path, int mode, SF_INFO* sfinfo)
 

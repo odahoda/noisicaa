@@ -21,9 +21,12 @@
 # @end:license
 
 import os.path
+import subprocess
+import sys
 
 from waflib.Configure import conf
 from waflib.Task import Task
+from waflib import Utils
 
 
 def configure(ctx):
@@ -41,16 +44,21 @@ class compile_csound(Task):
         ctx = self.generator.bld
         cwd = ctx.srcnode
 
-        env = {
-            'LD_LIBRARY_PATH': os.path.join(ctx.env.VIRTUAL_ENV, 'lib'),
-        }
-
         cmd = [
             ctx.env.CSOUND[0],
             '-o' + self.outputs[0].path_from(cwd),
             self.inputs[0].path_from(cwd),
         ]
-        return self.exec_command(cmd, cwd=cwd, env=env)
+        kw = {
+            'cwd': cwd.abspath(),
+            'stdout': subprocess.PIPE,
+            'stderr': subprocess.STDOUT,
+        }
+        ctx.log_command(cmd, kw)
+        rc, out, _ = Utils.run_process(cmd, kw)
+        if rc:
+            sys.stderr.write(out.decode('utf-8'))
+        return rc
 
 
 @conf
