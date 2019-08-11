@@ -55,7 +55,7 @@ class ProjectClient(object):
             manager: ipc.Stub,
             tmp_dir: str,
             node_db: node_db_lib.NodeDBClient,
-            urid_mapper: lv2.ProxyURIDMapper,
+            urid_mapper: lv2.ProxyURIDMapper
     ) -> None:
         self.__event_loop = event_loop
         self.__server = server

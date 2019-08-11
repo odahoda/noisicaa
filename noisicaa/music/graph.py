@@ -196,12 +196,12 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
         if not connections:
             return node_db.PortDescription.UNDEFINED
 
-        conn_type = None
+        conn_type = None  # type: node_db.PortDescription.Type
         for conn in connections:
             if conn_type is None:
                 conn_type = conn.type
-            else:
-                assert conn.type == conn_type
+            elif conn.type != conn_type:
+                raise AssertionError
 
         return conn_type
 

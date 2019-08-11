@@ -22,6 +22,7 @@
 
 #include <stdarg.h>
 #include "noisicaa/core/logging.h"
+#include "noisicaa/core/scope_guard.h"
 #include "noisicaa/audioproc/engine/spec.h"
 #include "noisicaa/audioproc/engine/control_value.h"
 #include "noisicaa/audioproc/engine/processor.h"
@@ -88,65 +89,14 @@ string Spec::dump() const {
   return out;
 }
 
-Status Spec::append_opcode(OpCode opcode, ...) {
-  vector<OpArg> args;
-
-  struct OpSpec opspec = opspecs[opcode];
-
-  va_list values;
-  va_start(values, opcode);
-  for (const char* a = opspec.argspec ; *a ; ++a) {
-    switch (*a) {
-    case 'i': {
-      int64_t value = va_arg(values, int64_t);
-      args.emplace_back(OpArg(value));
-      break;
-    }
-    case 'b': {
-      const char* buf_name = va_arg(values, char*);
-      StatusOr<int> stor_value = get_buffer_idx(buf_name);
-      RETURN_IF_ERROR(stor_value);
-      args.emplace_back(OpArg((int64_t)stor_value.result()));
-      break;
-    }
-    case 'p': {
-      Processor* processor = va_arg(values, Processor*);
-      StatusOr<int> stor_value = get_processor_idx(processor);
-      RETURN_IF_ERROR(stor_value);
-      args.emplace_back(OpArg((int64_t)stor_value.result()));
-      break;
-    }
-    case 'c': {
-      ControlValue* cv = va_arg(values, ControlValue*);
-      StatusOr<int> stor_value = get_control_value_idx(cv);
-      RETURN_IF_ERROR(stor_value);
-      args.emplace_back(OpArg((int64_t)stor_value.result()));
-      break;
-    }
-    case 'f': {
-      float value = va_arg(values, double);
-      args.emplace_back(OpArg(value));
-      break;
-    }
-    case 's': {
-      const char* value = va_arg(values, char*);
-      args.emplace_back(OpArg(value));
-      break;
-    }
-    }
-  }
-
-  return append_opcode_args(opcode, args);
-}
-
-Status Spec::append_opcode_args(OpCode opcode, const vector<OpArg>& args) {
+Status Spec::append_opcode(OpCode opcode, const vector<OpArg>& args) {
   _opcodes.push_back({opcode, args});
   return Status::Ok();
 }
 
 Status Spec::append_buffer(const string& name, BufferType* type) {
   char* name_c = new char[name.size() + 1];
-  strcpy(name_c, name.c_str());
+  memmove(name_c, name.c_str(), name.size() + 1);
   _buffer_map[name_c] = _buffers.size();
   _buffers.emplace_back(type);
   return Status::Ok();

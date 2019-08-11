@@ -63,8 +63,11 @@ Status NullBackend::end_block(BlockContext* ctxt) {
   int64_t elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::high_resolution_clock::now() - _block_start).count();
   int64_t delay = block_duration - elapsed;
+  if (_settings.has_time_scale()) {
+    delay = _settings.time_scale() * delay;
+  }
   if (delay > 0) {
-    usleep((useconds_t)(_settings.time_scale() * delay));
+    usleep((useconds_t)delay);
   }
 
   return Status::Ok();

@@ -49,9 +49,6 @@ cdef extern from "noisicaa/audioproc/engine/player.h" namespace "noisicaa" nogil
     cppclass Player:
         Player(const string& realm_name, HostSystem* host_system)
 
-        Status setup()
-        void cleanup()
-
         void update_state(const string& state_serialized)
 
 

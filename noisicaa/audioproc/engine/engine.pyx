@@ -244,7 +244,7 @@ cdef class PyEngine(object):
     async def create_realm(
             self, *,
             name: str, parent: str, enable_player: bool = False, callback_address: str = None
-    ) -> PyRealm:
+    ):
         if name in self.__realms:
             raise DuplicateRealmName("Realm '%s' already exists" % name)
 

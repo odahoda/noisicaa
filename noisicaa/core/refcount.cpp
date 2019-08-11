@@ -27,8 +27,6 @@ namespace noisicaa {
 
 RefCounted::~RefCounted() {}
 
-void RefCounted::cleanup() {}
-
 void RefCounted::decref() {
   assert(_ref_count > 0);
   --_ref_count;

@@ -24,7 +24,8 @@ import asyncio
 import concurrent.futures
 import logging
 import uuid
-from typing import cast, Optional, Iterator, Iterable, Dict, Tuple
+import typing
+from typing import Optional, Iterator, Iterable, Dict, Tuple
 
 from noisicaa import core
 from noisicaa.core import ipc
@@ -33,8 +34,10 @@ from noisicaa import audioproc
 from . import model_base
 from . import project as project_lib
 from . import graph
-from . import node_connector
 from . import session_value_store
+
+if typing.TYPE_CHECKING:
+    from . import node_connector
 
 logger = logging.getLogger(__name__)
 
@@ -162,10 +165,8 @@ class Player(object):
         await self.audioproc_client.set_session_values(self.realm, values)
 
     def add_node(self, node: graph.BaseNode) -> Iterator[audioproc.ProcessorMessage]:
-        connector = cast(
-            node_connector.NodeConnector,
-            node.create_node_connector(
-                message_cb=self.send_node_message, audioproc_client=self.audioproc_client))
+        connector = node.create_node_connector(
+            message_cb=self.send_node_message, audioproc_client=self.audioproc_client)
         if connector is not None:
             yield from connector.init()
             self.__node_connectors[node.id] = connector

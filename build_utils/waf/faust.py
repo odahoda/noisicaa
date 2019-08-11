@@ -49,14 +49,13 @@ def faust_dsp(ctx, cls_name, source='processor.dsp'):
         ],
         cls_name=cls_name)
 
-    if ctx.get_group_name(ctx.current_group) == 'noisicaa':
+    if ctx.in_group(ctx.GRP_BUILD_MAIN):
         ctx.install_files(os.path.join(ctx.env.LIBDIR, json.parent.relpath()), json)
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-%s-processor' % cls_name.lower(),
         source='processor.cpp',
         use=[
-            'NOISELIB',
             'noisicaa-audioproc-public',
             'noisicaa-host_system',
         ],

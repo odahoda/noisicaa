@@ -22,6 +22,7 @@
 
 import logging
 import os
+import os.path
 import time
 import traceback
 from typing import cast, Any, Dict, Union
@@ -31,6 +32,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa.core import storage
 from noisicaa.music import mutations_pb2
 from . import ui_base
@@ -129,7 +131,8 @@ class MutationModel(QtCore.QAbstractItemModel):
                 if isinstance(mutations, mutations_pb2.MutationList):
                     return None
                 else:
-                    return QtGui.QIcon.fromTheme('dialog-warning')
+                    return QtGui.QIcon(
+                        os.path.join(constants.DATA_DIR, 'icons', 'dialog-warning.svg'))
 
         elif role == Qt.FontRole:
             if self.__truncate_index is not None and index.row() >= self.__truncate_index:

@@ -31,6 +31,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa import music
 from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
@@ -143,7 +144,7 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
 
         self.select_output_directory = QtWidgets.QToolButton(
             self.top_area,
-            icon=QtGui.QIcon.fromTheme('document-open'),
+            icon=QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', 'document-open.svg')),
             autoRaise=True)
         self.select_output_directory.clicked.connect(self.onSelectOutputDirectory)
 
@@ -152,15 +153,16 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.output_directory.textChanged.connect(lambda _: self.validateOutputDirectory())
 
         self.output_directory_warning = QtWidgets.QLabel(self)
-        self.output_directory_warning.setPixmap(
-            QtGui.QIcon.fromTheme('dialog-warning').pixmap(24, 24))
+        self.output_directory_warning.setPixmap(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'dialog-warning.svg')).pixmap(24, 24))
 
         self.file_name = QtWidgets.QLineEdit(self.top_area)
         self.file_name.setText(os.path.basename(path))
         self.file_name.textChanged.connect(lambda _: self.validateFileName())
 
         self.file_name_warning = QtWidgets.QLabel(self)
-        self.file_name_warning.setPixmap(QtGui.QIcon.fromTheme('dialog-warning').pixmap(24, 24))
+        self.file_name_warning.setPixmap(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'dialog-warning.svg')).pixmap(24, 24))
 
         self.block_size = QtWidgets.QComboBox(self.top_area)
         populateComboBox(

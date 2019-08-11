@@ -86,7 +86,7 @@ def py_proto(ctx, source):
     task.set_outputs(ctx.path.get_bld().make_node(pyi_path))
     ctx.add_to_group(task)
 
-    if ctx.get_group_name(ctx.current_group) == 'noisicaa':
+    if ctx.in_group(ctx.GRP_BUILD_MAIN):
         ctx.install_files(os.path.join(ctx.env.LIBDIR, pb2_node.parent.relpath()), pb2_node)
         ctx.install_files(os.path.join(ctx.env.LIBDIR, pb2c_node.parent.relpath()), pb2c_node)
 
@@ -132,3 +132,5 @@ def cpp_proto(ctx, source):
     task.set_outputs(ctx.path.get_bld().make_node(
         os.path.splitext(source)[0] + '.pb.h'))
     ctx.add_to_group(task)
+
+    return os.path.splitext(source)[0] + '.pb.cc'

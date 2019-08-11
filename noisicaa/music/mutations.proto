@@ -30,7 +30,6 @@ import "noisicaa/audioproc/public/plugin_state.proto";
 import "noisicaa/audioproc/public/midi_event.proto";
 import "noisicaa/node_db/node_description.proto";
 import "noisicaa/music/model_base.proto";
-import "noisicaa/music/model.proto";
 
 package noisicaa.pb;
 

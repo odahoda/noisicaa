@@ -69,7 +69,6 @@ string PlayerStateMutation::to_string() const {
     if (!first) {
       s += ", ";
     }
-    first = false;
     s += sprintf("loop_end_time=%f", loop_end_time.to_float());
   }
   s += ")";
@@ -80,19 +79,6 @@ Player::Player(const string& realm_name, HostSystem* host_system)
   : _logger(LoggerRegistry::get_logger("noisicaa.audioproc.engine.player")),
     _realm_name(realm_name),
     _host_system(host_system) {}
-
-Player::~Player() {
-  cleanup();
-}
-
-Status Player::setup() {
-  _logger->info("Setting up player...");
-  return Status::Ok();
-}
-
-void Player::cleanup() {
-  _logger->info("Player cleaned up.");
-}
 
 void Player::update_state(const string& state_serialized) {
   pb::PlayerState state_pb;

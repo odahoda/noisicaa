@@ -27,21 +27,18 @@ def build(ctx):
     ctx.py_module('faust_parser.py')
     ctx.py_test('faust_parser_test.py')
     ctx.py_module('presets.py')
-    ctx.py_test('presets_test.py')
+    #ctx.py_test('presets_test.py')
     ctx.py_module('process.py')
     ctx.py_module('utils.py')
     ctx.py_proto('node_db.proto')
     ctx.py_proto('node_description.proto')
 
-    ctx.cpp_proto('node_description.proto')
-
     ctx.shlib(
         target='noisicaa-node_db',
-        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
-            'node_description.pb.cc',
+            ctx.cpp_proto('node_description.proto'),
         ],
-        use=['NOISELIB', 'PROTOBUF'],
+        use=['PROTOBUF'],
     )
 
     ctx.recurse('private')

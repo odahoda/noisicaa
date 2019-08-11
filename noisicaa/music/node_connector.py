@@ -38,7 +38,7 @@ class NodeConnector(core.AutoCleanupMixin, object):
             self, *,
             node: 'graph.BaseNode',
             message_cb: Callable[[audioproc.ProcessorMessage], None],
-            audioproc_client: audioproc.AbstractAudioProcClient,
+            audioproc_client: audioproc.AbstractAudioProcClient
     ) -> None:
         super().__init__()
 

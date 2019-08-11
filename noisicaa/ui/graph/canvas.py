@@ -72,10 +72,12 @@ class NodeFilter(QtWidgets.QLineEdit):
         self.__node_list = node_list
 
         self.addAction(
-            QtGui.QIcon.fromTheme('edit-find'), QtWidgets.QLineEdit.LeadingPosition)
+            QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', 'edit-find.svg')),
+            QtWidgets.QLineEdit.LeadingPosition)
 
         clear_action = QtWidgets.QAction("Clear search string", self)
-        clear_action.setIcon(QtGui.QIcon.fromTheme('edit-clear'))
+        clear_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'edit-clear.svg')))
         clear_action.triggered.connect(self.clear)
         self.addAction(clear_action, QtWidgets.QLineEdit.TrailingPosition)
 
@@ -518,7 +520,7 @@ class MiniMap(slots.SlotContainer, QtWidgets.QWidget):
         self.__visibility_timer = QtCore.QTimer(self)
         self.__visibility_timer.setTimerType(Qt.PreciseTimer)
         self.__visibility_timer.setInterval(1000 // 25)
-        self.__visibility_timer.timeout.connect(self.__updateVisibility)  # type: ignore
+        self.__visibility_timer.timeout.connect(self.__updateVisibility)
         self.__visibility_timer.start()
 
     def __updateVisibility(self) -> None:
@@ -766,10 +768,11 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
         self.__update_timer = QtCore.QTimer(self)
         self.__update_timer.setTimerType(Qt.PreciseTimer)
         self.__update_timer.setInterval(1000 // 50)
-        self.__update_timer.timeout.connect(self.__updateCanvas)  # type: ignore
+        self.__update_timer.timeout.connect(self.__updateCanvas)
 
         self.__select_all_action = QtWidgets.QAction("Select all nodes")
-        self.__select_all_action.setIcon(QtGui.QIcon.fromTheme('edit-select-all'))
+        self.__select_all_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'edit-select-all.svg')))
         self.__select_all_action.triggered.connect(self.__scene.selectAllNodes)
 
         self.__mini_map = MiniMap(scene=self.__scene, parent=self)
@@ -1040,8 +1043,8 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
         #     self.unsetCursor()
 
         if not self.__rubber_band_active and hover_node is None:
-            port = None
-            min_dist = None
+            port = None  # type: base_node.Port
+            min_dist = None  # type: float
             for item in self.__scene.items(self.senseRect(self.mapToScene(event.pos()), 16)):
                 if isinstance(item, base_node.Port):
                     deltaF = item.scenePos() - self.mapToScene(event.pos())
@@ -1055,7 +1058,6 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                 self.__scene.setHighlightedConnection(None)
             else:
                 connection = None
-                min_dist = None
                 for item in self.__scene.items(self.senseRect(self.mapToScene(event.pos()), 4)):
                     if isinstance(item, base_node.Connection):
                         if connection is None:
@@ -1255,8 +1257,8 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             else:
                 mpos = self.__mouse_pos
 
-            dest_port = None
-            min_dist = None
+            dest_port = None  # type: base_node.Port
+            min_dist = None  # type: float
             for item in self.__scene.items(self.senseRect(self.mapToScene(mpos), 32)):
                 if not isinstance(item, base_node.Port):
                     continue
@@ -1345,8 +1347,8 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                     self.__scene.disableHighlights()
 
             if state.connection is not None:
-                dest_port = None
-                min_dist = None
+                dest_port = None  # type: base_node.Port
+                min_dist = None  # type: float
                 for item in self.__scene.items(self.senseRect(self.mapToScene(mpos), 32)):
                     if not isinstance(item, base_node.Port):
                         continue

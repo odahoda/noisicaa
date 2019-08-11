@@ -212,8 +212,8 @@ class TransferFunctionDisplay(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWid
             self.update()
             return
 
-        closest_handle = None
-        closest_dist = None
+        closest_handle = None  # type: str
+        closest_dist = None  # type: float
         for name, rect in self.__handles.items():
             delta = rect.center() - evt.pos()
             dist = math.sqrt(delta.x() ** 2 + delta.y() ** 2)

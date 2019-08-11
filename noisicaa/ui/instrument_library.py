@@ -22,6 +22,7 @@
 
 import asyncio
 import logging
+import os.path
 import random
 import uuid
 from typing import cast, Any, Optional, List
@@ -31,6 +32,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa import instrument_db
 from noisicaa import node_db
 from noisicaa import audioproc
@@ -163,10 +165,12 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.instruments_search = QtWidgets.QLineEdit(self)
         layout.addWidget(self.instruments_search)
         search_action = QtWidgets.QAction()
-        search_action.setIcon(QtGui.QIcon.fromTheme('edit-find'))
+        search_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'edit-find.svg')))
         self.instruments_search.addAction(search_action, QtWidgets.QLineEdit.LeadingPosition)
         clear_action = QtWidgets.QAction("Clear search string", self.instruments_search)
-        clear_action.setIcon(QtGui.QIcon.fromTheme('edit-clear'))
+        clear_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'edit-clear.svg')))
         clear_action.triggered.connect(self.instruments_search.clear)
         self.instruments_search.addAction(clear_action, QtWidgets.QLineEdit.TrailingPosition)
         self.instruments_search.textChanged.connect(self.onInstrumentSearchChanged)

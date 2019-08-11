@@ -44,44 +44,27 @@ def build(ctx):
     ctx.py_proto('midi_event.proto')
     ctx.py_proto('transfer_function.proto')
 
-    ctx.cpp_proto('backend_settings.proto')
-    ctx.cpp_proto('instrument_spec.proto')
-    ctx.cpp_proto('musical_time.proto')
-    ctx.cpp_proto('player_state.proto')
-    ctx.cpp_proto('plugin_state.proto')
-    ctx.cpp_proto('processor_message.proto')
-    ctx.cpp_proto('engine_notification.proto')
-    ctx.cpp_proto('devices.proto')
-    ctx.cpp_proto('control_value.proto')
-    ctx.cpp_proto('host_parameters.proto')
-    ctx.cpp_proto('project_properties.proto')
-    ctx.cpp_proto('node_port_properties.proto')
-    ctx.cpp_proto('node_parameters.proto')
-    ctx.cpp_proto('midi_event.proto')
-    ctx.cpp_proto('transfer_function.proto')
-
     ctx.shlib(
         target='noisicaa-audioproc-public',
-        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
-            'backend_settings.pb.cc',
-            'control_value.pb.cc',
-            'devices.pb.cc',
-            'engine_notification.pb.cc',
-            'host_parameters.pb.cc',
-            'instrument_spec.pb.cc',
-            'midi_event.pb.cc',
-            'musical_time.cpp',
-            'musical_time.pb.cc',
-            'node_parameters.pb.cc',
-            'node_port_properties.pb.cc',
-            'player_state.pb.cc',
-            'plugin_state.pb.cc',
-            'processor_message.pb.cc',
-            'project_properties.pb.cc',
-            'time_mapper.cpp',
-            'transfer_function.cpp',
-            'transfer_function.pb.cc',
+            ctx.cpp_proto('backend_settings.proto'),
+            ctx.cpp_proto('control_value.proto'),
+            ctx.cpp_proto('devices.proto'),
+            ctx.cpp_proto('engine_notification.proto'),
+            ctx.cpp_proto('host_parameters.proto'),
+            ctx.cpp_proto('instrument_spec.proto'),
+            ctx.cpp_proto('midi_event.proto'),
+            ctx.cpp_proto('musical_time.proto'),
+            ctx.cpp_module('musical_time.cpp'),
+            ctx.cpp_proto('node_parameters.proto'),
+            ctx.cpp_proto('node_port_properties.proto'),
+            ctx.cpp_proto('player_state.proto'),
+            ctx.cpp_proto('plugin_state.proto'),
+            ctx.cpp_proto('processor_message.proto'),
+            ctx.cpp_proto('project_properties.proto'),
+            ctx.cpp_module('time_mapper.cpp'),
+            ctx.cpp_proto('transfer_function.proto'),
+            ctx.cpp_module('transfer_function.cpp'),
         ],
-        use=['NOISELIB', 'PROTOBUF', 'noisicaa-core'],
+        use=['PROTOBUF', 'noisicaa-core'],
     )

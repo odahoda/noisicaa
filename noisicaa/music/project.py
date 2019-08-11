@@ -264,7 +264,7 @@ class BaseProject(_model.Project, model_base.ObjectBase):
             self, *,
             mode: str,
             src_objs: Sequence[model_base_pb2.ObjectTree],
-            targets: Sequence[base_track.MeasureReference],
+            targets: Sequence[base_track.MeasureReference]
     ) -> None:
         affected_track_ids = set(obj.track.id for obj in targets)
         assert len(affected_track_ids) == 1
@@ -283,7 +283,7 @@ class BaseProject(_model.Project, model_base.ObjectBase):
                 except KeyError:
                     measure = down_cast(base_track.Measure, self._pool.clone_tree(src_proto))
                     measure_map[src_proto.root] = measure
-                    cast(base_track.MeasuredTrack, target.track).measure_heap.append(measure)
+                    target.track.measure_heap.append(measure)
 
                 target.measure = measure
 
@@ -344,7 +344,7 @@ class Project(BaseProject):
             path: str,
             pool: 'Pool',
             writer: writer_client.WriterClient,
-            node_db: node_db_lib.NodeDBClient,
+            node_db: node_db_lib.NodeDBClient
     ) -> 'Project':
         checkpoint_serialized, actions = await writer.open(path)
 
@@ -363,7 +363,7 @@ class Project(BaseProject):
             assert node.project is project
 
             for c in node.list_children():
-                validate_node(node, cast(model_base.ObjectBase, c))
+                validate_node(node, c)
 
         validate_node(None, project)
 
@@ -382,7 +382,7 @@ class Project(BaseProject):
             path: str,
             pool: 'Pool',
             node_db: node_db_lib.NodeDBClient,
-            writer: writer_client.WriterClient,
+            writer: writer_client.WriterClient
     ) -> 'Project':
         project = pool.create(cls, writer=writer, node_db=node_db)
         pool.set_root(project)

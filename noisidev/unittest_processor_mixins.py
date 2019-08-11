@@ -18,9 +18,8 @@
 #
 # @end:license
 
-from . import unittest_mixins
-from . import unittest_engine_mixins
-from . import unittest_engine_utils
+from typing import List
+
 from noisicaa import lv2
 from noisicaa import node_db
 from noisicaa.audioproc.public import musical_time
@@ -29,6 +28,9 @@ from noisicaa.audioproc.engine import processor
 from noisicaa.audioproc.engine import block_context
 from noisicaa.audioproc.engine import buffers
 from noisicaa.audioproc.engine import buffer_arena
+from . import unittest_mixins
+from . import unittest_engine_mixins
+from . import unittest_engine_utils
 
 
 class ProcessorTestMixin(
@@ -139,7 +141,8 @@ class ProcessorTestMixin(
         self.assertEqual(is_events, should_events)
 
     def create_processor(self):
-        self.processor = processor.PyProcessor('realm', 'test_node', self.host_system, self.node_description)
+        self.processor = processor.PyProcessor(
+            'realm', 'test_node', self.host_system, self.node_description)
         self.processor.setup()
 
         self.buffers.allocate_from_node_description(self.node_description)
@@ -148,7 +151,9 @@ class ProcessorTestMixin(
         self.__buffers = []
         for port_idx, port_desc in enumerate(self.node_description.ports):
             buf = buffers.PyBuffer(
-                self.host_system, self.buffers.type(port_desc.name), self.buffers.data(port_desc.name))
+                self.host_system,
+                self.buffers.type(port_desc.name),
+                self.buffers.data(port_desc.name))
             self.__buffers.append(buf)
             self.processor.connect_port(self.ctxt, port_idx, buf)
 
@@ -157,8 +162,10 @@ class ProcessorTestMixin(
         for s in range(self.host_system.block_size):
             self.ctxt.set_sample_time(
                 s,
-                musical_time.PyMusicalTime(self.ctxt.sample_pos + s, self.host_system.sample_rate),
-                musical_time.PyMusicalTime(self.ctxt.sample_pos + s + 1, self.host_system.sample_rate))
+                musical_time.PyMusicalTime(
+                    self.ctxt.sample_pos + s, self.host_system.sample_rate),
+                musical_time.PyMusicalTime(
+                    self.ctxt.sample_pos + s + 1, self.host_system.sample_rate))
 
         self.processor.process_block(self.ctxt, self.time_mapper)
 

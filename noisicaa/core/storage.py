@@ -195,6 +195,7 @@ class ProjectStorage(object):
             'created': int(time.time()),
         }  # type: HeaderData
 
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         os.mkdir(path)
 
         for fname in ('lock', 'log.index', 'log.history',

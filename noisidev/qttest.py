@@ -21,13 +21,9 @@
 # @end:license
 
 import asyncio
-import functools
-import inspect
 import logging
-import os.path
 
 from PyQt5 import QtWidgets
-import asynctest
 import quamash
 
 from noisicaa import constants
@@ -50,10 +46,6 @@ class QtTestCase(unittest.AsyncTestCase):
             cls.qt_app.setQuitOnLastWindowClosed(False)
 
         asyncio.set_event_loop(quamash.QEventLoop(cls.qt_app))
-
-    @classmethod
-    def tearDownClass(cls):
-        asyncio.set_event_loop(None)
 
     def setup_testcase(self):
         if not constants.TEST_OPTS.ALLOW_UI:

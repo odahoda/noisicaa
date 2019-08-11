@@ -33,17 +33,13 @@ def build(ctx):
     ctx.py_proto('model.proto')
     ctx.py_proto('processor.proto')
 
-    ctx.cpp_proto('processor.proto')
-
     ctx.shlib(
         target='noisicaa-builtin_nodes-custom_csound-processor',
-        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
-            'processor.cpp',
-            'processor.pb.cc',
+            ctx.cpp_module('processor.cpp'),
+            ctx.cpp_proto('processor.proto'),
         ],
         use=[
-            'NOISELIB',
             'noisicaa-audioproc-public',
             'noisicaa-host_system',
         ]

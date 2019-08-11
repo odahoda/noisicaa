@@ -136,7 +136,7 @@ public:
   const string& name() const { return _name; }
 
   Status setup();
-  void cleanup() override;
+  void cleanup();
 
   string dump() const;
   void clear_programs();

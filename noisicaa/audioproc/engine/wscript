@@ -26,7 +26,7 @@ def build(ctx):
     ctx.py_test('backend_test.py')
     ctx.cy_module('engine.pyx', use=['noisicaa-audioproc-engine'])
     ctx.py_test('engine_test.py')
-    ctx.py_test('engine_perftest.py')
+    #ctx.py_test('engine_perftest.py')
     ctx.py_module('graph.py')
     ctx.py_module('plugin_host_process.py')
     ctx.py_test('plugin_host_process_test.py')
@@ -36,7 +36,7 @@ def build(ctx):
     ctx.cy_test('spec_test.pyx', use=['noisicaa-audioproc-engine'])
     ctx.cy_module('buffer_arena.pyx', use=['noisicaa-audioproc-engine'])
     ctx.cy_module('buffers.pyx', use=['noisicaa-audioproc-engine'])
-    ctx.cy_test('buffers_test.pyx', use=['noisicaa-audioproc-engine'])
+    #ctx.cy_test('buffers_test.pyx', use=['noisicaa-audioproc-engine'])
     ctx.cy_module('control_value.pyx', use=['noisicaa-audioproc-engine'])
     ctx.cy_module('processor.pyx', use=['noisicaa-audioproc-engine'])
     ctx.py_test('processor_test.py')
@@ -46,7 +46,9 @@ def build(ctx):
     ctx.cy_module('block_context.pyx', use=['noisicaa-audioproc-engine'])
     ctx.cy_module('message_queue.pyx', use=['noisicaa-audioproc-engine'])
     ctx.cy_module('plugin_host.pyx', use=['noisicaa-audioproc-engine'])
-    ctx.py_test('plugin_host_test.py')
+    if ctx.env.ENABLE_TEST:
+        with ctx.group(ctx.GRP_BUILD_TESTS):
+            ctx.py_module('plugin_host_test.py', mypy='loose')
     ctx.py_test('plugin_host_ladspa_test.py')
     ctx.py_test('plugin_host_lv2_test.py')
     ctx.cy_module('plugin_ui_host.pyx', use=['noisicaa-audioproc-engine'])
@@ -57,48 +59,44 @@ def build(ctx):
     ctx.cy_module('profile.pyx', use=['noisicaa-audioproc-engine'])
     ctx.cy_test('opcodes_test.pyx', use=['noisicaa-audioproc-engine'])
 
-    ctx.cpp_proto('plugin_host.proto')
-    ctx.cpp_proto('processor_plugin.proto')
-
     ctx.shlib(
         target='noisicaa-audioproc-engine',
-        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
-            'alsa_device_manager.cpp',
-            'backend.cpp',
-            'backend_null.cpp',
-            'backend_portaudio.cpp',
-            'backend_renderer.cpp',
-            'block_context.cpp',
-            'buffer_arena.cpp',
-            'buffers.cpp',
-            'control_value.cpp',
-            'csound_util.cpp',
-            'double_buffered_state_manager.cpp',
-            'engine.cpp',
-            'fluidsynth_util.cpp',
-            'misc.cpp',
-            'message_queue.cpp',
-            'opcodes.cpp',
-            'player.cpp',
-            'plugin_host.pb.cc',
-            'plugin_host.cpp',
-            'plugin_host_lv2.cpp',
-            'plugin_host_ladspa.cpp',
-            'plugin_ui_host.cpp',
-            'plugin_ui_host_lv2.cpp',
-            'processor.cpp',
-            'processor_null.cpp',
-            'processor_faust.cpp',
-            'processor_csound_base.cpp',
-            'processor_csound.cpp',
-            'processor_plugin.cpp',
-            'processor_plugin.pb.cc',
-            'processor_sound_file.cpp',
-            'profile.cpp',
-            'realtime.cpp',
-            'spec.cpp',
-            'realm.cpp',
+            ctx.cpp_module('alsa_device_manager.cpp'),
+            ctx.cpp_module('backend.cpp'),
+            ctx.cpp_module('backend_null.cpp'),
+            ctx.cpp_module('backend_portaudio.cpp'),
+            ctx.cpp_module('backend_renderer.cpp'),
+            ctx.cpp_module('block_context.cpp'),
+            ctx.cpp_module('buffer_arena.cpp'),
+            ctx.cpp_module('buffers.cpp'),
+            ctx.cpp_module('control_value.cpp'),
+            ctx.cpp_module('csound_util.cpp'),
+            ctx.cpp_module('double_buffered_state_manager.cpp'),
+            ctx.cpp_module('engine.cpp'),
+            ctx.cpp_module('fluidsynth_util.cpp'),
+            ctx.cpp_module('misc.cpp'),
+            ctx.cpp_module('message_queue.cpp'),
+            ctx.cpp_module('opcodes.cpp'),
+            ctx.cpp_module('player.cpp'),
+            ctx.cpp_proto('plugin_host.proto'),
+            ctx.cpp_module('plugin_host.cpp'),
+            ctx.cpp_module('plugin_host_lv2.cpp'),
+            ctx.cpp_module('plugin_host_ladspa.cpp'),
+            ctx.cpp_module('plugin_ui_host.cpp'),
+            ctx.cpp_module('plugin_ui_host_lv2.cpp'),
+            ctx.cpp_module('processor.cpp'),
+            ctx.cpp_module('processor_null.cpp'),
+            ctx.cpp_module('processor_faust.cpp'),
+            ctx.cpp_module('processor_csound_base.cpp'),
+            ctx.cpp_module('processor_csound.cpp'),
+            ctx.cpp_proto('processor_plugin.proto'),
+            ctx.cpp_module('processor_plugin.cpp'),
+            ctx.cpp_module('processor_sound_file.cpp'),
+            ctx.cpp_module('profile.cpp'),
+            ctx.cpp_module('realtime.cpp'),
+            ctx.cpp_module('spec.cpp'),
+            ctx.cpp_module('realm.cpp'),
         ],
         use=[
             'noisicaa-core',

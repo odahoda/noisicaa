@@ -45,7 +45,9 @@ PortAudioBackend::PortAudioBackend(
     _events(nullptr) {
 }
 
-PortAudioBackend::~PortAudioBackend() {}
+PortAudioBackend::~PortAudioBackend() {
+  _cleanup();
+}
 
 Status PortAudioBackend::setup(Realm* realm) {
   RETURN_IF_ERROR(Backend::setup(realm));
@@ -113,6 +115,11 @@ Status PortAudioBackend::setup(Realm* realm) {
 }
 
 void PortAudioBackend::cleanup() {
+  _cleanup();
+  Backend::cleanup();
+}
+
+void PortAudioBackend::_cleanup() {
   if (_events != nullptr) {
     delete _events;
     _events = nullptr;
@@ -138,8 +145,6 @@ void PortAudioBackend::cleanup() {
     }
     _initialized = false;
   }
-
-  Backend::cleanup();
 }
 
 Status PortAudioBackend::setup_stream() {

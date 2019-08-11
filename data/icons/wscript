@@ -20,6 +20,9 @@
 #
 # @end:license
 
+import os.path
+
+
 def build(ctx):
     ctx.static_file('accidental-double-flat.svg')
     ctx.static_file('accidental-double-sharp.svg')
@@ -61,3 +64,6 @@ def build(ctx):
     ctx.static_file('track-type-score.svg')
     ctx.static_file('track-visible.svg')
     ctx.static_file('warning.svg')
+
+    for f in ctx.path.ant_glob('placeholders/*.svg'):
+        ctx.static_file(f, os.path.basename(f.abspath()))

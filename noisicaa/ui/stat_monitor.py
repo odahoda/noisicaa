@@ -20,9 +20,8 @@
 #
 # @end:license
 
-# mypy: loose
-
 import functools
+import os.path
 import pickle
 import uuid
 from typing import List
@@ -32,6 +31,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa.core import stats
 from noisicaa.core import process_manager_pb2
 
@@ -108,7 +108,8 @@ class StatGraph(QtWidgets.QWidget):
             painter.drawText(5, self.height() - 10, str(vmin))
 
             for _, ts in self.__timeseries_set.items():
-                px, py = None, None
+                px = None  # type: int
+                py = None  # type: int
                 for idx, value in enumerate(ts):
                     x = self.width() - idx - 1
                     y = int((self.height() - 1) * (vmax - value.value) / (vmax - vmin))
@@ -167,19 +168,23 @@ class StatMonitor(ui_base.AbstractStatMonitor):
         self.resize(600, 300)
 
         self.__pause_action = QtWidgets.QAction("Play", self)
-        self.__pause_action.setIcon(QtGui.QIcon.fromTheme('media-playback-pause'))
+        self.__pause_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-playback-pause.svg')))
         self.__pause_action.triggered.connect(self.onToggleRealtime)
 
         self.__zoom_in_action = QtWidgets.QAction("Zoom In", self)
-        self.__zoom_in_action.setIcon(QtGui.QIcon.fromTheme('zoom-in'))
+        self.__zoom_in_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'zoom-in.svg')))
         self.__zoom_in_action.triggered.connect(self.onZoomIn)
 
         self.__zoom_out_action = QtWidgets.QAction("Zoom Out", self)
-        self.__zoom_out_action.setIcon(QtGui.QIcon.fromTheme('zoom-out'))
+        self.__zoom_out_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'zoom-out.svg')))
         self.__zoom_out_action.triggered.connect(self.onZoomOut)
 
         self.__add_stat_action = QtWidgets.QAction("Add stat", self)
-        self.__add_stat_action.setIcon(QtGui.QIcon.fromTheme('list-add'))
+        self.__add_stat_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'list-add.svg')))
         self.__add_stat_action.triggered.connect(self.onAddStat)
 
         self.__toolbar = QtWidgets.QToolBar()
@@ -257,11 +262,11 @@ class StatMonitor(ui_base.AbstractStatMonitor):
         if self.__realtime:
             self.__realtime = False
             self.__pause_action.setIcon(
-                QtGui.QIcon.fromTheme('media-playback-start'))
+                QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', 'media-playback-start.svg')))
         else:
             self.__realtime = True
             self.__pause_action.setIcon(
-                QtGui.QIcon.fromTheme('media-playback-pause'))
+                QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', 'media-playback-pause.svg')))
 
     def onZoomIn(self):
         self.__time_scale *= 2

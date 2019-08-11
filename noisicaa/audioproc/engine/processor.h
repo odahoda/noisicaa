@@ -81,7 +81,7 @@ public:
   static const char* state_name(ProcessorState state);
 
   Status setup();
-  void cleanup() override;
+  virtual void cleanup();
 
   Status handle_message(const string& msg_serialized);
   Status set_parameters(const string& parameters_serialized);

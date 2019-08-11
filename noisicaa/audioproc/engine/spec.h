@@ -64,8 +64,7 @@ public:
   void set_duration(MusicalDuration duration) { _duration = duration; }
   MusicalDuration duration() const { return _duration; }
 
-  Status append_opcode(OpCode opcode, ...);
-  Status append_opcode_args(OpCode opcode, const vector<OpArg>& args);
+  Status append_opcode(OpCode opcode, const vector<OpArg>& args);
   int num_ops() const { return _opcodes.size(); }
   const vector<OpArg>& get_opargs(int idx) const { return _opcodes[idx].args; }
   OpCode get_opcode(int idx) const { return _opcodes[idx].opcode; }

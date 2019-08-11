@@ -118,7 +118,7 @@ class BaseCallback(Generic[T, CB, L]):
 
         with self.__lock:
             for listener in self.__listeners.values():
-                listener.callback(*args, **kwargs)  # type: ignore
+                listener.callback(*args, **kwargs)
 
     async def _call_async(self, *args: Any, **kwargs: Any) -> None:
         """Call all callbacks registered for a given target.
@@ -132,7 +132,7 @@ class BaseCallback(Generic[T, CB, L]):
 
         with self.__lock:
             for listener in self.__listeners.values():
-                await listener.callback(*args, **kwargs)  # type: ignore
+                await listener.callback(*args, **kwargs)
 
 
 class Callback(Generic[T], BaseCallback[T, CallbackFunc, Listener[T]]):

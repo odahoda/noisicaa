@@ -317,8 +317,8 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
             self.setHighlightedPoint(None)
             return
 
-        closest_cpoint = None
-        closest_dist = None
+        closest_cpoint = None  # type: ControlPoint
+        closest_dist = None  # type: int
         for cpoint in self.points:
             dist = ((cpoint.pos().x() - self.__mouse_pos.x()) ** 2
                     + (cpoint.pos().y() - self.__mouse_pos.y()) ** 2)

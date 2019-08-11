@@ -46,7 +46,7 @@ int Status::allocate_message(const char* msg) {
   assert(strlen(msg) + 1 < MaxMessageLength);
   for (int i = 0 ; i < NumMessageSlots ; ++i) {
     if (_messages[i][0] == 0) {
-      strcpy(_messages[i], msg);
+      strncpy(_messages[i], msg, MaxMessageLength);
       return i;
     }
   }
@@ -67,21 +67,23 @@ const char* Status::message() const {
 }
 
 Status Status::Error(const char* file, int line, const char* fmt, ...) {
+  char msg[MaxMessageLength];
+
   va_list args;
   va_start(args, fmt);
-
-  char msg[MaxMessageLength];
   vsnprintf(msg, sizeof(msg), fmt, args);
+  va_end(args);
 
   return Status(Code::ERROR, file, line, msg);
 }
 
 Status Status::OSError(const char* file, int line, const char* fmt, ...) {
+  char msg[MaxMessageLength];
+
   va_list args;
   va_start(args, fmt);
-
-  char msg[MaxMessageLength];
   vsnprintf(msg, sizeof(msg), fmt, args);
+  va_end(args);
 
   strncat(msg, ": ", sizeof(msg) - strlen(msg) - 1);
 

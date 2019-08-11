@@ -39,9 +39,7 @@ Backend::Backend(
   notifications.connect(std::bind(&Backend::notification_proxy, this, placeholders::_1));
 }
 
-Backend::~Backend() {
-  cleanup();
-}
+Backend::~Backend() {}
 
 StatusOr<Backend*> Backend::create(
     HostSystem* host_system, const string& name, const string& serialized_settings,

@@ -22,6 +22,7 @@
 
 import asyncio
 import io
+import logging
 import random
 import sys
 import time
@@ -35,6 +36,8 @@ from . import process_manager
 from . import empty_message_pb2
 from . import ipc
 from . import ipc_test_pb2
+
+logger = logging.getLogger(__name__)
 
 
 class IPCTest(unittest.AsyncTestCase):
@@ -127,7 +130,7 @@ class IPCTest(unittest.AsyncTestCase):
             endpoint = ipc.ServerEndpoint('main')
             async def handler(request, response):
                 self.loop.create_task(server.cleanup())
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.1, loop=self.loop)
                 response.num = request.num + 1
             endpoint.add_handler(
                 'foo', handler, ipc_test_pb2.TestRequest, ipc_test_pb2.TestResponse)
@@ -171,7 +174,7 @@ class IPCTest(unittest.AsyncTestCase):
                 while True:
                     if pending[0] > 3:
                         break
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.1, loop=self.loop)
 
                 response.num = request.num + 1
 
@@ -217,7 +220,16 @@ class TestSubprocess(process_manager.SubprocessMixin, process_manager.ProcessBas
         response.num = 2
 
 
-class IPCPerfTest(unittest.AsyncTestCase):
+class IPCPerfTestBase(unittest.AsyncTestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.proxy = None
+        self.old_governor = None
+        self.mgr = None
+        self.proc = None
+        self.stub = None
+
     async def setup_testcase(self):
         self.mgr = process_manager.ProcessManager(self.loop, collect_stats=False)
         await self.mgr.setup()
@@ -232,21 +244,32 @@ class IPCPerfTest(unittest.AsyncTestCase):
         while cpufreq.cpu_exists(maxcpu) == 0:
             maxcpu += 1
         self.cpus = [dbus.UInt32(cpu) for cpu in range(maxcpu)]
-        self.old_governor = cpufreq.get_policy(self.cpus[0])[2]
-        self.bus = dbus.SystemBus()
-        self.proxy = self.bus.get_object(
-            'com.ubuntu.IndicatorCpufreqSelector', '/Selector', introspect=False)
-        self.proxy.SetGovernor(
-            self.cpus, 'performance', dbus_interface='com.ubuntu.IndicatorCpufreqSelector')
+        try:
+            self.old_governor = cpufreq.get_policy(self.cpus[0])[2]
+        except ValueError as exc:
+            logger.error("Failed to query current CPU govenor: %s", exc)
+            logger.error("Cannot set CPU to 'performance' for the perf tests.")
+        else:
+            self.bus = dbus.SystemBus()
+            self.proxy = self.bus.get_object(
+                'com.ubuntu.IndicatorCpufreqSelector', '/Selector', introspect=False)
+            self.proxy.SetGovernor(
+                self.cpus, 'performance', dbus_interface='com.ubuntu.IndicatorCpufreqSelector')
 
     async def cleanup_testcase(self):
-        self.proxy.SetGovernor(
-            self.cpus, self.old_governor, dbus_interface='com.ubuntu.IndicatorCpufreqSelector')
+        if self.old_governor is not None:
+            self.proxy.SetGovernor(
+                self.cpus, self.old_governor, dbus_interface='com.ubuntu.IndicatorCpufreqSelector')
 
-        await self.stub.call('quit')
-        await self.stub.close()
-        await self.proc.wait()
-        await self.mgr.cleanup()
+        if self.stub is not None:
+            await self.stub.call('quit')
+            await self.stub.close()
+
+        if self.proc is not None:
+            await self.proc.wait()
+
+        if self.mgr is not None:
+            await self.mgr.cleanup()
 
     async def run_test(self, request, num_requests, *, out=sys.stdout):
         passes = []
@@ -273,22 +296,11 @@ class IPCPerfTest(unittest.AsyncTestCase):
             % (wt, ct))
         out.write("Per request: \033[32m%.2fµsec\033[37;0m\n" % (1e6 * wt / num_requests))
 
+
+class IPCPerfTest(IPCPerfTestBase):
     async def test_smoke(self):
         # Not a real perf test, just execute the code during normal unit test runs to make sure it
         # doesn't bitrot.
         request = ipc_test_pb2.TestRequest()
         request.t.add(numerator=random.randint(0, 4), denominator=random.randint(1, 2))
         await self.run_test(request, 10, out=io.StringIO())
-
-    @unittest.tag('perf')
-    async def test_small_messages(self):
-        request = ipc_test_pb2.TestRequest()
-        request.t.add(numerator=random.randint(0, 4), denominator=random.randint(1, 2))
-        await self.run_test(request, 5000)
-
-    @unittest.tag('perf')
-    async def test_large_messages(self):
-        request = ipc_test_pb2.TestRequest()
-        for _ in range(10000):
-            request.t.add(numerator=random.randint(0, 4), denominator=random.randint(1, 2))
-        await self.run_test(request, 100)

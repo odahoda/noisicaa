@@ -20,6 +20,8 @@
 #
 # @end:license
 
+from typing import Any, List, Tuple
+
 import csv
 import datetime
 import logging
@@ -36,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 def write_frame_stats(filebase, testname, frame_times):
     frame_times = numpy.array(frame_times, dtype=numpy.int64)
-    data = []
+    data = []  # type: List[Tuple[str, Any]]
     data.append(
         ('datetime', datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')))
 

@@ -23,12 +23,14 @@
 import enum
 import functools
 import logging
+import os.path
 from typing import Any
 
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa.ui import ui_base
 
 logger = logging.getLogger(__name__)
@@ -49,7 +51,8 @@ class Toolbox(ui_base.ProjectMixin, QtWidgets.QWidget):
         icon_size = QtCore.QSize(32, 32)
 
         self.__select_tool_action = QtWidgets.QAction("Selection tool", self)
-        self.__select_tool_action.setIcon(QtGui.QIcon.fromTheme('edit-select'))
+        self.__select_tool_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'edit-select.svg')))
         self.__select_tool_action.setCheckable(True)
         self.__select_tool_action.triggered.connect(functools.partial(self.setTool, Tool.SELECT))
 
@@ -59,7 +62,8 @@ class Toolbox(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.__select_tool_button.setDefaultAction(self.__select_tool_action)
 
         self.__insert_tool_action = QtWidgets.QAction("Insert tool", self)
-        self.__insert_tool_action.setIcon(QtGui.QIcon.fromTheme('list-add'))
+        self.__insert_tool_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'list-add.svg')))
         self.__insert_tool_action.setCheckable(True)
         self.__insert_tool_action.triggered.connect(functools.partial(self.setTool, Tool.INSERT))
 
@@ -69,7 +73,8 @@ class Toolbox(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.__insert_tool_button.setDefaultAction(self.__insert_tool_action)
 
         self.__reset_view_action = QtWidgets.QAction("Reset view", self)
-        self.__reset_view_action.setIcon(QtGui.QIcon.fromTheme('zoom-original'))
+        self.__reset_view_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'zoom-original.svg')))
         self.__reset_view_action.triggered.connect(self.resetViewTriggered.emit)
 
         self.__reset_view_button = QtWidgets.QToolButton(self)

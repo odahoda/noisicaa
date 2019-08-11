@@ -20,22 +20,20 @@
 #
 # @end:license
 
-import asyncio
 import functools
-import inspect
 import logging
 import os.path
 import uuid
-from typing import Any, Dict
+from typing import cast, Any, Dict
 
 from PyQt5 import QtWidgets
-import asynctest
+from PyQt5 import QtCore
 
 from noisicaa.constants import TEST_OPTS
 from noisicaa import runtime_settings as runtime_settings_lib
 from noisicaa import audioproc
 from noisicaa import core
-from noisicaa import lv2
+from noisicaa import instrument_db
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa import editor_main_pb2
@@ -151,18 +149,19 @@ class MockProcess(core.ProcessBase):
         self.project = None
 
 
-class MockApp(ui_base.AbstractEditorApp):
+class MockApp(ui_base.AbstractEditorApp):  # pylint: disable=abstract-method
     def __init__(self):
         self.audioproc_client = None  # type: audioproc.AbstractAudioProcClient
         self.process = None  # type: core.ProcessBase
         self.settings = None  # type: QtCore.QSettings
-        self.pipeline_perf_monitor = None  # type: AbstractPipelinePerfMonitor
-        self.stat_monitor = None  # type: AbstractStatMonitor
+        self.pipeline_perf_monitor = None  # type: ui_base.AbstractPipelinePerfMonitor
+        self.stat_monitor = None  # type: ui_base.AbstractStatMonitor
         self.runtime_settings = None  # type: runtime_settings_lib.RuntimeSettings
-        self.node_db = None  # type: node_db_lib.NodeDBClient
-        self.instrument_db = None  # type: instrument_db_lib.InstrumentDBClient
+        self.node_db = None  # type: node_db.NodeDBClient
+        self.instrument_db = None  # type: instrument_db.InstrumentDBClient
         self.default_style = None  # type: str
         self.qt_app = None  # type: QtWidgets.QApplication
+        self.node_messages = None  # type: core.CallbackMap
 
 
 class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
@@ -202,7 +201,7 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.app.qt_app = self.qt_app
         self.app.process = self.process
         self.app.runtime_settings = runtime_settings_lib.RuntimeSettings()
-        self.app.settings = MockSettings()
+        self.app.settings = cast(QtCore.QSettings, MockSettings())
         self.app.node_db = self.node_db_client
         self.app.audioproc_client = MockAudioProcClient()
         self.app.node_messages = core.CallbackMap()

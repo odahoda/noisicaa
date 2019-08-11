@@ -21,6 +21,7 @@
 # @end:license
 
 import math
+import os.path
 import time
 from typing import Any, List
 
@@ -29,6 +30,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa import core
 from . import ui_base
 
@@ -54,15 +56,18 @@ class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
         self.gantt_font.setPixelSize(10)
 
         self.pauseAction = QtWidgets.QAction("Play", self)
-        self.pauseAction.setIcon(QtGui.QIcon.fromTheme('media-playback-pause'))
+        self.pauseAction.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-playback-pause.svg')))
         self.pauseAction.triggered.connect(self.onToggleRealtime)
 
         self.zoomInAction = QtWidgets.QAction("Zoom In", self)
-        self.zoomInAction.setIcon(QtGui.QIcon.fromTheme('zoom-in'))
+        self.zoomInAction.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'zoom-in.svg')))
         self.zoomInAction.triggered.connect(self.onZoomIn)
 
         self.zoomOutAction = QtWidgets.QAction("Zoom Out", self)
-        self.zoomOutAction.setIcon(QtGui.QIcon.fromTheme('zoom-out'))
+        self.zoomOutAction.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'zoom-out.svg')))
         self.zoomOutAction.triggered.connect(self.onZoomOut)
 
         self.toolbar = QtWidgets.QToolBar()
@@ -111,11 +116,11 @@ class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
         if self.realtime:
             self.realtime = False
             self.pauseAction.setIcon(
-                QtGui.QIcon.fromTheme('media-playback-start'))
+                QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', 'media-playback-start.svg')))
         else:
             self.realtime = True
             self.pauseAction.setIcon(
-                QtGui.QIcon.fromTheme('media-playback-start'))
+                QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', 'media-playback-start.svg')))
 
     def onZoomIn(self) -> None:
         self.time_scale *= 2

@@ -116,6 +116,9 @@ def configure(ctx):
         os_release = Version(os_release)
         ctx.end_msg("%s %s" % (os_dist, os_release))
 
+    ctx.env.OS_DIST = os_dist
+    ctx.env.OS_RELEASE = str(os_release)
+
     ctx.start_msg("Query pip for installed packages")
     pip_mgr = PipManager(ctx)
     pip_mgr.update_packages()
@@ -145,15 +148,20 @@ def configure(ctx):
     pip_mgr.check_package(BUILD, 'pip', version='>=19.0')
     pip_mgr.check_package(BUILD, 'setuptools', version='>=41.0')
     pip_mgr.check_package(BUILD, 'wheel', version='>=0.33')
+    sys_mgr.check_package(BUILD, 'build-essential')
+    sys_mgr.check_package(BUILD, 'python3-dev')
 
     # Misc pip packages:
     pip_mgr.check_package(RUNTIME, 'eventfd')
     pip_mgr.check_package(RUNTIME, 'lucky-humanize')
-    pip_mgr.check_package(RUNTIME, 'numpy')
+    # numpy.core.numeric.asarray is gone from numpy 1.17
+    pip_mgr.check_package(RUNTIME, 'numpy', version='1.16.4')
     pip_mgr.check_package(RUNTIME, 'portalocker')
     pip_mgr.check_package(RUNTIME, 'posix-ipc')
-    pip_mgr.check_package(RUNTIME, 'psutil')
-    pip_mgr.check_package(RUNTIME, 'pyparsing')
+    # psutil 5.6.3 has an empty __init__.py...
+    pip_mgr.check_package(RUNTIME, 'psutil', version='5.6.2')
+    # pyparsing 2.4.1 causes issues with packaging
+    pip_mgr.check_package(RUNTIME, 'pyparsing', version='2.4.0')
     pip_mgr.check_package(RUNTIME, 'sortedcontainers')
     pip_mgr.check_package(RUNTIME, 'toposort')
     pip_mgr.check_package(RUNTIME, 'urwid')
@@ -162,6 +170,7 @@ def configure(ctx):
     pip_mgr.check_package(BUILD, 'Jinja2')
     pip_mgr.check_package(BUILD, 'PyYAML')
     pip_mgr.check_package(BUILD, 'packaging', version='>=19.0')
+    pip_mgr.check_package(BUILD, 'xunitparser')
     pip_mgr.check_package(DEV, 'asynctest')
     pip_mgr.check_package(DEV, 'async-generator')
     pip_mgr.check_package(DEV, 'coverage')
@@ -169,9 +178,11 @@ def configure(ctx):
     pip_mgr.check_package(DEV, 'py-cpuinfo')
     pip_mgr.check_package(DEV, 'pyfakefs')
     pip_mgr.check_package(DEV, 'pylint', version='2.3.1')
+    pip_mgr.check_package(DEV, 'unittest-xml-reporting')
 
     # misc sys packages:
     sys_mgr.check_package(RUNTIME, 'ffmpeg')
+    sys_mgr.check_package(RUNTIME, 'libxkbcommon-x11-0')
     sys_mgr.check_package(BUILD, 'cmake')
     sys_mgr.check_package(BUILD, 'python3-dev')
     sys_mgr.check_package(BUILD, 'portaudio19-dev')
@@ -183,9 +194,15 @@ def configure(ctx):
     sys_mgr.check_package(DEV, 'xvfb')
     sys_mgr.check_package(DEV, 'intltool')
 
+    # git is needed to fetch PIP packages from 'git+https://...' sources.
+    sys_mgr.check_package(BUILD, 'git')
+
     # mypy
-    pip_mgr.check_package(DEV, 'mypy', version='0.701')
+    pip_mgr.check_package(DEV, 'mypy', version='0.720')
     pip_mgr.check_package(RUNTIME, 'mypy-extensions')
+
+    # sndfile
+    sys_mgr.check_package(BUILD, 'libsndfile1-dev')
 
     # csound
     sys_mgr.check_package(BUILD, 'libsamplerate0-dev')
@@ -213,9 +230,6 @@ def configure(ctx):
     # Faust
     FaustBuilder(ctx).check(BUILD, version='2.15.11')
     FaustLibrariesBuilder(ctx).check(BUILD, version='64a57f56')  # snapshot from 2019-03-30
-
-    # sndfile
-    sys_mgr.check_package(BUILD, 'libsndfile1-dev')
 
     # libswresample
     sys_mgr.check_package(BUILD, 'libswresample-dev')
@@ -256,21 +270,34 @@ def configure(ctx):
     pip_mgr.check_package(BUILD, 'mypy-protobuf', source='git+https://github.com/odahoda/mypy-protobuf.git#egg=mypy-protobuf&subdirectory=python')
 
     # profiling
-    sys_mgr.check_package(DEV, 'google-perftools')
+    sys_mgr.check_package(RUNTIME, 'google-perftools')
     sys_mgr.check_package(RUNTIME, 'libgoogle-perftools4')
     sys_mgr.check_package(BUILD, 'libgoogle-perftools-dev')
 
     # indicator-cpufreq
+    sys_mgr.check_package(DEV, 'libdbus-1-dev')
     pip_mgr.check_package(DEV, 'dbus-python')
     sys_mgr.check_package(DEV, 'bzr')
     pip_mgr.check_package(DEV, 'python-distutils-extra', source='bzr+lp:python-distutils-extra#egg=python-distutils-extra')
     pip_mgr.check_package(DEV, 'indicator-cpufreq', source='bzr+lp:indicator-cpufreq#egg=indicator-cpufreq')
     sys_mgr.check_package(DEV, 'indicator-cpufreq')
 
+    # clang-tidy
+    if ctx.env.ENABLE_TEST:
+        # clang-tidy is optional, let's install it on systems where we known that V8 is
+        # available. On other systems it's up to the user to install it.
+        if os_dist == 'ubuntu' and os_release >= Version('18.04'):
+            sys_mgr.check_package(DEV, 'clang-tidy-8')
+
     # vmtest
-    pip_mgr.check_package(VMTEST, 'paramiko')
-    pip_mgr.check_package(VMTEST, 'python-xlib')
-    sys_mgr.check_package(VMTEST, 'virtualbox')
+    sys_mgr.check_package(VMTEST, 'qemu-system-x86')
+    sys_mgr.check_package(VMTEST, 'qemu-block-extra')
+    sys_mgr.check_package(VMTEST, 'libvirt-bin')
+    pip_mgr.check_package(VMTEST, 'asyncssh')
+    sys_mgr.check_package(VMTEST, 'sshpass')
+    sys_mgr.check_package(VMTEST, 'openssh-client')
+    pip_mgr.check_package(VMTEST, 'aiohttp')
+    AptCacherNGBuilder(ctx).check(VMTEST, version='3.2')
 
     # pylint: enable=line-too-long
 
@@ -303,6 +330,14 @@ def check_virtual_env(ctx):
         except Exception as exc:  # pylint: disable=broad-except
             shutil.rmtree(venvdir)
             ctx.fatal("Failed to create virtual env: %s" % exc)
+
+        # Always update PIP to something more recent than what ensurepip has installed. We need at
+        # least 9.0 for 'pip list --format=json' to work.
+        ctx.cmd_and_log(
+            [os.path.join(venvdir, 'bin', 'pip'),
+             '--disable-pip-version-check', 'install', '-U', 'pip>=9.0'],
+            output=BOTH)
+
         ctx.to_log("  ok.")
 
     old_venvdir = None
@@ -317,6 +352,7 @@ def check_virtual_env(ctx):
         ctx.to_log("  ok.")
 
     ctx.env.VIRTUAL_ENV = venvdir
+    ctx.env.PYTHON = [os.path.join(venvdir, 'bin', 'python')]
     ctx.environ['PATH'] = os.pathsep.join(
         [os.path.join(venvdir, 'bin')] + ctx.environ.get('PATH', '').split(os.pathsep))
 
@@ -431,7 +467,7 @@ class PipManager(PackageManager):
         p = subprocess.run(
             self.__pip_cmd + ['list', '--format=json'],
             stdout=subprocess.PIPE, check=True)
-        self._packages = {p['name']: p['version'] for p in json.loads(p.stdout)}
+        self._packages = {p['name']: p['version'] for p in json.loads(p.stdout.decode('utf-8'))}
 
     def get_pip_spec(self, name, version=None, source=None):
         if source:
@@ -491,7 +527,7 @@ class DebManager(PackageManager):
             cmd += ['--askpass']
         else:
             cmd += ['--non-interactive']
-        cmd += ['--', '/usr/bin/apt-get', 'install', name]
+        cmd += ['--', '/usr/bin/apt-get', '-q', '-y', 'install', name]
 
         self._ctx.cmd_and_log(cmd, output=BOTH, env=env)
 
@@ -669,7 +705,7 @@ class CSoundBuilder(ThirdPartyBuilder):
             ],
             cwd=make_path)
         self._ctx.cmd_and_log(
-            ['make', '-j8'],
+            ['make', '-j%d' % len(os.sched_getaffinity(0))],
             cwd=make_path)
 
     def install(self, src_path):
@@ -689,7 +725,7 @@ class FaustBuilder(ThirdPartyBuilder):
     def build(self, src_path):
         self._ctx.cmd_and_log(
             ['make',
-             '-j8',
+             '-j%d' % len(os.sched_getaffinity(0)),
              'PREFIX=' + self._ctx.env.VIRTUAL_ENV,
              'compiler'],
             cwd=src_path)
@@ -831,10 +867,31 @@ class ProtocBuilder(ThirdPartyBuilder):
             ],
             cwd=src_path)
         self._ctx.cmd_and_log(
-            ['make', '-j8'],
+            ['make', '-j%d' % len(os.sched_getaffinity(0))],
             cwd=src_path)
 
     def install(self, src_path):
         self._ctx.cmd_and_log(
             ['make', 'install'],
+            cwd=src_path)
+
+
+class AptCacherNGBuilder(ThirdPartyBuilder):
+    def __init__(self, ctx):
+        super().__init__(ctx, 'apt-cacher-ng', '.tar.xz')
+
+    def download_url(self, version):
+        # pylint: disable=line-too-long
+        return 'http://ftp.debian.org/debian/pool/main/a/apt-cacher-ng/apt-cacher-ng_%s.orig.tar.xz' % version
+
+    def build(self, src_path):
+        self._ctx.cmd_and_log(
+            ['./build.sh',
+             '-DCMAKE_INSTALL_PREFIX=%s' % self._ctx.env.VIRTUAL_ENV,
+            ],
+            cwd=src_path)
+
+    def install(self, src_path):
+        self._ctx.cmd_and_log(
+            ['make', '-C', 'builddir', 'install'],
             cwd=src_path)

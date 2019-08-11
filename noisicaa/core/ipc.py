@@ -32,8 +32,17 @@ import struct
 import time
 import traceback
 from typing import (
-    cast, Any, Optional, Union, Dict, List, Set, Callable, Awaitable, Coroutine, Sequence, Type,
+    cast, Any, Optional, Union, Dict, List, Set, Callable, Awaitable, Sequence, Type,
     Generic, TypeVar)
+try:
+    from typing import Coroutine
+except ImportError:
+    # Python 3.5.2 (used by Ubuntu xenial) does not know Coroutine.
+    # https://stackoverflow.com/questions/44651115/python-typing-module-missing-the-coroutine-class-in-python-3-5
+    class Coroutine:  # type: ignore
+        def __getitem__(self, index: Any) -> None:
+            pass
+
 import urllib.parse
 import uuid
 

@@ -50,8 +50,8 @@ class ControlValueEnum(slots.SlotContainer, QtWidgets.QComboBox):
         self.currentIndexChanged.connect(lambda _: self.__currentIndexChanged())
 
     def __valueChanged(self) -> None:
-        closest_idx = None
-        closest_dist = None
+        closest_idx = None  # type: int
+        closest_dist = None  # type: float
         for idx in range(self.count()):
             value = self.itemData(idx)
             dist = abs(value - self.value())

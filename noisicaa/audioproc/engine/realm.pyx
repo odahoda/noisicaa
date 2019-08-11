@@ -125,9 +125,6 @@ cdef class PyRealm(object):
 
         await self.setup_node(self.__sink)
 
-        if self.__player is not None:
-            self.__player.setup()
-
         with nogil:
             check(self.__realm.setup())
 
@@ -135,9 +132,6 @@ cdef class PyRealm(object):
 
     async def cleanup(self):
         logger.info("Cleaning up realm '%s'...", self.name)
-
-        if self.__player is not None:
-            self.__player.cleanup()
 
         await self.__sink.cleanup()
 

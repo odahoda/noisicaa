@@ -26,13 +26,12 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-host_system',
-        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
         source=[
-            'host_system.cpp',
-            'host_system_lv2.cpp',
-            'host_system_csound.cpp',
-            'host_system_audio_file.cpp',
+            ctx.cpp_module('host_system.cpp'),
+            ctx.cpp_module('host_system_lv2.cpp'),
+            ctx.cpp_module('host_system_csound.cpp'),
+            ctx.cpp_module('host_system_audio_file.cpp'),
         ],
-        use=['NOISELIB', 'LILV', 'CSOUND', 'SNDFILE', 'AVUTIL', 'SWRESAMPLE',
+        use=['LILV', 'CSOUND', 'SNDFILE', 'AVUTIL', 'SWRESAMPLE',
              'noisicaa-core'],
     )

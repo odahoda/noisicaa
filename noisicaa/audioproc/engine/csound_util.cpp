@@ -217,7 +217,8 @@ Status CSoundUtil::process_block(
           buf += pos;
 
           MYFLT* channel_ptr = _channel_ptr[port_idx];
-          int *lock = _channel_lock[port_idx];
+          int* lock = _channel_lock[port_idx];
+          (void)lock;  // TODO: remove after upgrade to csound >=6.11
           csoundSpinLock(lock);
           for (uint32_t i = 0 ; i < ksmps ; ++i) {
             *channel_ptr++ = *buf++;
@@ -230,7 +231,8 @@ Status CSoundUtil::process_block(
           float* buf = (float*)buffers[port_idx]->data();
 
           MYFLT* channel_ptr = _channel_ptr[port_idx];
-          int *lock = _channel_lock[port_idx];
+          int* lock = _channel_lock[port_idx];
+          (void)lock;  // TODO: remove after upgrade to csound >=6.11
           csoundSpinLock(lock);
           *channel_ptr = *buf;
           csoundSpinUnLock(lock);
@@ -294,7 +296,8 @@ Status CSoundUtil::process_block(
         case pb::PortDescription::AUDIO:
         case pb::PortDescription::ARATE_CONTROL: {
           MYFLT* channel_ptr = _channel_ptr[port_idx];
-          int *lock = _channel_lock[port_idx];
+          int* lock = _channel_lock[port_idx];
+          (void)lock;  // TODO: remove after upgrade to csound >=6.11
           csoundSpinLock(lock);
           for (uint32_t i = 0 ; i < ksmps ; ++i) {
             *channel_ptr++ = 0.0;
@@ -305,7 +308,8 @@ Status CSoundUtil::process_block(
 
         case pb::PortDescription::KRATE_CONTROL: {
           MYFLT* channel_ptr = _channel_ptr[port_idx];
-          int *lock = _channel_lock[port_idx];
+          int* lock = _channel_lock[port_idx];
+          (void)lock;  // TODO: remove after upgrade to csound >=6.11
           csoundSpinLock(lock);
           *channel_ptr = 0.0;
           csoundSpinUnLock(lock);
@@ -338,7 +342,8 @@ Status CSoundUtil::process_block(
           buf += pos;
 
           MYFLT* channel_ptr = _channel_ptr[port_idx];
-          int *lock = _channel_lock[port_idx];
+          int* lock = _channel_lock[port_idx];
+          (void)lock;  // TODO: remove after upgrade to csound >=6.11
           csoundSpinLock(lock);
           for (uint32_t i = 0 ; i < ksmps ; ++i) {
             *buf++ = *channel_ptr++;
@@ -351,7 +356,8 @@ Status CSoundUtil::process_block(
           float* buf = (float*)buffers[port_idx]->data();
 
           MYFLT* channel_ptr = _channel_ptr[port_idx];
-          int *lock = _channel_lock[port_idx];
+          int* lock = _channel_lock[port_idx];
+          (void)lock;  // TODO: remove after upgrade to csound >=6.11
           csoundSpinLock(lock);
           *buf = *channel_ptr;
           csoundSpinUnLock(lock);

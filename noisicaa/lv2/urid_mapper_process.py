@@ -22,7 +22,7 @@
 
 import asyncio
 import logging
-from typing import cast, Any
+from typing import Any
 
 from noisicaa import core
 from noisicaa.core import ipc
@@ -79,7 +79,7 @@ class URIDMapperProcess(core.ProcessBase):
 
             tasks = []
             for session in self.__main_endpoint.sessions:
-                tasks.append(cast(Session, session).publish_new_uri(new_uris))
+                tasks.append(session.publish_new_uri(new_uris))
             await asyncio.wait(tasks, loop=self.event_loop)
 
         response.urid = urid

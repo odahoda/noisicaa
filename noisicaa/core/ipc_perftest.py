@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -18,3 +20,23 @@
 #
 # @end:license
 
+import logging
+import random
+
+from . import ipc_test_pb2
+from . import ipc_test
+
+logger = logging.getLogger(__name__)
+
+
+class IPCPerfTest(ipc_test.IPCPerfTestBase):
+    async def test_small_messages(self):
+        request = ipc_test_pb2.TestRequest()
+        request.t.add(numerator=random.randint(0, 4), denominator=random.randint(1, 2))
+        await self.run_test(request, 5000)
+
+    async def test_large_messages(self):
+        request = ipc_test_pb2.TestRequest()
+        for _ in range(10000):
+            request.t.add(numerator=random.randint(0, 4), denominator=random.randint(1, 2))
+        await self.run_test(request, 100)

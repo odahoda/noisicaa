@@ -28,12 +28,11 @@ def build(ctx):
 
     ctx.shlib(
         target='noisicaa-builtin_nodes-mixer-processor',
-        cxxflags=['-Werror'],  # TODO: move to global CXXFLAGS
+        features=['cxxshlib'],
         source=[
-            'processor.cpp',
+            ctx.cpp_module('processor.cpp'),
         ],
         use=[
-            'NOISELIB',
             'noisicaa-audioproc-public',
             'noisicaa-host_system',
         ]

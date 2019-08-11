@@ -20,8 +20,7 @@
 #
 # @end:license
 
-# This file triggers https://github.com/JukkaL/mypy/issues/730
-# mypy: skip-file
+from typing import Any
 
 import asyncio
 import contextlib
@@ -50,7 +49,7 @@ class CallbackServer(ipc.Server):
     def __init__(self, event_loop):
         super().__init__(event_loop, 'callback', socket_dir=TEST_OPTS.TMP_DIR)
 
-        self.player_status_calls = asyncio.Queue(loop=event_loop)
+        self.player_status_calls = asyncio.Queue(loop=event_loop)  # type: asyncio.Queue[Any]
         # self['main'].add_handler(
         #     'PLAYER_STATUS', self.handle_player_update,
         #     log_level=logging.DEBUG)
@@ -118,7 +117,7 @@ class PlayerTest(
             'CREATE_AUDIOPROC_PROCESS', create_audioproc_request, create_audioproc_response)
         self.audioproc_address_main = create_audioproc_response.address
 
-        self.audioproc_client_main = audioproc.AudioProcClient(self.loop, self.server)
+        self.audioproc_client_main = audioproc.AudioProcClient(self.loop, self.server)  # type: ignore
         await self.audioproc_client_main.setup()
         await self.audioproc_client_main.connect(
             self.audioproc_address_main, flags={'perf_data'})
@@ -179,9 +178,8 @@ class PlayerTest(
         #     listener.remove()
 
     #@unittest.skip("TODO: async status updates are flaky")
-    @unittest.tag('integration')
     async def test_playback_demo(self):
-        p = player.Player(
+        p = player.Player(  # type: ignore
             project=self.project,
             callback_address=self.callback_server.address,
             event_loop=self.loop,

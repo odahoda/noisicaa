@@ -65,6 +65,9 @@ from .project import (
     BaseProject,
     Project,
 )
+from .samples import (
+    Sample,
+)
 from .render_pb2 import (
     RenderSettings,
     RenderProgressRequest,

@@ -43,7 +43,7 @@ def stripped_svg(ctx, source):
         source=ctx.path.make_node(source),
         target=target)
 
-    if ctx.get_group_name(ctx.current_group) == 'noisicaa':
+    if ctx.in_group(ctx.GRP_BUILD_MAIN):
         ctx.install_files(
             os.path.join(ctx.env.DATADIR, target.parent.path_from(ctx.bldnode.make_node('data'))),
             target)

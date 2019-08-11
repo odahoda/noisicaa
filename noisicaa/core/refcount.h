@@ -31,8 +31,6 @@ class RefCounted {
 public:
   virtual ~RefCounted();
 
-  virtual void cleanup();
-
   void incref() { ++_ref_count; }
   void decref();
 

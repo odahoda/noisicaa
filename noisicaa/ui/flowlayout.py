@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 import functools
 from typing import List
 

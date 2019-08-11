@@ -31,6 +31,7 @@ def build(ctx):
     ctx.py_test('fileutil_test.py')
     ctx.py_module('ipc.py')
     ctx.py_test('ipc_test.py')
+    ctx.py_test('ipc_perftest.py', tags={'perf'})
     ctx.py_test('perf_stats_test.py')
     ctx.py_module('process_manager.py')
     ctx.py_test('process_manager_test.py')
@@ -58,13 +59,13 @@ def build(ctx):
     ctx.shlib(
         target='noisicaa-core',
         source=[
-            'logging.cpp',
-            'perf_stats.cpp',
-            'refcount.cpp',
-            'status.cpp',
-            'stacktrace.cpp',
+            ctx.cpp_module('logging.cpp'),
+            ctx.cpp_module('perf_stats.cpp'),
+            ctx.cpp_module('refcount.cpp'),
+            ctx.cpp_module('status.cpp'),
+            ctx.cpp_module('stacktrace.cpp'),
         ],
-        use=['NOISELIB', 'UNWIND'],
+        use=['UNWIND', 'rtcheck'],
     )
 
     ctx.recurse('stats')

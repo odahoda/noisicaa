@@ -71,7 +71,7 @@ static int print_stack_trace(ucontext_t *context) {
   unw_word_t backtrace[BACKTRACE_DEPTH];
   unw_word_t ip, off;
   char buf[1024];
-  unsigned int i, level;
+  unsigned int level;
   int ret;
 
   if ((ret = unw_init_local(&cursor, context)) != 0) {

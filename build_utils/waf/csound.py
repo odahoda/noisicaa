@@ -21,9 +21,12 @@
 # @end:license
 
 import os.path
+import subprocess
+import sys
 
 from waflib.Configure import conf
 from waflib.Task import Task
+from waflib import Utils
 
 
 def configure(ctx):
@@ -41,24 +44,41 @@ class compile_csound(Task):
         ctx = self.generator.bld
         cwd = ctx.srcnode
 
-        env = {
-            'LD_LIBRARY_PATH': os.path.join(ctx.env.VIRTUAL_ENV, 'lib'),
-        }
-
         cmd = [
             ctx.env.CSOUND[0],
             '-o' + self.outputs[0].path_from(cwd),
             self.inputs[0].path_from(cwd),
         ]
-        return self.exec_command(cmd, cwd=cwd, env=env)
+        kw = {
+            'cwd': cwd.abspath(),
+            'stdout': subprocess.PIPE,
+            'stderr': subprocess.STDOUT,
+        }
+        ctx.log_command(cmd, kw)
+        rc, out, _ = Utils.run_process(cmd, kw)
+        if rc:
+            sys.stderr.write(out.decode('utf-8'))
+        return rc
 
 
 @conf
-def rendered_csound(ctx, source):
+def rendered_csound(ctx, source, install=None, install_to=None, chmod=0o644):
     assert source.endswith('.csnd')
+
+    wav_path = os.path.splitext(source)[0] + '.wav'
+    target = ctx.path.get_bld().make_node(wav_path)
 
     task = compile_csound(env=ctx.env)
     task.set_inputs(ctx.path.find_resource(source))
-    wav_path = os.path.splitext(source)[0] + '.wav'
-    task.set_outputs(ctx.path.get_bld().make_node(wav_path))
+    task.set_outputs(target)
     ctx.add_to_group(task)
+
+    if install is None:
+        install = ctx.in_group(ctx.GRP_BUILD_MAIN)
+
+    if install:
+        if install_to is None:
+            install_to = os.path.join(
+                ctx.env.DATADIR, target.parent.path_from(ctx.bldnode.make_node('data')))
+
+        ctx.install_files(install_to, target, chmod=chmod)

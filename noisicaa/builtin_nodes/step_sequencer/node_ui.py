@@ -335,13 +335,12 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWid
                     self.__matrix_listeners.add(step.value_changed.add(
                         functools.partial(self.__stepValueChanged, step, step_value)))
                     self.__step_layout.addWidget(step_value, row + 1, col + 2)
-                    # mypy fails to infer the type of the lambdas.
                     self.__matrix_listeners.add(channel.min_value_changed.add(
-                        lambda _, w=step_value: w.update()))  # type: ignore
+                        lambda _, w=step_value: w.update()))
                     self.__matrix_listeners.add(channel.max_value_changed.add(
-                        lambda _, w=step_value: w.update()))  # type: ignore
+                        lambda _, w=step_value: w.update()))
                     self.__matrix_listeners.add(channel.log_scale_changed.add(
-                        lambda _, w=step_value: w.update()))  # type: ignore
+                        lambda _, w=step_value: w.update()))
 
             row += 2
 

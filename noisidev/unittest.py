@@ -20,16 +20,12 @@
 #
 # @end:license
 
-import asyncio
-import functools
 import inspect
 import logging
 import os.path
 import unittest
 
 import asynctest
-
-from noisicaa import constants
 
 logger = logging.getLogger(__name__)
 
@@ -43,28 +39,7 @@ SkipTest = unittest.SkipTest
 TestSuite = unittest.TestSuite
 
 
-KNOWN_TAGS = {'unit', 'lint', 'pylint', 'mypy', 'integration', 'perf'}
-
-def tag(*tags):
-    unknown_tags = set(tags) - KNOWN_TAGS
-    assert not unknown_tags, unknown_tags
-
-    def dec(func):
-        if not hasattr(func, '_unittest_tags'):
-            func._unittest_tags = set()
-
-        func._unittest_tags.update(tags)
-        return func
-
-    return dec
-
-
 class SetupTestCaseMixin(object):
-
-    @property
-    def tags(self):
-        test_method = getattr(self, self._testMethodName)
-        return getattr(test_method, '_unittest_tags', {'unit'})
 
     def _setup_testcase_methods(self):
         for cls in reversed(self.__class__.__mro__):

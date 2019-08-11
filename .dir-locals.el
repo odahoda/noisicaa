@@ -6,7 +6,7 @@
 
 ((nil . (
          ; Projetile
-         (projectile-project-test-cmd . "bin/runtests")
+         (projectile-project-test-cmd . "./waf test")
 
          (pyvenv-workon . "noisicaa")
 

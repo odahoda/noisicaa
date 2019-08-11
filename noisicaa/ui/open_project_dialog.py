@@ -33,6 +33,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 import humanize
 
+from noisicaa import constants
 from noisicaa import title_generator
 from . import project_registry as project_registry_lib
 from . import slots
@@ -264,12 +265,14 @@ class NewProjectDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.setMinimumWidth(500)
 
         self.__create_button = QtWidgets.QPushButton(self)
-        self.__create_button.setIcon(QtGui.QIcon.fromTheme('document-new'))
+        self.__create_button.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'document-new.svg')))
         self.__create_button.setText("Create")
         self.__create_button.clicked.connect(self.accept)
 
         self.__close_button = QtWidgets.QPushButton(self)
-        self.__close_button.setIcon(QtGui.QIcon.fromTheme('window-close'))
+        self.__close_button.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'window-close.svg')))
         self.__close_button.setText("Cancel")
         self.__close_button.clicked.connect(self.reject)
 
@@ -282,11 +285,13 @@ class NewProjectDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.__error.setPalette(palette)
 
         self.__prev_name = QtWidgets.QToolButton(self)
-        self.__prev_name.setIcon(QtGui.QIcon.fromTheme('go-previous'))
+        self.__prev_name.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'go-previous.svg')))
         self.__prev_name.clicked.connect(self.__prevNameClicked)
 
         self.__next_name = QtWidgets.QToolButton(self)
-        self.__next_name.setIcon(QtGui.QIcon.fromTheme('go-next'))
+        self.__next_name.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'go-next.svg')))
         self.__next_name.clicked.connect(self.__nextNameClicked)
 
         self.__name_seed = random.randint(0, 1000000)
@@ -372,10 +377,12 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
 
         self.__search = QtWidgets.QLineEdit(self)
         search_action = QtWidgets.QAction(self.__search)
-        search_action.setIcon(QtGui.QIcon.fromTheme('edit-find'))
+        search_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'edit-find.svg')))
         self.__search.addAction(search_action, QtWidgets.QLineEdit.LeadingPosition)
         clear_action = QtWidgets.QAction("Clear search string", self.__search)
-        clear_action.setIcon(QtGui.QIcon.fromTheme('edit-clear'))
+        clear_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'edit-clear.svg')))
         clear_action.triggered.connect(self.__search.clear)
         self.__search.addAction(clear_action, QtWidgets.QLineEdit.TrailingPosition)
         self.__search.textChanged.connect(self.__filter_model.setFilterWords)
@@ -402,17 +409,20 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
 
         self.__open_button = QtWidgets.QPushButton(self)
         self.__open_button.setObjectName('open')
-        self.__open_button.setIcon(QtGui.QIcon.fromTheme('document-open'))
+        self.__open_button.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'document-open.svg')))
         self.__open_button.setText("Open")
         self.__open_button.clicked.connect(self.__openClicked)
 
         self.__new_project_button = QtWidgets.QPushButton(self)
-        self.__new_project_button.setIcon(QtGui.QIcon.fromTheme('document-new'))
+        self.__new_project_button.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'document-new.svg')))
         self.__new_project_button.setText("New project")
         self.__new_project_button.clicked.connect(self.__newProjectClicked)
 
         self.__delete_action = QtWidgets.QAction("Delete", self)
-        self.__delete_action.setIcon(QtGui.QIcon.fromTheme('edit-delete'))
+        self.__delete_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'edit-delete.svg')))
         self.__delete_action.triggered.connect(self.__deleteClicked)
 
         self.__debugger_action = QtWidgets.QAction("Open in debugger", self)
