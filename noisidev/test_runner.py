@@ -164,6 +164,7 @@ def main(argv):
     parser.add_argument('--fail-fast', type=bool_arg, default=False)
     parser.add_argument('--playback-backend', type=str, default='null')
     parser.add_argument('--display', choices=['off', 'local', 'xvfb'], default='xvfb')
+    parser.add_argument('--set-rc', type=bool_arg, default=True)
     args = parser.parse_args(argv[1:])
 
     if args.gdb:
@@ -357,7 +358,10 @@ def main(argv):
             print("Coverage report: file://%s/index.html" % coverage_path)
             print()
 
-    return 0 if result.wasSuccessful() else 1
+    if args.set_rc:
+        return 0 if result.wasSuccessful() else 1
+
+    return 0
 
 
 if __name__ == '__main__':

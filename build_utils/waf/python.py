@@ -305,6 +305,7 @@ class run_py_test(Task):
             cmd = [
                 ctx.env.PYTHON[0],
                 '-m', 'noisidev.test_runner',
+                '--set-rc=false',
                 '--store-result=%s' % results_path,
                 '--coverage=%s' % ('true' if ctx.options.coverage else 'false'),
                 self.mod_name,
@@ -315,7 +316,7 @@ class run_py_test(Task):
                 timeout=self.__timeout)
 
             if rc != 0:
-                success = False
+                raise RuntimeError("test_runner failed.")
 
             if not os.path.isfile(os.path.join(results_path, 'results.xml')):
                 raise RuntimeError("Missing results.xml.")
