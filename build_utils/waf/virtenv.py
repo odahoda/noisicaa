@@ -881,6 +881,7 @@ class AptCacherNGBuilder(ThirdPartyBuilder):
         super().__init__(ctx, 'apt-cacher-ng', '.tar.xz')
 
     def download_url(self, version):
+        # pylint: disable=line-too-long
         return 'http://ftp.debian.org/debian/pool/main/a/apt-cacher-ng/apt-cacher-ng_%s.orig.tar.xz' % version
 
     def build(self, src_path):

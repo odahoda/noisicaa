@@ -27,7 +27,6 @@ import os.path
 import pathlib
 import shutil
 import subprocess
-import textwrap
 
 import packaging.markers
 import packaging.requirements

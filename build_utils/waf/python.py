@@ -21,22 +21,17 @@
 # @end:license
 
 import importlib.util
-import json
 import os
 import os.path
 import py_compile
-import re
 import shutil
 import subprocess
 import sys
 import threading
 
-from waflib.Context import BOTH
 from waflib.Configure import conf
 from waflib.Task import Task
-from waflib import Logs
 from waflib import Utils
-from waflib.Errors import WafError
 
 
 def copy_py_module(task):
@@ -89,7 +84,7 @@ class run_mypy(Task):
 
             with mypy_cache_lock:
                 if not mypy_caches:
-                    global mypy_next_cache
+                    global mypy_next_cache   # pylint: disable=global-statement
                     cache_num = mypy_next_cache
                     mypy_next_cache += 1
                 else:
@@ -117,7 +112,7 @@ class run_mypy(Task):
                 }
 
                 ctx.log_command(argv, kw)
-                rc, out, err = Utils.run_process(argv, kw)
+                _, out, err = Utils.run_process(argv, kw)
                 out = out.strip()
 
                 if out:
@@ -337,7 +332,10 @@ class run_py_test(Task):
 
 
 @conf
-def add_py_test_runner(ctx, target, tags={'unit'}, timeout=None):
+def add_py_test_runner(ctx, target, tags=None, timeout=None):
+    if tags is None:
+        tags = {'unit'}
+
     if (ctx.cmd == 'test'
             and ('all' in ctx.TEST_TAGS or tags & ctx.TEST_TAGS)
             and ctx.should_run_test(target)):

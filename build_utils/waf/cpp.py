@@ -20,23 +20,14 @@
 #
 # @end:license
 
-import importlib.util
-import json
 import os
 import os.path
-import py_compile
-import re
-import shutil
 import subprocess
 import sys
-import threading
 
-from waflib.Context import BOTH
 from waflib.Configure import conf
 from waflib.Task import Task
-from waflib import Logs
 from waflib import Utils
-from waflib.Errors import WafError
 
 
 def configure(ctx):
@@ -92,7 +83,7 @@ class run_clang_tidy(Task):
             }
 
             ctx.log_command(argv, kw)
-            rc, out, _ = Utils.run_process(argv, kw)
+            _, out, _ = Utils.run_process(argv, kw)
             out = out.strip()
 
             if out:

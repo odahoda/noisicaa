@@ -21,17 +21,12 @@
 # @end:license
 
 import datetime
-import email
 import fnmatch
 import glob
-import json
 import os
 import os.path
-import pathlib
 import shutil
-import subprocess
 import sys
-import textwrap
 import unittest
 
 from waflib.Configure import conf
@@ -45,12 +40,14 @@ def options(ctx):
     grp.add_option(
         '--tags',
         default='unit,lint',
-        help="Comma separated list of test classes to run (%s) [default: unit,lint]" % ', '.join(sorted(ALL_TAGS)))
+        help=("Comma separated list of test classes to run (%s) [default: unit,lint]"
+              % ', '.join(sorted(ALL_TAGS))))
     grp.add_option(
         '--tests',
         action='append',
         default=None,
-        help="Tests to run. Uses a prefix match and can contain globs. This flag can be used multiple times [default: all tests]")
+        help=("Tests to run. Uses a prefix match and can contain globs. This flag can be used"
+              " multiple times [default: all tests]"))
     grp.add_option(
         '--fail-fast',
         action='store_true',
@@ -156,7 +153,7 @@ def collect_unittest_results(ctx):
     class TestCase(xunitparser.TestCase):
         # This override only exists, because the original has a docstring, which shows up in the
         # output...
-        def runTest(self):
+        def runTest(self):  # pylint: disable=useless-super-delegation
             super().runTest()
 
 
@@ -191,12 +188,12 @@ def collect_unittest_results(ctx):
             continue
 
         try:
-            ts, tr = Parser().parse(result_path)
+            ts, _ = Parser().parse(result_path)
             for tc in flatten_suite(ts):
                 all_tests.addTest(tc)
                 if tc.time is not None:
                     total_time += tc.time
-        except Exception as exc:
+        except Exception:
             print("Failed to parse %s" % result_path)
             raise
 

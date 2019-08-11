@@ -45,7 +45,8 @@ def copy_file(task):
 
 
 @conf
-def static_file(ctx, source, target=None, install=None, install_to=None, rewrite=False, chmod=0o644):
+def static_file(
+        ctx, source, target=None, install=None, install_to=None, rewrite=False, chmod=0o644):
     if not isinstance(source, Node):
         source = ctx.path.make_node(source)
 
