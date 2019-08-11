@@ -169,11 +169,6 @@ def build(ctx):
 
     ctx.set_group(ctx.GRP_BUILD_MAIN)
 
-    # A dummy library with the common include dirs, etc.
-    # noisicaä libraries should use this lib to pull in those settings.
-    ctx(name='NOISELIB',
-        use=[])
-
     with ctx.group(ctx.GRP_BUILD_TOOLS):
         ctx.recurse('build_utils')
 
