@@ -76,6 +76,7 @@ def build(ctx):
     ctx.recurse('beat_track')
     ctx.recurse('control_track')
     ctx.recurse('sample_track')
+    ctx.recurse('pianoroll_track')
     ctx.recurse('instrument')
     ctx.recurse('pianoroll')
     ctx.recurse('mixer')

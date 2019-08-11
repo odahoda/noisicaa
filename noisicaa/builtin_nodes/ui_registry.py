@@ -31,6 +31,8 @@ from .control_track.node_ui import ControlTrackNode
 from .control_track.track_ui import ControlTrackEditor
 from .sample_track.node_ui import SampleTrackNode
 from .sample_track.track_ui import SampleTrackEditor
+from .pianoroll_track.node_ui import PianoRollTrackNode
+from .pianoroll_track.track_ui import PianoRollTrackEditor
 from .instrument.node_ui import InstrumentNode
 from .mixer.node_ui import MixerNode
 from .custom_csound.node_ui import CustomCSoundNode
@@ -54,6 +56,7 @@ node_ui_cls_map = {
     'builtin://beat-track': BeatTrackNode,
     'builtin://control-track': ControlTrackNode,
     'builtin://sample-track': SampleTrackNode,
+    'builtin://pianoroll-track': PianoRollTrackNode,
     'builtin://instrument': InstrumentNode,
     'builtin://mixer': MixerNode,
     'builtin://custom-csound': CustomCSoundNode,
@@ -73,4 +76,5 @@ track_editor_cls_map = {
     'BeatTrack': BeatTrackEditor,
     'ControlTrack': ControlTrackEditor,
     'SampleTrack': SampleTrackEditor,
+    'PianoRollTrack': PianoRollTrackEditor,
 }  # type: Dict[str, Type[base_track_editor.BaseTrackEditor]]

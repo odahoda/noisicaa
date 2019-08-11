@@ -28,6 +28,7 @@ from .score_track import model as score_track
 from .beat_track import model as beat_track
 from .control_track import model as control_track
 from .sample_track import model as sample_track
+from .pianoroll_track import model as pianoroll_track
 from .instrument import model as instrument
 from .custom_csound import model as custom_csound
 from .midi_source import model as midi_source
@@ -46,6 +47,7 @@ node_cls_map = {
     'builtin://beat-track': beat_track.BeatTrack,
     'builtin://control-track': control_track.ControlTrack,
     'builtin://sample-track': sample_track.SampleTrack,
+    'builtin://pianoroll-track': pianoroll_track.PianoRollTrack,
     'builtin://instrument': instrument.Instrument,
     'builtin://custom-csound': custom_csound.CustomCSound,
     'builtin://midi-source': midi_source.MidiSource,
@@ -71,6 +73,7 @@ def register_classes(pool: music.Pool) -> None:
     pool.register_class(control_track.ControlTrack)
     pool.register_class(sample_track.SampleRef)
     pool.register_class(sample_track.SampleTrack)
+    pool.register_class(pianoroll_track.PianoRollTrack)
     pool.register_class(instrument.Instrument)
     pool.register_class(custom_csound.CustomCSoundPort)
     pool.register_class(custom_csound.CustomCSound)
