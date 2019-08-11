@@ -54,6 +54,7 @@ public:
   Status output(BlockContext* ctxt, Channel channel, BufferPtr samples) override;
 
  private:
+  void _cleanup();
   Status setup_stream();
   void cleanup_stream();
 

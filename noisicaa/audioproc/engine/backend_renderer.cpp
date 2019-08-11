@@ -42,7 +42,9 @@ RendererBackend::RendererBackend(
   : Backend(
       host_system, "noisicaa.audioproc.engine.backend.renderer", settings, callback, userdata) {}
 
-RendererBackend::~RendererBackend() {}
+RendererBackend::~RendererBackend() {
+  _cleanup();
+}
 
 Status RendererBackend::setup(Realm* realm) {
   Status status = Backend::setup(realm);
@@ -69,12 +71,15 @@ Status RendererBackend::setup(Realm* realm) {
 }
 
 void RendererBackend::cleanup() {
+  _cleanup();
+  Backend::cleanup();
+}
+
+void RendererBackend::_cleanup() {
   if (_datastream >= 0) {
     close(_datastream);
     _datastream = -1;
   }
-
-  Backend::cleanup();
 }
 
 Status RendererBackend::begin_block(BlockContext* ctxt) {

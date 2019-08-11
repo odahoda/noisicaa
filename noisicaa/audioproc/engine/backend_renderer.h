@@ -50,6 +50,8 @@ public:
   Status output(BlockContext* ctxt, Channel channel, BufferPtr buffer) override;
 
  private:
+  void _cleanup();
+
   unique_ptr<BufferData> _samples[2];
   bool _channel_written[2];
 
