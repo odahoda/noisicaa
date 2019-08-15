@@ -22,6 +22,7 @@
 
 import fractions
 import logging
+import typing
 from typing import Any, Type
 
 from PyQt5.QtCore import Qt
@@ -37,26 +38,36 @@ from noisicaa.ui import player_state as player_state_lib
 from . import time_view_mixin
 from . import tools
 
-# TODO: These would create cyclic import dependencies.
-Editor = Any
-
+if typing.TYPE_CHECKING:
+    from . import editor as editor_lib
 
 logger = logging.getLogger(__name__)
 
 
-# TODO: fold into BaseTrackEditor
-class _Base(
+class BaseTrackEditor(
         time_view_mixin.ScaledTimeMixin,
         ui_base.ProjectMixin,
         core.AutoCleanupMixin,
         QtCore.QObject):
     rectChanged = QtCore.pyqtSignal(QtCore.QRect)
     sizeChanged = QtCore.pyqtSignal(QtCore.QSize)
+    currentToolChanged = QtCore.pyqtSignal(tools.ToolType)
 
-    def __init__(self, *, track: music.Track, **kwargs: Any) -> None:
+    toolBoxClass = None  # type: Type[tools.ToolBox]
+
+    def __init__(
+            self, *,
+            track: music.Track,
+            player_state: player_state_lib.PlayerState,
+            editor: 'editor_lib.Editor',
+            **kwargs: Any
+    ) -> None:
         super().__init__(**kwargs)
 
         self.__track = track
+        self.__player_state = player_state
+        self.__editor = editor
+
         self.__view_top_left = QtCore.QPoint()
         self.__is_current = False
 
@@ -135,48 +146,6 @@ class _Base(
         else:
             painter.fillRect(paint_rect, Qt.white)
 
-    def enterEvent(self, evt: QtCore.QEvent) -> None:
-        pass  # pragma: no coverage
-
-    def leaveEvent(self, evt: QtCore.QEvent) -> None:
-        pass  # pragma: no coverage
-
-    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
-        pass  # pragma: no coverage
-
-    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
-        pass  # pragma: no coverage
-
-    def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
-        pass  # pragma: no coverage
-
-    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
-        pass  # pragma: no coverage
-
-    def wheelEvent(self, evt: QtGui.QWheelEvent) -> None:
-        pass  # pragma: no coverage
-
-    def keyPressEvent(self, evt: QtGui.QKeyEvent) -> None:
-        pass  # pragma: no coverage
-
-    def keyReleaseEvent(self, evt: QtGui.QKeyEvent) -> None:
-        pass  # pragma: no coverage
-
-
-class BaseTrackEditor(_Base):
-    currentToolChanged = QtCore.pyqtSignal(tools.ToolType)
-
-    toolBoxClass = None  # type: Type[tools.ToolBox]
-
-    def __init__(
-            self, *,
-            player_state: player_state_lib.PlayerState, editor: Editor, **kwargs: Any
-    ) -> None:
-        super().__init__(**kwargs)
-
-        self.__player_state = player_state
-        self.__editor = editor
-
     def toolBox(self) -> tools.ToolBox:
         tool_box = self.__editor.currentToolBox()
         assert isinstance(tool_box, self.toolBoxClass)
@@ -196,6 +165,12 @@ class BaseTrackEditor(_Base):
 
     def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
         pass
+
+    def enterEvent(self, evt: QtCore.QEvent) -> None:
+        pass  # pragma: no coverage
+
+    def leaveEvent(self, evt: QtCore.QEvent) -> None:
+        pass  # pragma: no coverage
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         if self.toolBoxMatches():
