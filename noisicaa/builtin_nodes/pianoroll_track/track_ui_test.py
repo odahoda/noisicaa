@@ -20,26 +20,32 @@
 #
 # @end:license
 
-# from noisidev import uitest
-# from noisicaa import music
-# from . import pianoroll_track_item
-# from . import track_item_tests
+from noisidev import uitest
+from noisicaa import music
+from noisicaa import audioproc
+from . import track_ui
+from noisicaa.ui.track_list import track_editor_tests
 
 
-# class PianoRollTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest.UITestCase):
-#     async def setup_testcase(self):
-#         await self.project_client.send_command(music.Command(
-#             target=self.project.id,
-#             add_track=music.AddTrack(
-#                 track_type='pianoroll',
-#                 parent_group_id=self.project.master_group.id)))
+class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uitest.UITestCase):
+    async def setup_testcase(self):
+        with self.project.apply_mutations('test'):
+            self.track = self.project.create_node('builtin://pianoroll-track')
 
-#         self.tool_box = pianoroll_track_item.PianoRollToolBox(context=self.context)
+    def _createTrackItem(self, **kwargs):
+        return track_ui.PianoRollTrackEditor(
+            track=self.track,
+            player_state=self.player_state,
+            editor=self.editor,
+            context=self.context,
+            **kwargs)
 
-#     def _createTrackItem(self, **kwargs):
-#         return pianoroll_track_item.PianoRollTrackEditorItem(
-#             track=self.project.master_group.tracks[0],
-#             player_state=self.player_state,
-#             editor=self.editor,
-#             context=self.context,
-#             **kwargs)
+    def test_segments_changed(self):
+        with self._trackItem() as ti:
+            with self.project.apply_mutations('test'):
+                ref = self.track.create_segment(
+                    audioproc.MusicalTime(3, 4),
+                    audioproc.MusicalDuration(2, 4))
+
+            with self.project.apply_mutations('test'):
+                self.track.remove_segment(ref)

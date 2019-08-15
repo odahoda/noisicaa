@@ -258,10 +258,6 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
         for event in events:
             event.replay(self.__hid_state, widget)
 
-    def test_properties(self):
-        with self._trackItem() as ti:
-            self.assertIs(ti.track, self.project.master_group.tracks[0])
-
     def test_isCurrent(self):
         with self._trackItem() as ti:
             ti.setSize(QtCore.QSize(200, 100))

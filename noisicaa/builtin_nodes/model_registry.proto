@@ -101,4 +101,6 @@ extend ObjectBase {
 
   // Piano Roll track (417xxx)
   optional PianoRollTrack pianoroll_track = 417000;
+  optional PianoRollSegment pianoroll_segment = 417001;
+  optional PianoRollSegmentRef pianoroll_segment_ref = 417002;
 }

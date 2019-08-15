@@ -63,7 +63,10 @@ class _Base(
         self.__size = QtCore.QSize()
 
         self.scaleXChanged.connect(self.__scaleXChanged)
+        self.__scaleXChanged(self.scaleX())
+
         self.contentWidthChanged.connect(self.setWidth)
+        self.setWidth(self.contentWidth())
 
     @property
     def track(self) -> music.Track:
@@ -118,7 +121,7 @@ class _Base(
     def setIsCurrent(self, is_current: bool) -> None:
         if is_current != self.__is_current:
             self.__is_current = is_current
-            #self.rectChanged.emit(self.viewRect())
+            self.rectChanged.emit(self.viewRect())
 
     def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
         pass

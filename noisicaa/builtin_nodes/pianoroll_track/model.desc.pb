@@ -19,7 +19,55 @@
 # @end:license
 
 classes {
+  name: "PianoRollSegment"
+  super_class: "noisicaa.music.model_base.ProjectChild"
+  proto_ext_name: "pianoroll_segment"
+  properties {
+    name: "duration"
+    type: WRAPPED_PROTO
+    wrapped_type: "noisicaa.audioproc.MusicalDuration"
+    proto_id: 1
+  }
+  properties {
+    name: "events"
+    type: WRAPPED_PROTO_LIST
+    wrapped_type: "noisicaa.value_types.MidiEvent"
+    proto_id: 2
+  }
+}
+
+classes {
+  name: "PianoRollSegmentRef"
+  super_class: "noisicaa.music.model_base.ProjectChild"
+  proto_ext_name: "pianoroll_segment_ref"
+  properties {
+    name: "time"
+    type: WRAPPED_PROTO
+    wrapped_type: "noisicaa.audioproc.MusicalTime"
+    proto_id: 1
+  }
+  properties {
+    name: "segment"
+    type: OBJECT_REF
+    obj_type: "PianoRollSegment"
+    proto_id: 2
+  }
+}
+
+classes {
   name: "PianoRollTrack"
   super_class: "noisicaa.music.base_track.Track"
   proto_ext_name: "pianoroll_track"
+  properties {
+    name: "segments"
+    type: OBJECT_LIST
+    obj_type: "PianoRollSegmentRef"
+    proto_id: 1
+  }
+  properties {
+    name: "segment_heap"
+    type: OBJECT_LIST
+    obj_type: "PianoRollSegment"
+    proto_id: 2
+  }
 }

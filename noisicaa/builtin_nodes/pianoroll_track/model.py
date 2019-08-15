@@ -41,37 +41,23 @@ logger = logging.getLogger(__name__)
 class PianoRollTrackConnector(node_connector.NodeConnector):
     _node = None  # type: PianoRollTrack
 
-    # def _add_track_listeners(self) -> None:
-    #     self._listeners['transpose_octaves'] = self._node.transpose_octaves_changed.add(
-    #         self.__transpose_octaves_changed)
+    def _init_internal(self) -> None:
+        pass
 
-    # def _add_measure_listeners(self, mref: base_track.MeasureReference) -> None:
-    #     measure = down_cast(ScoreMeasure, mref.measure)
-    #     self._listeners['measure:%s:notes' % mref.id] = measure.content_changed.add(
-    #         lambda _=None: self.__measure_notes_changed(mref))  # type: ignore
 
-    # def _remove_measure_listeners(self, mref: base_track.MeasureReference) -> None:
-    #     del self._listeners['measure:%s:notes' % mref.id]
+class PianoRollSegment(_model.PianoRollSegment):
+    def create(self, *, duration: audioproc.MusicalDuration, **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-    # def _create_events(
-    #         self, time: audioproc.MusicalTime, measure: base_track.Measure
-    # ) -> Iterator[base_track.PianoRollInterval]:
-    #     measure = down_cast(ScoreMeasure, measure)
-    #     for note in measure.notes:
-    #         if not note.is_rest:
-    #             for pitch in note.pitches:
-    #                 pitch = pitch.transposed(octaves=self._node.transpose_octaves)
-    #                 event = base_track.PianoRollInterval(
-    #                     time, time + note.duration, pitch, 127)
-    #                 yield event
+        self.duration = duration
 
-    #         time += note.duration
 
-    # def __transpose_octaves_changed(self, change: music.PropertyChange) -> None:
-    #     self._update_measure_range(0, len(self._node.measure_list))
+class PianoRollSegmentRef(_model.PianoRollSegmentRef):
+    def create(self, *, time: audioproc.MusicalTime, segment: PianoRollSegment, **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-    # def __measure_notes_changed(self, mref: base_track.MeasureReference) -> None:
-    #     self._update_measure_range(mref.index, mref.index + 1)
+        self.time = time
+        self.segment = segment
 
 
 class PianoRollTrack(_model.PianoRollTrack):
@@ -86,3 +72,32 @@ class PianoRollTrack(_model.PianoRollTrack):
     @property
     def description(self) -> node_db.NodeDescription:
         return node_description.PianoRollTrackDescription
+
+    def __garbage_collect_segments(self) -> None:
+        ref_counts = {segment.id: 0 for segment in self.segment_heap}
+
+        for segment_ref in self.segments:
+            ref_counts[segment_ref.segment.id] += 1
+
+        segment_ids_to_delete = [
+            segment_id for segment_id, ref_count in ref_counts.items()
+            if ref_count == 0]
+        indices_to_delete = [
+            self._pool[segment_id].index
+            for segment_id in segment_ids_to_delete]
+        for idx in sorted(indices_to_delete, reverse=True):
+            del self.segment_heap[idx]
+
+    def create_segment(self, time: audioproc.MusicalTime, duration: audioproc.MusicalDuration) -> PianoRollSegmentRef:
+        segment = self._pool.create(PianoRollSegment, duration=duration)
+        self.segment_heap.append(segment)
+
+        ref = self._pool.create(PianoRollSegmentRef, time=time, segment=segment)
+        self.segments.append(ref)
+
+        return ref
+
+    def remove_segment(self, segment_ref: PianoRollSegmentRef) -> None:
+        assert segment_ref.parent is self
+        del self.segments[segment_ref.index]
+        self.__garbage_collect_segments()

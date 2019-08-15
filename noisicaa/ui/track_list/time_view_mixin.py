@@ -111,6 +111,7 @@ class TimeViewMixin(ScaledTimeMixin):
         self.setMinimumWidth(100)
 
         self.contentWidthChanged.connect(self.__contentWidthChanged)
+        self.__contentWidthChanged(self.contentWidth())
 
     def __contentWidthChanged(self, width: int) -> None:
         assert isinstance(self, QtCore.QObject)
