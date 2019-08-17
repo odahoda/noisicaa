@@ -32,6 +32,7 @@ from PyQt5 import QtWidgets
 
 from noisidev import uitest
 from noisicaa.ui import player_state
+from . import editor
 
 
 class HIDState(object):
@@ -104,8 +105,8 @@ class MoveMouse(Event):
         widget.mouseMoveEvent(QtGui.QMouseEvent(
             QtCore.QEvent.MouseMove,
             QtCore.QPointF(self.__x, self.__y),
-            QtCore.QPointF(self.__x, self.__y) + widget.viewTopLeft(),
-            QtCore.QPointF(self.__x, self.__y) + widget.viewTopLeft() + state.window_pos,
+            QtCore.QPointF(self.__x, self.__y) + widget.pos(),
+            QtCore.QPointF(self.__x, self.__y) + widget.pos() + state.window_pos,
             Qt.NoButton,
             state.mouse_buttons,
             state.modifiers))
@@ -120,8 +121,8 @@ class PressMouseButton(Event):
         widget.mousePressEvent(QtGui.QMouseEvent(
             QtCore.QEvent.MouseButtonPress,
             state.mouse_pos,
-            state.mouse_pos + widget.viewTopLeft(),
-            state.mouse_pos + widget.viewTopLeft() + state.window_pos,
+            state.mouse_pos + widget.pos(),
+            state.mouse_pos + widget.pos() + state.window_pos,
             self.__button,
             state.mouse_buttons,
             state.modifiers))
@@ -136,32 +137,32 @@ class DoubleClickButton(Event):
         widget.mousePressEvent(QtGui.QMouseEvent(
             QtCore.QEvent.MouseButtonPress,
             state.mouse_pos,
-            state.mouse_pos + widget.viewTopLeft(),
-            state.mouse_pos + widget.viewTopLeft() + state.window_pos,
+            state.mouse_pos + widget.pos(),
+            state.mouse_pos + widget.pos() + state.window_pos,
             self.__button,
             state.mouse_buttons,
             state.modifiers))
         widget.mouseReleaseEvent(QtGui.QMouseEvent(
             QtCore.QEvent.MouseButtonRelease,
             state.mouse_pos,
-            state.mouse_pos + widget.viewTopLeft(),
-            state.mouse_pos + widget.viewTopLeft() + state.window_pos,
+            state.mouse_pos + widget.pos(),
+            state.mouse_pos + widget.pos() + state.window_pos,
             self.__button,
             state.mouse_buttons,
             state.modifiers))
         widget.mouseDoubleClickEvent(QtGui.QMouseEvent(
             QtCore.QEvent.MouseButtonDblClick,
             state.mouse_pos,
-            state.mouse_pos + widget.viewTopLeft(),
-            state.mouse_pos + widget.viewTopLeft() + state.window_pos,
+            state.mouse_pos + widget.pos(),
+            state.mouse_pos + widget.pos() + state.window_pos,
             self.__button,
             state.mouse_buttons,
             state.modifiers))
         widget.mouseReleaseEvent(QtGui.QMouseEvent(
             QtCore.QEvent.MouseButtonRelease,
             state.mouse_pos,
-            state.mouse_pos + widget.viewTopLeft(),
-            state.mouse_pos + widget.viewTopLeft() + state.window_pos,
+            state.mouse_pos + widget.pos(),
+            state.mouse_pos + widget.pos() + state.window_pos,
             self.__button,
             state.mouse_buttons,
             state.modifiers))
@@ -176,8 +177,8 @@ class ReleaseMouseButton(Event):
         widget.mouseReleaseEvent(QtGui.QMouseEvent(
             QtCore.QEvent.MouseButtonRelease,
             state.mouse_pos,
-            state.mouse_pos + widget.viewTopLeft(),
-            state.mouse_pos + widget.viewTopLeft() + state.window_pos,
+            state.mouse_pos + widget.pos(),
+            state.mouse_pos + widget.pos() + state.window_pos,
             self.__button,
             state.mouse_buttons,
             state.modifiers))
@@ -190,7 +191,7 @@ class MoveWheel(Event):
     def replay(self, state, widget):
         widget.wheelEvent(QtGui.QWheelEvent(
             state.mouse_pos,
-            state.mouse_pos + widget.viewTopLeft() + state.window_pos,
+            state.mouse_pos + widget.pos() + state.window_pos,
             QtCore.QPoint(0, 10 * self.__steps),
             QtCore.QPoint(0, 15 * self.__steps),
             0, Qt.Vertical,
@@ -235,13 +236,14 @@ class ReleaseKey(Event):
 
 
 class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
-    async def setup_testcase(self):
+    def setup_testcase(self):
         self.player_state = player_state.PlayerState(context=self.context)
-        self.tool_box = None
-        self.editor = mock.Mock()
-        self.editor.currentToolBox.side_effect = lambda: self.tool_box
+        self.editor = editor.Editor(player_state=self.player_state, context=self.context)
 
         self.__hid_state = HIDState()
+
+    def cleanup_testcase(self):
+        self.editor.cleanup()
 
     def _createTrackItem(self, **kwargs):
         raise NotImplementedError
@@ -260,63 +262,16 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
 
     def test_isCurrent(self):
         with self._trackItem() as ti:
-            ti.setSize(QtCore.QSize(200, 100))
-
-            rects = []  # type: List[QtCore.QRect]
-            ti.rectChanged.connect(rects.append)
-
             self.assertFalse(ti.isCurrent())
 
             ti.setIsCurrent(True)
             self.assertTrue(ti.isCurrent())
-            self.assertEqual(rects, [QtCore.QRect(0, 0, 200, 100)])
-
-            rects.clear()
-            ti.setIsCurrent(True)
-            self.assertTrue(ti.isCurrent())
-            self.assertEqual(rects, [])
 
     def test_scale(self):
         with self._trackItem() as ti:
             self.assertEqual(ti.scaleX(), Fraction(500, 1))
             ti.setScaleX(Fraction(1000, 1))
             self.assertEqual(ti.scaleX(), Fraction(1000, 1))
-
-    def test_size(self):
-        with self._trackItem() as ti:
-            ti.setSize(QtCore.QSize(100, 200))
-            self.assertEqual(ti.size(), QtCore.QSize(100, 200))
-            self.assertEqual(ti.width(), 100)
-            self.assertEqual(ti.height(), 200)
-            ti.setWidth(300)
-            self.assertEqual(ti.size(), QtCore.QSize(300, 200))
-            self.assertEqual(ti.width(), 300)
-            self.assertEqual(ti.height(), 200)
-            ti.setHeight(400)
-            self.assertEqual(ti.size(), QtCore.QSize(300, 400))
-            self.assertEqual(ti.width(), 300)
-            self.assertEqual(ti.height(), 400)
-
-    def test_sizeChanged(self):
-        with self._trackItem() as ti:
-            sizes = []  # type: List[QtCore.QSize]
-            ti.sizeChanged.connect(sizes.append)
-            ti.setSize(QtCore.QSize(100, 200))
-            ti.setWidth(300)
-            ti.setHeight(400)
-            ti.setSize(QtCore.QSize(300, 400))
-            self.assertEqual(
-                sizes,
-                [QtCore.QSize(100, 200), QtCore.QSize(300, 200), QtCore.QSize(300, 400)])
-
-    def test_viewRect(self):
-        with self._trackItem() as ti:
-            ti.setSize(QtCore.QSize(150, 50))
-            ti.setViewTopLeft(QtCore.QPoint(100, 200))
-            self.assertEqual(ti.viewTopLeft(), QtCore.QPoint(100, 200))
-            self.assertEqual(ti.viewLeft(), 100)
-            self.assertEqual(ti.viewTop(), 200)
-            self.assertEqual(ti.viewRect(), QtCore.QRect(100, 200, 150, 50))
 
     def test_mouse_events(self):
         with self._trackItem() as ti:
@@ -350,18 +305,18 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
 
     def test_paint(self):
         with self._trackItem() as ti:
-            ti.setSize(QtCore.QSize(200, 100))
+            ti.resize(QtCore.QSize(200, 100))
 
             img = QtGui.QImage(ti.size(), QtGui.QImage.Format_RGB32)
             painter = QtGui.QPainter(img)
             try:
                 img.fill(Qt.black)
-                ti.paint(painter, ti.viewRect())
+                ti.render(painter)
                 self.assertEqual(QtGui.QColor(img.pixel(0, 0)), QtGui.QColor(Qt.white))
 
                 img.fill(Qt.black)
                 ti.setIsCurrent(True)
-                ti.paint(painter, ti.viewRect())
+                ti.render(painter)
                 self.assertEqual(QtGui.QColor(img.pixel(0, 0)), QtGui.QColor(240, 240, 255))
             finally:
                 painter.end()

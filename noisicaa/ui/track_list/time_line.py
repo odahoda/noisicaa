@@ -105,6 +105,11 @@ class TimeLine(
     def onDurationChanged(self, change: music.PropertyValueChange[float]) -> None:
         self.update()
 
+    def setXOffset(self, offset: int) -> int:
+        dx = super().setXOffset(offset)
+        self.scroll(dx, 0)
+        return dx
+
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if (self.__player_id is not None
                 and evt.button() == Qt.LeftButton

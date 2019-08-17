@@ -235,7 +235,7 @@ class BeatTrackEditor(measured_track_editor.MeasuredTrackEditor):
 
         self.__play_last_pitch = None  # type: value_types.Pitch
 
-        self.setHeight(60)
+        self.setFixedHeight(60)
 
     @property
     def track(self) -> model.BeatTrack:

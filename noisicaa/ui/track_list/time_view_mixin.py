@@ -129,17 +129,16 @@ class TimeViewMixin(ScaledTimeMixin):
     def xOffset(self) -> int:
         return self.__x_offset  # type: ignore
 
-    def setXOffset(self, offset: int) -> None:
+    def setXOffset(self, offset: int) -> int:
         assert isinstance(self, QtCore.QObject)
         offset = max(0, min(offset, self.maximumXOffset()))
         if offset == self.__x_offset:
-            return
+            return 0
 
         dx = self.__x_offset - offset
         self.__x_offset = offset
         self.xOffsetChanged.emit(self.__x_offset)
-
-        self.scroll(dx, 0)
+        return dx
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         assert isinstance(self, QtCore.QObject)

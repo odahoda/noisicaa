@@ -21,10 +21,9 @@
 # @end:license
 
 from noisidev import uitest
-from noisicaa import music
 from noisicaa import audioproc
-from . import track_ui
 from noisicaa.ui.track_list import track_editor_tests
+from . import track_ui
 
 
 class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uitest.UITestCase):
@@ -41,7 +40,7 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
             **kwargs)
 
     def test_segments_changed(self):
-        with self._trackItem() as ti:
+        with self._trackItem():
             with self.project.apply_mutations('test'):
                 ref = self.track.create_segment(
                     audioproc.MusicalTime(3, 4),

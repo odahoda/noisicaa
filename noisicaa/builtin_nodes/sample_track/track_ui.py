@@ -183,13 +183,12 @@ class SampleItem(core.AutoCleanupMixin, object):
     def onTimeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
         self.__pos = QtCore.QPoint(
             self.__track_editor.timeToX(change.new_value), 0)
-        self.__track_editor.rectChanged.emit(self.__track_editor.viewRect())
+        self.__track_editor.update()
 
     def setHighlighted(self, highlighted: bool) -> None:
         if highlighted != self.__highlighted:
             self.__highlighted = highlighted
-            self.__track_editor.rectChanged.emit(
-                self.rect().translated(self.__track_editor.viewTopLeft()))
+            self.__track_editor.update()
 
     def renderSample(self, task: asyncio.Task) -> None:
         response = down_cast(ipc_pb2.RenderSampleResponse, task.result())
@@ -202,7 +201,7 @@ class SampleItem(core.AutoCleanupMixin, object):
             self.__width = len(response.rms)
             self.__render_result = ('rms', list(response.rms))
 
-        self.__track_editor.rectChanged.emit(self.__track_editor.viewRect())
+        self.__track_editor.update()
 
     def purgePaintCaches(self) -> None:
         self.__render_result = ('init', )
@@ -260,9 +259,10 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
     toolBoxClass = SampleTrackToolBox
 
     def __init__(self, **kwargs: Any) -> None:
+        self.__samples = []  # type: List[SampleItem]
+
         super().__init__(**kwargs)
 
-        self.__samples = []  # type: List[SampleItem]
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
 
@@ -275,7 +275,7 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
 
         self.__listeners.add(self.track.samples_changed.add(self.onSamplesChanged))
 
-        self.setHeight(120)
+        self.setFixedHeight(120)
 
     @property
     def track(self) -> model.SampleTrack:
@@ -301,25 +301,23 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
     def addSample(self, insert_index: int, sample: model.SampleRef) -> None:
         item = SampleItem(track_editor=self, sample=sample)
         self.__samples.insert(insert_index, item)
-        self.rectChanged.emit(self.viewRect())
+        self.update()
 
     def removeSample(self, remove_index: int, sample: model.SampleRef) -> None:
         item = self.__samples.pop(remove_index)
         item.cleanup()
-        self.rectChanged.emit(self.viewRect())
+        self.update()
 
     def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
         if self.__playback_time is not None:
             x = self.timeToX(self.__playback_time)
-            self.rectChanged.emit(
-                QtCore.QRect(self.viewLeft() + x, self.viewTop(), 2, self.height()))
+            self.update(x, 0, 2, self.height())
 
         self.__playback_time = time
 
         if self.__playback_time is not None:
             x = self.timeToX(self.__playback_time)
-            self.rectChanged.emit(
-                QtCore.QRect(self.viewLeft() + x, self.viewTop(), 2, self.height()))
+            self.update(x, 0, 2, self.height())
 
     def setHighlightedSample(self, sample: SampleItem) -> None:
         if sample is self.__highlighted_sample:
@@ -359,7 +357,7 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
 
     def setSamplePos(self, sample: SampleItem, pos: QtCore.QPoint) -> None:
         sample.setPos(pos)
-        self.rectChanged.emit(self.viewRect())
+        self.update()
 
     def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
         super().buildContextMenu(menu, pos)
@@ -409,9 +407,7 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
         for item in self.__samples:
             item.purgePaintCaches()
 
-    def paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
-        super().paint(painter, paint_rect)
-
+    def _paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
         painter.setPen(QtGui.QColor(160, 160, 160))
         painter.drawLine(
             self.timeToX(audioproc.MusicalTime(0, 1)), self.height() // 2,

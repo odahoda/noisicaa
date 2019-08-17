@@ -20,17 +20,11 @@
 #
 # @end:license
 
-import fractions
 import logging
-from typing import cast, Any, Optional, Iterator, Iterable, Callable
+from typing import Any, Callable
 
-from noisicaa.core.typing_extra import down_cast
-from noisicaa import core
 from noisicaa import audioproc
-from noisicaa import value_types
 from noisicaa import node_db
-from noisicaa import music
-from noisicaa.music import base_track
 from noisicaa.music import node_connector
 from . import node_description
 from . import _model

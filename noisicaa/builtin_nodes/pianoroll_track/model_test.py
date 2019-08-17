@@ -20,15 +20,9 @@
 #
 # @end:license
 
-from typing import List
-
 from noisidev import unittest
-from noisidev import unittest_mixins
-from noisidev import demo_project
 from noisicaa import audioproc
-from noisicaa import value_types
 from noisicaa.music import base_track_test
-from noisicaa.music import project
 from . import model
 
 

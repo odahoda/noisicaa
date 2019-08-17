@@ -105,8 +105,7 @@ class BaseMeasureEditor(ui_base.ProjectMixin, QtCore.QObject):
         return QtCore.QRect(0, 0, self.width(), self.height())
 
     def viewRect(self) -> QtCore.QRect:
-        return QtCore.QRect(
-            self.track_editor.viewTopLeft() + self.topLeft(), self.size())
+        return QtCore.QRect(self.topLeft(), self.size())
 
     def playbackPos(self) -> audioproc.MusicalTime:
         return self.__playback_time
@@ -386,7 +385,7 @@ class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
 
         elif isinstance(measure_editor, Appendix):
             if measure_editor.clickRect().contains(evt.pos() - measure_editor.topLeft()):
-                with self.project.apply_mutations('%s: Insert measure' % self.track.name):
+                with self.project.apply_mutations('%s: Insert measure' % target.track.name):
                     target.track.insert_measure(-1)
                 evt.accept()
                 return
@@ -564,6 +563,8 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
     measure_editor_cls = None  # type: Type[MeasureEditor]
 
     def __init__(self, **kwargs: Any) -> None:
+        self.__measure_editors = []  # type: List[BaseMeasureEditor]
+
         super().__init__(**kwargs)
 
         self.__closing = False
@@ -573,12 +574,11 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
         self.__measure_editor_at_playback_pos = None  # type: BaseMeasureEditor
         self.__hover_measure_editor = None  # type: BaseMeasureEditor
 
-        self.__measure_editors = []  # type: List[BaseMeasureEditor]
         for idx, mref in enumerate(self.track.measure_list):
             self.addMeasure(idx, mref)
 
         appendix_editor = Appendix(track_editor=self, context=self.context)
-        appendix_editor.rectChanged.connect(self.rectChanged)
+        appendix_editor.rectChanged.connect(self.update)
         self.__measure_editors.append(appendix_editor)
 
         self.__listeners.add(self.track.measure_list_changed.add(self.onMeasureListChanged))
@@ -614,17 +614,17 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
     def addMeasure(self, idx: int, mref: music.MeasureReference) -> None:
         measure_editor = self.measure_editor_cls(  # pylint: disable=not-callable
             track_editor=self, measure_reference=mref, context=self.context)
-        measure_editor.rectChanged.connect(self.rectChanged)
+        measure_editor.rectChanged.connect(self.update)
         self.__measure_editors.insert(idx, measure_editor)
         self.updateMeasures()
-        self.rectChanged.emit(self.viewRect())
+        self.update()
 
     def removeMeasure(self, idx: int) -> None:
         measure_editor = self.__measure_editors.pop(idx)
         measure_editor.cleanup()
-        measure_editor.rectChanged.disconnect(self.rectChanged)
+        measure_editor.rectChanged.disconnect(self.update)
         self.updateMeasures()
-        self.rectChanged.emit(self.viewRect())
+        self.update()
 
     def updateMeasures(self) -> None:
         if self.__closing:
@@ -634,8 +634,6 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
         for measure_editor in self.measure_editors():
             measure_editor.setTopLeft(p)
             p += QtCore.QPoint(measure_editor.width(), 0)
-
-        self.setWidth(p.x() + 10)
 
     def setScaleX(self, scale_x: fractions.Fraction) -> None:
         super().setScaleX(scale_x)
@@ -752,9 +750,7 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
         for measure_editor in self.measure_editors():
             measure_editor.purgePaintCaches()
 
-    def paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
-        super().paint(painter, paint_rect)
-
+    def _paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
         p = QtCore.QPoint(10, 0)
         for measure_editor in self.measure_editors():
             measure_rect = QtCore.QRect(p.x(), 0, measure_editor.width(), self.height())

@@ -21,20 +21,17 @@
 # @end:license
 
 import logging
-from typing import Any, List, Tuple
+from typing import Any, List
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
-from PyQt5 import QtSvg
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
-from noisicaa import value_types
-from noisicaa.ui import svg_symbol
 from noisicaa.ui.track_list import tools
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
@@ -71,12 +68,14 @@ class EditSegmentsTool(tools.ToolBase):
     def mouseDoubleClickEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
         assert isinstance(target, PianoRollTrackEditor), type(target).__name__
 
+        logger.error(evt.pos())
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
             time = target.xToTime(evt.pos().x())
             for segment_ref in target.track.segments:
                 if segment_ref.time <= time <= segment_ref.time + segment_ref.segment.duration:
-                    # double clicked on a segment
                     # TODO: switch to midi editor tool
+                    with self.project.apply_mutations('%s: Remove segment' % target.track.name):
+                        target.track.remove_segment(segment_ref)
                     break
             else:
                 with self.project.apply_mutations('%s: Insert segment' % target.track.name):
@@ -96,13 +95,18 @@ class PianoRollToolBox(tools.ToolBox):
         self.addTool(EditSegmentsTool(context=self.context))
 
 
-class SegmentEditor(core.AutoCleanupMixin, object):
+class SegmentEditor(core.AutoCleanupMixin, QtWidgets.QWidget):
     def __init__(self, track_editor: 'PianoRollTrackEditor', segment_ref: model.PianoRollSegmentRef) -> None:
-        super().__init__()
+        super().__init__(parent=track_editor)
 
         self.__track_editor = track_editor
         self.__segment_ref = segment_ref
         self.__segment = segment_ref.segment
+
+        l = QtWidgets.QVBoxLayout()
+        l.addWidget(QtWidgets.QLabel("hello"))
+        l.addWidget(QtWidgets.QLineEdit())
+        self.setLayout(l)
 
     def startTime(self) -> audioproc.MusicalTime:
         return self.__segment_ref.time
@@ -113,41 +117,41 @@ class SegmentEditor(core.AutoCleanupMixin, object):
     def duration(self) -> audioproc.MusicalDuration:
         return self.__segment.duration
 
-    def paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
-        width = self.__track_editor.timeToX(self.endTime()) - self.__track_editor.timeToX(self.startTime())
-        height = self.__track_editor.height()
-
-        painter.fillRect(0, 0, width, height, QtGui.QColor(160, 160, 255))
-        painter.fillRect(-2, 0, 2, height, Qt.black)
-        painter.fillRect(width, 0, 2, height, Qt.black)
-
-        painter.drawText(2, 10, str(self.__segment_ref.id))
-
 
 class PianoRollTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.BaseTrackEditor):
     toolBoxClass = PianoRollToolBox
 
     def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
         self.__listeners = core.ListenerList()
         self.segments = []  # type: List[SegmentEditor]
+
+        super().__init__(**kwargs)
 
         for segment_ref in self.track.segments:
             self.__addSegment(len(self.segments), segment_ref)
         self.__listeners.add(self.track.segments_changed.add(self.__segmentsChanged))
 
-        self.setHeight(240)
+        self.setFixedHeight(240)
+
+    @property
+    def track(self) -> model.PianoRollTrack:
+        return down_cast(model.PianoRollTrack, super().track)
 
     def __addSegment(self, insert_index: int, segment_ref: model.PianoRollSegmentRef) -> None:
         seditor = SegmentEditor(track_editor=self, segment_ref=segment_ref)
         self.segments.insert(insert_index, seditor)
-        self.rectChanged.emit(self.viewRect())
+        seditor.setEnabled(self.isCurrent())
+        seditor.resize(int(self.scaleX() * segment_ref.segment.duration.fraction), self.height())
+        seditor.move(self.timeToX(segment_ref.time) - self.xOffset(), 0)
+        seditor.show()
+        self.update()
 
     def __removeSegment(self, remove_index: int, point: QtCore.QPoint) -> None:
         seditor = self.segments.pop(remove_index)
         seditor.cleanup()
-        self.rectChanged.emit(self.viewRect())
+        seditor.hide()
+        seditor.setParent(None)
+        self.update()
 
     def __segmentsChanged(self, change: music.PropertyListChange[model.PianoRollSegmentRef]) -> None:
         if isinstance(change, music.PropertyListInsert):
@@ -159,9 +163,23 @@ class PianoRollTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_edito
         else:
             raise TypeError(type(change))
 
-    def paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
-        super().paint(painter, paint_rect)
+    def setIsCurrent(self, is_current: bool) -> None:
+        super().setIsCurrent(is_current)
+        for segment in self.segments:
+            segment.setEnabled(is_current)
 
+    def setXOffset(self, offset: int) -> int:
+        dx = super().setXOffset(offset)
+        for segment in self.segments:
+            segment.move(self.timeToX(segment.startTime()) - self.xOffset(), 0)
+        return dx
+
+    def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
+        super().resizeEvent(evt)
+        for segment in self.segments:
+            segment.resize(segment.width(), self.height())
+
+    def _paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
         painter.setPen(Qt.black)
 
         beat_time = audioproc.MusicalTime()
@@ -179,18 +197,3 @@ class PianoRollTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_edito
 
         x = self.timeToX(self.projectEndTime())
         painter.fillRect(x, 0, 2, self.height(), Qt.black)
-
-        for segment in self.segments:
-            x1 = self.timeToX(segment.startTime())
-            x2 = self.timeToX(segment.endTime())
-            segment_rect = QtCore.QRect(x1, 0, x2 - x1, self.height())
-            segment_rect = segment_rect.adjusted(-2, 0, 2, 0)
-            segment_rect = segment_rect.intersected(paint_rect)
-            logger.error(segment_rect)
-            if not segment_rect.isEmpty():
-                painter.save()
-                try:
-                    painter.translate(x1, 0)
-                    segment.paint(painter, segment_rect.translated(-x1, 0))
-                finally:
-                    painter.restore()

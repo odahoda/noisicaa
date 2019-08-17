@@ -32,7 +32,6 @@ from noisicaa import core
 from noisicaa import music
 from noisicaa.constants import DATA_DIR
 from noisicaa.ui import ui_base
-from noisicaa.ui import property_connector
 from noisicaa.ui.graph import track_node
 from . import model
 

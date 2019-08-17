@@ -998,7 +998,7 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
         super().__init__(**kwargs)
         self.__play_last_pitch = None  # type: value_types.Pitch
 
-        self.setHeight(240)
+        self.setFixedHeight(240)
 
     def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
         super().buildContextMenu(menu, pos)
