@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import fractions
 import logging
 from typing import cast, Any, Dict, List, Type
 
@@ -317,3 +318,38 @@ class Editor(
         self.maximumYOffsetChanged.emit(
             max(0, self.__viewport.height() - self.height()))
         self.pageHeightChanged.emit(self.height())
+
+    def wheelEvent(self, evt: QtGui.QWheelEvent) -> None:
+        if evt.modifiers() == Qt.ShiftModifier:
+            offset = self.xOffset()
+            offset -= 2 * evt.angleDelta().y()
+            offset = min(self.maximumXOffset(), offset)
+            offset = max(0, offset)
+            self.setXOffset(offset)
+            evt.accept()
+            return
+
+        elif evt.modifiers() == Qt.NoModifier:
+            offset = self.yOffset()
+            offset -= evt.angleDelta().y()
+            offset = min(self.maximumYOffset(), offset)
+            offset = max(0, offset)
+            self.setYOffset(offset)
+            evt.accept()
+            return
+
+        super().wheelEvent(evt)
+
+    def keyPressEvent(self, evt: QtGui.QKeyEvent) -> None:
+        if evt.modifiers() == Qt.ControlModifier and evt.key() == Qt.Key_Left:
+            if self.scaleX() > fractions.Fraction(10, 1):
+                self.setScaleX(self.scaleX() * fractions.Fraction(2, 3))
+            evt.accept()
+            return
+
+        if evt.modifiers() == Qt.ControlModifier and evt.key() == Qt.Key_Right:
+            self.setScaleX(self.scaleX() * fractions.Fraction(3, 2))
+            evt.accept()
+            return
+
+        super().keyPressEvent(evt)
