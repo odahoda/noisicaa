@@ -22,8 +22,7 @@
 
 import contextlib
 from fractions import Fraction
-from unittest import mock
-from typing import List, Set
+from typing import Set
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -306,19 +305,7 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
     def test_paint(self):
         with self._trackItem() as ti:
             ti.resize(QtCore.QSize(200, 100))
+            self.renderWidget(ti)
 
-            img = QtGui.QImage(ti.size(), QtGui.QImage.Format_RGB32)
-            painter = QtGui.QPainter(img)
-            try:
-                img.fill(Qt.black)
-                ti.render(painter)
-                self.assertEqual(QtGui.QColor(img.pixel(0, 0)), QtGui.QColor(Qt.white))
-
-                img.fill(Qt.black)
-                ti.setIsCurrent(True)
-                ti.render(painter)
-                self.assertEqual(QtGui.QColor(img.pixel(0, 0)), QtGui.QColor(240, 240, 255))
-            finally:
-                painter.end()
-                painter = None  # QPainter must be destroyed before QImage.
-                img = None
+            ti.setIsCurrent(True)
+            self.renderWidget(ti)

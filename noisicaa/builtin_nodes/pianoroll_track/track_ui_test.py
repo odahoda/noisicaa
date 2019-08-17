@@ -40,11 +40,15 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
             **kwargs)
 
     def test_segments_changed(self):
-        with self._trackItem():
+        with self._trackItem() as ti:
             with self.project.apply_mutations('test'):
                 ref = self.track.create_segment(
                     audioproc.MusicalTime(3, 4),
                     audioproc.MusicalDuration(2, 4))
 
+            self.renderWidget(ti)
+
             with self.project.apply_mutations('test'):
                 self.track.remove_segment(ref)
+
+            self.renderWidget(ti)

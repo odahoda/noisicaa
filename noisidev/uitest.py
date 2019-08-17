@@ -26,8 +26,9 @@ import os.path
 import uuid
 from typing import cast, Any, Dict
 
-from PyQt5 import QtWidgets
 from PyQt5 import QtCore
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 from noisicaa.constants import TEST_OPTS
 from noisicaa import runtime_settings as runtime_settings_lib
@@ -223,6 +224,16 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
 
         if self.process is not None:
             await self.process.cleanup()
+
+    def renderWidget(self, widget):
+        pixmap = QtGui.QPixmap(widget.size())
+        painter = QtGui.QPainter(pixmap)
+        try:
+            widget.render(painter)
+        finally:
+            painter.end()
+            painter = None  # QPainter must be destroyed before QImage.
+        return pixmap
 
 
 class ProjectMixin(

@@ -179,6 +179,7 @@ class Editor(
             editor=self,
             context=self.context)
         self.xOffsetChanged.connect(track_editor.setXOffset)
+        self.scaleXChanged.connect(track_editor.setScaleX)
         track_editor.setXOffset(self.xOffset())
         return track_editor
 

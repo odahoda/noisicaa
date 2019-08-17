@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import fractions
 import logging
 from typing import Any, List
 
@@ -32,6 +33,8 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
+from noisicaa.ui import pianoroll
+from noisicaa.ui import slots
 from noisicaa.ui.track_list import tools
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
@@ -68,7 +71,6 @@ class EditSegmentsTool(tools.ToolBase):
     def mouseDoubleClickEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
         assert isinstance(target, PianoRollTrackEditor), type(target).__name__
 
-        logger.error(evt.pos())
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
             time = target.xToTime(evt.pos().x())
             for segment_ref in target.track.segments:
@@ -95,7 +97,11 @@ class PianoRollToolBox(tools.ToolBox):
         self.addTool(EditSegmentsTool(context=self.context))
 
 
-class SegmentEditor(core.AutoCleanupMixin, QtWidgets.QWidget):
+class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, QtWidgets.QWidget):
+    yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
+    scaleX, setScaleX, scaleXChanged = slots.slot(fractions.Fraction, 'scaleX', default=fractions.Fraction(4*80))
+    gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
+
     def __init__(self, track_editor: 'PianoRollTrackEditor', segment_ref: model.PianoRollSegmentRef) -> None:
         super().__init__(parent=track_editor)
 
@@ -103,10 +109,14 @@ class SegmentEditor(core.AutoCleanupMixin, QtWidgets.QWidget):
         self.__segment_ref = segment_ref
         self.__segment = segment_ref.segment
 
-        l = QtWidgets.QVBoxLayout()
-        l.addWidget(QtWidgets.QLabel("hello"))
-        l.addWidget(QtWidgets.QLineEdit())
-        self.setLayout(l)
+        self.__grid = pianoroll.PianoRollGrid(parent=self)
+        self.__grid.move(0, -self.yOffset())
+        self.__grid.setGridXSize(self.scaleX())
+        self.__grid.setDuration(self.__segment.duration)
+
+        self.scaleXChanged.connect(self.__grid.setGridXSize)
+        self.gridYSizeChanged.connect(self.__grid.setGridYSize)
+        self.yOffsetChanged.connect(lambda _: self.__grid.move(0, -self.yOffset()))
 
     def startTime(self) -> audioproc.MusicalTime:
         return self.__segment_ref.time
@@ -117,9 +127,16 @@ class SegmentEditor(core.AutoCleanupMixin, QtWidgets.QWidget):
     def duration(self) -> audioproc.MusicalDuration:
         return self.__segment.duration
 
+    def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
+        self.__grid.resize(self.width(), self.__grid.gridHeight())
+        super().resizeEvent(evt)
 
-class PianoRollTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.BaseTrackEditor):
+
+class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMixin, base_track_editor.BaseTrackEditor):
     toolBoxClass = PianoRollToolBox
+
+    yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
+    gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
 
     def __init__(self, **kwargs: Any) -> None:
         self.__listeners = core.ListenerList()
@@ -127,11 +144,32 @@ class PianoRollTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_edito
 
         super().__init__(**kwargs)
 
+        self.__keys = pianoroll.PianoKeys(parent=self)
+        self.__keys.setYOffset(self.yOffset())
+        self.yOffsetChanged.connect(self.__keys.setYOffset)
+        self.__keys.setGridYSize(self.gridYSize())
+        self.gridYSizeChanged.connect(self.__keys.setGridYSize)
+
+        self.__y_scrollbar = QtWidgets.QScrollBar(orientation=Qt.Vertical, parent=self)
+        self.__y_scrollbar.setFixedWidth(16)
+        self.__y_scrollbar.setRange(0, 500)
+        self.__y_scrollbar.setSingleStep(20)
+        self.__y_scrollbar.setPageStep(self.height())
+        self.__y_scrollbar.setValue(self.yOffset())
+
+        self.__y_scrollbar.valueChanged.connect(self.setYOffset)
+
         for segment_ref in self.track.segments:
             self.__addSegment(len(self.segments), segment_ref)
         self.__listeners.add(self.track.segments_changed.add(self.__segmentsChanged))
 
+        self.setAutoScroll(False)
         self.setFixedHeight(240)
+
+        self.xOffsetChanged.connect(lambda _: self.__repositionSegments())
+        self.xOffsetChanged.connect(lambda _: self.update())
+        self.scaleXChanged.connect(lambda _: self.__resizeSegments())
+        self.gridYSizeChanged.connect(lambda _: self.__updateYScrollbar())
 
     @property
     def track(self) -> model.PianoRollTrack:
@@ -141,9 +179,16 @@ class PianoRollTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_edito
         seditor = SegmentEditor(track_editor=self, segment_ref=segment_ref)
         self.segments.insert(insert_index, seditor)
         seditor.setEnabled(self.isCurrent())
-        seditor.resize(int(self.scaleX() * segment_ref.segment.duration.fraction), self.height())
+        seditor.resize(int(self.scaleX() * segment_ref.segment.duration.fraction) + 1, self.height())
         seditor.move(self.timeToX(segment_ref.time) - self.xOffset(), 0)
+        seditor.setScaleX(self.scaleX())
+        seditor.setYOffset(self.yOffset())
+        self.yOffsetChanged.connect(seditor.setYOffset)
         seditor.show()
+
+        self.__keys.raise_()
+        self.__y_scrollbar.raise_()
+
         self.update()
 
     def __removeSegment(self, remove_index: int, point: QtCore.QPoint) -> None:
@@ -168,14 +213,32 @@ class PianoRollTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_edito
         for segment in self.segments:
             segment.setEnabled(is_current)
 
-    def setXOffset(self, offset: int) -> int:
-        dx = super().setXOffset(offset)
+    def __repositionSegments(self) -> None:
         for segment in self.segments:
             segment.move(self.timeToX(segment.startTime()) - self.xOffset(), 0)
-        return dx
+
+    def __resizeSegments(self) -> None:
+        for seditor in self.segments:
+            seditor.resize(int(self.scaleX() * seditor.duration().fraction) + 1, self.height())
+            seditor.move(self.timeToX(seditor.startTime()) - self.xOffset(), 0)
+            seditor.setScaleX(self.scaleX())
+
+    def __updateYScrollbar(self) -> None:
+        grid_height = 128 * self.gridYSize() + 1
+        self.__y_scrollbar.setRange(0, max(0, grid_height - self.height()))
+        self.__y_scrollbar.setPageStep(self.height())
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)
+
+        self.__keys.move(0, 0)
+        self.__keys.resize(self.__keys.width(), self.height())
+
+        self.__y_scrollbar.move(self.width() - self.__y_scrollbar.width(), 0)
+        self.__y_scrollbar.resize(self.__y_scrollbar.width(), self.height())
+
+        self.__updateYScrollbar()
+
         for segment in self.segments:
             segment.resize(segment.width(), self.height())
 
