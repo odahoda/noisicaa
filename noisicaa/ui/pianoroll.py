@@ -21,6 +21,7 @@
 # @end:license
 
 import enum
+import fractions
 import logging
 from typing import Any, Dict, Set
 
@@ -162,7 +163,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
     duration, setDuration, durationChanged = slots.slot(
         audioproc.MusicalDuration, 'duration', default=audioproc.MusicalDuration(8, 4))
     playbackPosition, setPlaybackPosition, playbackPositionChanged = slots.slot(
-        audioproc.MusicalTime, 'playbackPosition', default=audioproc.MusicalTime(0, 1))
+        audioproc.MusicalTime, 'playbackPosition', default=audioproc.MusicalTime(-1, 1))
     unfinishedNoteMode, setUnfinishedNoteMode, unfinishedNoteModeChanged = slots.slot(
         UnfinishedNoteMode, 'unfinishedNoteMode', default=UnfinishedNoteMode.ToEnd)
     xOffset, setXOffset, xOffsetChanged = slots.slot(int, 'xOffset', default=0)
@@ -171,7 +172,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
     heightChanged = QtCore.pyqtSignal(int)
     gridWidthChanged = QtCore.pyqtSignal(int)
     gridHeightChanged = QtCore.pyqtSignal(int)
-    gridXSize, setGridXSize, gridXSizeChanged = slots.slot(int, 'gridXSize', default=4*80)
+    gridXSize, setGridXSize, gridXSizeChanged = slots.slot(fractions.Fraction, 'gridXSize', default=fractions.Fraction(4*80))
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
 
     def __init__(self, **kwargs: Any) -> None:
@@ -269,8 +270,10 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                         painter.fillRect(
                             x1, y + 1, x2 - x1, grid_y_size - 1, self.__note_color)
 
-            x = int(self.playbackPosition() * grid_x_size)
-            painter.fillRect(x, 0, 1, height, self.__playback_position_color)
+            playback_position = self.playbackPosition()
+            if playback_position.numerator >= 0:
+                x = int(playback_position * grid_x_size)
+                painter.fillRect(x, 0, 1, height, self.__playback_position_color)
 
         finally:
             painter.end()
