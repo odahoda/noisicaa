@@ -357,13 +357,13 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
     def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
         if self.__playback_time is not None:
             x = self.timeToX(self.__playback_time)
-            self.update(x, 0, 2, self.height())
+            self.update(x - self.xOffset(), 0, 2, self.height())
 
         self.__playback_time = time
 
         if self.__playback_time is not None:
             x = self.timeToX(self.__playback_time)
-            self.update(x, 0, 2, self.height())
+            self.update(x - self.xOffset(), 0, 2, self.height())
 
     def valueToY(self, value: float) -> int:
         return int(self.height() - int(self.height() * value))

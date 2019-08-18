@@ -630,7 +630,7 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
         if self.__closing:
             return
 
-        p = QtCore.QPoint(10, 0)
+        p = QtCore.QPoint(self.leftMargin(), 0)
         for measure_editor in self.measure_editors():
             measure_editor.setTopLeft(p)
             p += QtCore.QPoint(measure_editor.width(), 0)
@@ -654,7 +654,7 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
             measure_time += measure_editor.duration
 
     def measureEditorAt(self, pos: QtCore.QPoint) -> BaseMeasureEditor:
-        p = QtCore.QPoint(10, 0)
+        p = QtCore.QPoint(self.leftMargin(), 0)
         for measure_editor in self.measure_editors():
             if p.x() <= pos.x() < p.x() + measure_editor.width():
                 return measure_editor
@@ -751,7 +751,7 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
             measure_editor.purgePaintCaches()
 
     def _paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
-        p = QtCore.QPoint(10, 0)
+        p = QtCore.QPoint(self.leftMargin(), 0)
         for measure_editor in self.measure_editors():
             measure_rect = QtCore.QRect(p.x(), 0, measure_editor.width(), self.height())
             measure_rect = measure_rect.intersected(paint_rect)

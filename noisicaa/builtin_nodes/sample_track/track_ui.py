@@ -311,13 +311,13 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
     def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
         if self.__playback_time is not None:
             x = self.timeToX(self.__playback_time)
-            self.update(x, 0, 2, self.height())
+            self.update(x - self.xOffset(), 0, 2, self.height())
 
         self.__playback_time = time
 
         if self.__playback_time is not None:
             x = self.timeToX(self.__playback_time)
-            self.update(x, 0, 2, self.height())
+            self.update(x - self.xOffset(), 0, 2, self.height())
 
     def setHighlightedSample(self, sample: SampleItem) -> None:
         if sample is self.__highlighted_sample:

@@ -57,6 +57,9 @@ class ScaledTimeMixin(ui_base.ProjectMixin):
         width = int(self.project.duration.fraction * self.__scale_x) + 120
         self.setContentWidth(width)
 
+    def leftMargin(self) -> int:
+        return 100
+
     def projectEndTime(self) -> audioproc.MusicalTime:
         return audioproc.MusicalTime() + self.project.duration
 
@@ -86,10 +89,10 @@ class ScaledTimeMixin(ui_base.ProjectMixin):
 
 class ContinuousTimeMixin(ScaledTimeMixin):
     def timeToX(self, time: audioproc.MusicalTime) -> int:
-        return 10 + int(self.scaleX() * time.fraction)
+        return self.leftMargin() + int(self.scaleX() * time.fraction)
 
     def xToTime(self, x: int) -> audioproc.MusicalTime:
-        x -= 10
+        x -= self.leftMargin()
         if x <= 0:
             return audioproc.MusicalTime(0, 1)
 
