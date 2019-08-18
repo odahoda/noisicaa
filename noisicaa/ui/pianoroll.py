@@ -177,6 +177,25 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
     readOnly, setReadOnly, readOnlyChanged = slots.slot(bool, 'readOnly', default=True)
     hoverNote, setHoverNote, hoverNoteChanged = slots.slot(int, 'hoverNote', default=-1)
 
+    channel_base_colors = [
+        QtGui.QColor(100, 100, 255),
+        QtGui.QColor(100, 255, 100),
+        QtGui.QColor(255, 100, 100),
+        QtGui.QColor(100, 255, 255),
+        QtGui.QColor(255, 255, 100),
+        QtGui.QColor(255, 100, 255),
+        QtGui.QColor(100, 180, 255),
+        QtGui.QColor(180, 100, 255),
+        QtGui.QColor(180, 255, 100),
+        QtGui.QColor(100, 255, 180),
+        QtGui.QColor(255, 100, 180),
+        QtGui.QColor(255, 180, 100),
+        QtGui.QColor(180, 180, 100),
+        QtGui.QColor(180, 100, 180),
+        QtGui.QColor(100, 180, 180),
+        QtGui.QColor(180, 100, 180),
+    ]
+
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
@@ -233,6 +252,24 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         if evt.size().height() != evt.oldSize().height():
             self.heightChanged.emit(evt.size().height())
 
+    def __drawInterval(self, painter: QtGui.QPainter, channel: int, velocity: int, x1: int, x2: int, y: int) -> None:
+        h = self.gridYSize()
+        if h > 3:
+            y += 1
+            h -= 1
+
+        base_color = self.channel_base_colors[channel]
+        base_color = base_color.darker(100 + (127 - velocity))
+
+        if h > 3:
+            painter.fillRect(x1, y, x2 - x1, 1, base_color.lighter(130))
+            painter.fillRect(x1, y, 1, h, base_color.lighter(130))
+            painter.fillRect(x1 + 1, y + h - 1, x2 - x1 - 1, 1, base_color.darker(130))
+            painter.fillRect(x2 - 1, y + 1, 1, h - 1, base_color.darker(130))
+            painter.fillRect(x1 + 1, y + 1, x2 - x1 - 2, h - 2, base_color)
+        else:
+            painter.fillRect(x1, y, x2 - x1, h, base_color)
+
     def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
         painter = QtGui.QPainter(self)
         try:
@@ -260,20 +297,19 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                 painter.fillRect(x, 0, 1, height, self.__grid_color)
                 t += audioproc.MusicalDuration(1, 4)
 
-            active_notes = {}  # type: Dict[int, audioproc.MusicalTime]
+            active_notes = {}  # type: Dict[int, value_types.MidiEvent]
             for event, _ in self.__sorted_events:
                 if event.midi[0] & 0xf0 in (0x80, 0x90):
                     pitch = event.midi[1]
                     if pitch in active_notes:
                         y = (127 - pitch) * grid_y_size
-                        x1 = int(active_notes[pitch] * grid_x_size)
+                        x1 = int(active_notes[pitch].time * grid_x_size)
                         x2 = int(event.time * grid_x_size)
-                        painter.fillRect(
-                            x1, y + 1, x2 - x1, grid_y_size - 1, self.__note_color)
+                        self.__drawInterval(painter, active_notes[pitch].midi[0] & 0xf, active_notes[pitch].midi[2], x1, x2, y)
                         del active_notes[pitch]
 
                     if event.midi[0] & 0xf0 == 0x90:
-                        active_notes[pitch] = event.time
+                        active_notes[pitch] = event
 
             if self.unfinishedNoteMode() != UnfinishedNoteMode.Hide:
                 if self.unfinishedNoteMode() == UnfinishedNoteMode.ToPlaybackPosition:
@@ -282,12 +318,11 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                     end_time = audioproc.MusicalTime(0, 1) + self.duration()
 
                 x2 = int(end_time * grid_x_size)
-                for pitch, time in active_notes.items():
-                    if time <= end_time:
+                for pitch, event in active_notes.items():
+                    if event.time <= end_time:
                         y = (127 - pitch) * grid_y_size
                         x1 = int(time * grid_x_size)
-                        painter.fillRect(
-                            x1, y + 1, x2 - x1, grid_y_size - 1, self.__note_color)
+                        self.__drawInterval(painter, event.midi[0] & 0xf, event.midi[2], x1, x2, y)
 
             if self.__action == 'add-interval' and self.__interval_end_time is not None:
                 assert self.__interval_start_time is not None
@@ -300,8 +335,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                     y = (127 - self.__interval_note) * grid_y_size
                     x1 = int(start_time * grid_x_size)
                     x2 = int(end_time * grid_x_size)
-                    painter.fillRect(
-                        x1, y + 1, x2 - x1, grid_y_size - 1, self.__add_interval_color)
+                    self.__drawInterval(painter, 0, 100, x1, x2, y)
 
             playback_position = self.playbackPosition()
             if playback_position.numerator >= 0:
