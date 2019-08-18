@@ -345,16 +345,18 @@ class Appendix(BaseMeasureEditor):
 
 
 class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
+    track = None  # type: MeasuredTrackEditor
+
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__mouse_grabber = None  # type: BaseMeasureEditor
         self.__mouse_pos = None  # type: QtCore.QPoint
 
-    def _measureEditorUnderMouse(self, target: Any) -> BaseMeasureEditor:
+    def _measureEditorUnderMouse(self) -> BaseMeasureEditor:
         if self.__mouse_pos is None:
             return None
-        return target.measureEditorAt(self.__mouse_pos)
+        return self.track.measureEditorAt(self.__mouse_pos)
 
     def __makeMouseEvent(
             self, measure_editor: BaseMeasureEditor, evt: QtGui.QMouseEvent
@@ -370,75 +372,81 @@ class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
         measure_evt.setAccepted(False)
         return measure_evt
 
-    def _mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
+    def mousePressMeasureEvent(self, measure: BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
+        pass
 
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         self.__mouse_pos = evt.pos()
 
-        measure_editor = target.measureEditorAt(evt.pos())
+        measure_editor = self.track.measureEditorAt(evt.pos())
         if isinstance(measure_editor, MeasureEditor):
             measure_evt = self.__makeMouseEvent(measure_editor, evt)
-            self.mousePressEvent(measure_editor, measure_evt)
+            self.mousePressMeasureEvent(measure_editor, measure_evt)
             if measure_evt.isAccepted():
                 self.__mouse_grabber = measure_editor
             evt.setAccepted(measure_evt.isAccepted())
 
         elif isinstance(measure_editor, Appendix):
             if measure_editor.clickRect().contains(evt.pos() - measure_editor.topLeft()):
-                with self.project.apply_mutations('%s: Insert measure' % target.track.name):
-                    target.track.insert_measure(-1)
+                with self.project.apply_mutations('%s: Insert measure' % self.track.track.name):
+                    self.track.track.insert_measure(-1)
                 evt.accept()
                 return
 
-    def _mouseReleaseEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
+    def mouseReleaseMeasureEvent(self, measure: BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
+        pass
 
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
         self.__mouse_pos = evt.pos()
 
         if isinstance(self.__mouse_grabber, MeasureEditor):
             measure_evt = self.__makeMouseEvent(self.__mouse_grabber, evt)
-            self.mouseReleaseEvent(self.__mouse_grabber, measure_evt)
+            self.mouseReleaseMeasureEvent(self.__mouse_grabber, measure_evt)
             self.__mouse_grabber = None
             evt.setAccepted(measure_evt.isAccepted())
-            target.setHoverMeasureEditor(target.measureEditorAt(evt.pos()), evt)
+            self.track.setHoverMeasureEditor(self.track.measureEditorAt(evt.pos()), evt)
 
-    def _mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
+    def mouseMoveMeasureEvent(self, measure: BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
+        pass
 
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         self.__mouse_pos = evt.pos()
 
         if self.__mouse_grabber is not None:
             measure_editor = self.__mouse_grabber
         else:
-            measure_editor = target.measureEditorAt(evt.pos())
-            target.setHoverMeasureEditor(measure_editor, evt)
+            measure_editor = self.track.measureEditorAt(evt.pos())
+            self.track.setHoverMeasureEditor(measure_editor, evt)
 
         if isinstance(measure_editor, MeasureEditor):
             measure_evt = self.__makeMouseEvent(measure_editor, evt)
-            self.mouseMoveEvent(measure_editor, measure_evt)
+            self.mouseMoveMeasureEvent(measure_editor, measure_evt)
             evt.setAccepted(measure_evt.isAccepted())
 
         elif isinstance(measure_editor, Appendix):
             measure_editor.setHover(
                 measure_editor.clickRect().contains(evt.pos() - measure_editor.topLeft()))
 
-    def _mouseDoubleClickEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
+    def mouseDoubleClickMeasureEvent(
+            self, measure: BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
+        pass
 
+    def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
         self.__mouse_pos = evt.pos()
 
-        measure_editor = target.measureEditorAt(evt.pos())
+        measure_editor = self.track.measureEditorAt(evt.pos())
         if isinstance(measure_editor, MeasureEditor):
             measure_evt = self.__makeMouseEvent(measure_editor, evt)
-            self.mouseDoubleClickEvent(measure_editor, measure_evt)
+            self.mouseDoubleClickMeasureEvent(measure_editor, measure_evt)
             evt.setAccepted(measure_evt.isAccepted())
 
-    def _wheelEvent(self, target: Any, evt: QtGui.QWheelEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
+    def wheelMeasureEvent(self, measure: BaseMeasureEditor, evt: QtGui.QWheelEvent) -> None:
+        pass
 
+    def wheelEvent(self, evt: QtGui.QWheelEvent) -> None:
         self.__mouse_pos = evt.pos()
 
-        measure_editor = target.measureEditorAt(evt.pos())
+        measure_editor = self.track.measureEditorAt(evt.pos())
         if isinstance(measure_editor, MeasureEditor):
             measure_evt = QtGui.QWheelEvent(
                 evt.pos() - measure_editor.topLeft(),
@@ -452,7 +460,7 @@ class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
                 evt.phase(),
                 evt.source())
             measure_evt.setAccepted(False)
-            self.wheelEvent(measure_editor, measure_evt)
+            self.wheelMeasureEvent(measure_editor, measure_evt)
             evt.setAccepted(measure_evt.isAccepted())
 
     def __makeKeyEvent(
@@ -470,18 +478,24 @@ class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
         measure_evt.setAccepted(False)
         return measure_evt
 
-    def _keyPressEvent(self, target: Any, evt: QtGui.QKeyEvent) -> None:
-        measure_editor = self._measureEditorUnderMouse(target)
+    def keyPressMeasureEvent(self, measure: BaseMeasureEditor, evt: QtGui.QKeyEvent) -> None:
+        pass
+
+    def keyPressEvent(self, evt: QtGui.QKeyEvent) -> None:
+        measure_editor = self._measureEditorUnderMouse()
         if isinstance(measure_editor, MeasureEditor):
             measure_evt = self.__makeKeyEvent(measure_editor, evt)
-            self.keyPressEvent(measure_editor, measure_evt)
+            self.keyPressMeasureEvent(measure_editor, measure_evt)
             evt.setAccepted(measure_evt.isAccepted())
 
-    def _keyReleaseEvent(self, target: Any, evt: QtGui.QKeyEvent) -> None:
-        measure_editor = self._measureEditorUnderMouse(target)
+    def keyReleaseMeasureEvent(self, measure: BaseMeasureEditor, evt: QtGui.QKeyEvent) -> None:
+        pass
+
+    def _keyReleaseEvent(self, evt: QtGui.QKeyEvent) -> None:
+        measure_editor = self._measureEditorUnderMouse()
         if isinstance(measure_editor, MeasureEditor):
             measure_evt = self.__makeKeyEvent(measure_editor, evt)
-            self.keyReleaseEvent(measure_editor, measure_evt)
+            self.keyReleaseMeasureEvent(measure_editor, measure_evt)
             evt.setAccepted(measure_evt.isAccepted())
 
 
@@ -498,11 +512,9 @@ class ArrangeMeasuresTool(tools.ToolBase):
     def iconName(self) -> str:
         return 'pointer'
 
-    def mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
-
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
-            measure_editor = target.measureEditorAt(evt.pos())
+            measure_editor = self.track.measureEditorAt(evt.pos())
 
             if isinstance(measure_editor, MeasureEditor):
                 self.selection_set.clear()
@@ -514,23 +526,20 @@ class ArrangeMeasuresTool(tools.ToolBase):
                 return
 
         # TODO: handle click on appendix
-        super().mousePressEvent(target, evt)
+        super().mousePressEvent(evt)
 
-    def mouseReleaseEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
-
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton:
             self.__selection_first = None
             self.__selection_last = None
             evt.accept()
             return
 
-        super().mouseReleaseEvent(target, evt)
+        super().mouseReleaseEvent(evt)
 
-    def mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
-        measure_editor = target.measureEditorAt(evt.pos())
-        target.setHoverMeasureEditor(measure_editor, evt)
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
+        measure_editor = self.track.measureEditorAt(evt.pos())
+        self.track.setHoverMeasureEditor(measure_editor, evt)
 
         if self.__selection_first is not None and isinstance(measure_editor, MeasureEditor):
             start_idx = self.__selection_first.measure_reference.index
@@ -539,7 +548,7 @@ class ArrangeMeasuresTool(tools.ToolBase):
             if start_idx > last_idx:
                 start_idx, last_idx = last_idx, start_idx
 
-            for meditor in itertools.islice(target.measure_editors(), start_idx, last_idx + 1):
+            for meditor in itertools.islice(self.track.measure_editors(), start_idx, last_idx + 1):
                 if isinstance(meditor, MeasureEditor) and not meditor.selected():
                     self.selection_set.add(meditor)
 
@@ -554,10 +563,10 @@ class ArrangeMeasuresTool(tools.ToolBase):
             evt.accept()
             return
 
-        super().mouseMoveEvent(target, evt)
+        super().mouseMoveEvent(evt)
 
 
-class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
+class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):  # pylint: disable=abstract-method
     hoveredMeasureChanged = QtCore.pyqtSignal(int)
 
     measure_editor_cls = None  # type: Type[MeasureEditor]

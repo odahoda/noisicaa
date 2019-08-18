@@ -45,6 +45,8 @@ logger = logging.getLogger(__name__)
 
 
 class EditSamplesTool(tools.ToolBase):
+    track = None  # type: SampleTrackEditor
+
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(
             type=tools.ToolType.EDIT_SAMPLES,
@@ -58,13 +60,11 @@ class EditSamplesTool(tools.ToolBase):
     def iconName(self) -> str:
         return 'edit-samples'
 
-    def mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, SampleTrackEditor), type(target).__name__
-
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.NoModifier
-                and target.highlightedSample() is not None):
-            self.__moving_sample = target.highlightedSample()
+                and self.track.highlightedSample() is not None):
+            self.__moving_sample = self.track.highlightedSample()
             self.__moving_sample_original_pos = self.__moving_sample.pos()
             self.__moving_sample_offset = evt.pos() - self.__moving_sample.pos()
 
@@ -73,24 +73,22 @@ class EditSamplesTool(tools.ToolBase):
 
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.ShiftModifier
-                and target.highlightedSample() is not None):
-            with self.project.apply_mutations('%s: Remove sample' % target.track.name):
-                target.track.delete_sample(target.highlightedSample().sample)
+                and self.track.highlightedSample() is not None):
+            with self.project.apply_mutations('%s: Remove sample' % self.track.track.name):
+                self.track.track.delete_sample(self.track.highlightedSample().sample)
 
             evt.accept()
             return
 
         if evt.button() == Qt.RightButton and self.__moving_sample is not None:
-            target.setSamplePos(self.__moving_sample, self.__moving_sample_original_pos)
+            self.track.setSamplePos(self.__moving_sample, self.__moving_sample_original_pos)
             self.__moving_sample = None
             evt.accept()
             return
 
-        super().mousePressEvent(target, evt)
+        super().mousePressEvent(evt)
 
-    def mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, SampleTrackEditor), type(target).__name__
-
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         if self.__moving_sample is not None:
             new_pos = QtCore.QPoint(
                 evt.pos().x() - self.__moving_sample_offset.x(),
@@ -98,39 +96,37 @@ class EditSamplesTool(tools.ToolBase):
 
             if new_pos.x() < 10:
                 new_pos.setX(10)
-            elif new_pos.x() > target.width() - 10 - self.__moving_sample.width():
-                new_pos.setX(target.width() - 10 - self.__moving_sample.width())
+            elif new_pos.x() > self.track.width() - 10 - self.__moving_sample.width():
+                new_pos.setX(self.track.width() - 10 - self.__moving_sample.width())
 
-            target.setSamplePos(self.__moving_sample, new_pos)
+            self.track.setSamplePos(self.__moving_sample, new_pos)
 
             evt.accept()
             return
 
-        target.updateHighlightedSample()
+        self.track.updateHighlightedSample()
 
-        super().mouseMoveEvent(target, evt)
+        super().mouseMoveEvent(evt)
 
-    def mouseReleaseEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, SampleTrackEditor), type(target).__name__
-
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and self.__moving_sample is not None:
             pos = self.__moving_sample.pos()
             self.__moving_sample = None
 
-            with self.project.apply_mutations('%s: Move sample' % target.track.name):
-                target.highlightedSample().sample.time = target.xToTime(pos.x())
+            with self.project.apply_mutations('%s: Move sample' % self.track.track.name):
+                self.track.highlightedSample().sample.time = self.track.xToTime(pos.x())
 
             evt.accept()
             return
 
-        super().mouseReleaseEvent(target, evt)
+        super().mouseReleaseEvent(evt)
 
 
 class SampleTrackToolBox(tools.ToolBox):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.addTool(EditSamplesTool(context=self.context))
+        self.addTool(EditSamplesTool)
 
 
 class SampleItem(core.AutoCleanupMixin, object):
@@ -256,8 +252,6 @@ class SampleItem(core.AutoCleanupMixin, object):
 
 
 class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.BaseTrackEditor):
-    toolBoxClass = SampleTrackToolBox
-
     def __init__(self, **kwargs: Any) -> None:
         self.__samples = []  # type: List[SampleItem]
 
@@ -287,6 +281,9 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
         self.__samples.clear()
 
         super().cleanup()
+
+    def createToolBox(self) -> SampleTrackToolBox:
+        return SampleTrackToolBox(track=self, context=self.context)
 
     def onSamplesChanged(self, change: music.PropertyListChange[model.SampleRef]) -> None:
         if isinstance(change, music.PropertyListInsert):

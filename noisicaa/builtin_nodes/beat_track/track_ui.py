@@ -47,34 +47,37 @@ class EditBeatsTool(measured_track_editor.MeasuredToolBase):
     def iconName(self) -> str:
         return 'edit-beats'
 
-    def mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, BeatMeasureEditor), type(target).__name__
-        target.setGhostTime(target.xToTime(evt.pos().x()))
-        super().mouseMoveEvent(target, evt)
+    def mouseMoveMeasureEvent(
+            self, measure: measured_track_editor.BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
+        assert isinstance(measure, BeatMeasureEditor), type(measure).__name__
+        measure.setGhostTime(measure.xToTime(evt.pos().x()))
+        super().mouseMoveMeasureEvent(measure, evt)
 
-    def mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, BeatMeasureEditor), type(target).__name__
+    def mousePressMeasureEvent(
+            self, measure: measured_track_editor.BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
+        assert isinstance(measure, BeatMeasureEditor), type(measure).__name__
 
         if (evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier):
-            click_time = target.xToTime(evt.pos().x())
+            click_time = measure.xToTime(evt.pos().x())
 
-            for beat in target.measure.beats:
+            for beat in measure.measure.beats:
                 if beat.time == click_time:
-                    with self.project.apply_mutations('%s: Remove beat' % target.track.name):
-                        target.measure.delete_beat(beat)
+                    with self.project.apply_mutations('%s: Remove beat' % measure.track.name):
+                        measure.measure.delete_beat(beat)
                     evt.accept()
                     return
 
-            with self.project.apply_mutations('%s: Insert beat' % target.track.name):
-                target.measure.create_beat(click_time)
-            target.track_editor.playNoteOn(target.track.pitch)
+            with self.project.apply_mutations('%s: Insert beat' % measure.track.name):
+                measure.measure.create_beat(click_time)
+            measure.track_editor.playNoteOn(measure.track.pitch)
             evt.accept()
             return
 
-        super().mousePressEvent(target, evt)
+        super().mousePressMeasureEvent(measure, evt)
 
-    def wheelEvent(self, target: Any, evt: QtGui.QWheelEvent) -> None:
-        assert isinstance(target, BeatMeasureEditor), type(target).__name__
+    def wheelMeasureEvent(
+            self, measure: measured_track_editor.BaseMeasureEditor, evt: QtGui.QWheelEvent) -> None:
+        assert isinstance(measure, BeatMeasureEditor), type(measure).__name__
 
         if evt.modifiers() in (Qt.NoModifier, Qt.ShiftModifier):
             if evt.modifiers() == Qt.ShiftModifier:
@@ -82,25 +85,25 @@ class EditBeatsTool(measured_track_editor.MeasuredToolBase):
             else:
                 vel_delta = (10 if evt.angleDelta().y() > 0 else -10)
 
-            click_time = target.xToTime(evt.pos().x())
+            click_time = measure.xToTime(evt.pos().x())
 
-            for beat in target.measure.beats:
+            for beat in measure.measure.beats:
                 if beat.time == click_time:
                     with self.project.apply_mutations(
-                            '%s: Change beat velocity' % target.track.name):
+                            '%s: Change beat velocity' % measure.track.name):
                         beat.velocity = max(0, min(127, beat.velocity + vel_delta))
                     evt.accept()
                     return
 
-        super().wheelEvent(target, evt)
+        super().wheelMeasureEvent(measure, evt)
 
 
 class BeatToolBox(tools.ToolBox):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.addTool(measured_track_editor.ArrangeMeasuresTool(context=self.context))
-        self.addTool(EditBeatsTool(context=self.context))
+        self.addTool(measured_track_editor.ArrangeMeasuresTool)
+        self.addTool(EditBeatsTool)
 
 
 class BeatMeasureEditor(measured_track_editor.MeasureEditor):
@@ -228,8 +231,6 @@ class BeatMeasureEditor(measured_track_editor.MeasureEditor):
 class BeatTrackEditor(measured_track_editor.MeasuredTrackEditor):
     measure_editor_cls = BeatMeasureEditor
 
-    toolBoxClass = BeatToolBox
-
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
@@ -240,6 +241,9 @@ class BeatTrackEditor(measured_track_editor.MeasuredTrackEditor):
     @property
     def track(self) -> model.BeatTrack:
         return down_cast(model.BeatTrack, super().track)
+
+    def createToolBox(self) -> BeatToolBox:
+        return BeatToolBox(track=self, context=self.context)
 
     def playNoteOn(self, pitch: value_types.Pitch) -> None:
         self.playNoteOff()

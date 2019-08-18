@@ -44,6 +44,8 @@ logger = logging.getLogger(__name__)
 
 
 class ArrangeSegmentsTool(tools.ToolBase):
+    track = None  # type: PianoRollTrackEditor
+
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(
             type=tools.ToolType.ARRANGE_PIANOROLL_SEGMENTS,
@@ -58,17 +60,15 @@ class ArrangeSegmentsTool(tools.ToolBase):
     def iconName(self) -> str:
         return 'arrange-pianoroll-segments'
 
-    def __segmentAt(self, track_editor: 'PianoRollTrack', x: int) -> 'SegmentEditor':
-        for seditor in track_editor.segments:
+    def __segmentAt(self, x: int) -> 'SegmentEditor':
+        for seditor in self.track.segments:
             if seditor.trackX() <= x < seditor.trackX() + seditor.width():
                 return seditor
         return None
 
-    def mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, PianoRollTrackEditor), type(target).__name__
-
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
-            for seditor in target.segments:
+            for seditor in self.track.segments:
                 x1 = seditor.trackX()
                 x2 = seditor.trackX() + seditor.width()
 
@@ -93,105 +93,99 @@ class ArrangeSegmentsTool(tools.ToolBase):
                     evt.accept()
                     return
 
-        super().mousePressEvent(target, evt)
+        super().mousePressEvent(evt)
 
-    def mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, PianoRollTrackEditor), type(target).__name__
-
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         if self.__action == 'drag':
-            self.__segment.move(max(target.timeToX(audioproc.MusicalTime(0, 1)), evt.pos().x() - self.__handle_offset) - target.xOffset(), 0)
+            self.__segment.move(max(self.track.timeToX(audioproc.MusicalTime(0, 1)), evt.pos().x() - self.__handle_offset) - self.track.xOffset(), 0)
             evt.accept()
             return
 
         if self.__action == 'move-end':
-            self.__segment.resize(max(5, evt.pos().x() - self.__segment.trackX() - self.__handle_offset), target.height())
+            self.__segment.resize(max(5, evt.pos().x() - self.__segment.trackX() - self.__handle_offset), self.track.height())
             evt.accept()
             return
 
         if self.__action == 'move-start':
             x2 = self.__segment.trackX() + self.__segment.width()
-            x1 = max(target.timeToX(audioproc.MusicalTime(0, 1)), min(x2 - 5, evt.pos().x() - self.__handle_offset))
-            self.__segment.move(x1 - target.xOffset(), 0)
-            self.__segment.resize(x2 - x1, target.height())
+            x1 = max(self.track.timeToX(audioproc.MusicalTime(0, 1)), min(x2 - 5, evt.pos().x() - self.__handle_offset))
+            self.__segment.move(x1 - self.track.xOffset(), 0)
+            self.__segment.resize(x2 - x1, self.track.height())
             evt.accept()
             return
 
-        for seditor in target.segments:
+        for seditor in self.track.segments:
             x1 = seditor.trackX()
             x2 = seditor.trackX() + seditor.width()
 
             if abs(x2 - evt.pos().x()) < 4:
-                target.setCursor(Qt.SizeHorCursor)
+                self.track.setCursor(Qt.SizeHorCursor)
                 break
             elif abs(x1 - evt.pos().x()) < 4:
-                target.setCursor(Qt.SizeHorCursor)
+                self.track.setCursor(Qt.SizeHorCursor)
                 break
             elif x1 <= evt.pos().x() < x2:
-                target.setCursor(Qt.DragMoveCursor)
+                self.track.setCursor(Qt.DragMoveCursor)
                 break
         else:
-            target.unsetCursor()
+            self.track.unsetCursor()
 
-        super().mouseMoveEvent(target, evt)
+        super().mouseMoveEvent(evt)
 
-    def mouseReleaseEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, PianoRollTrackEditor), type(target).__name__
-
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and self.__action == 'drag':
-            with self.project.apply_mutations('%s: Move segment' % target.track.name):
-                self.__segment.segmentRef().time = target.xToTime(self.__segment.trackX())
+            with self.project.apply_mutations('%s: Move segment' % self.track.track.name):
+                self.__segment.segmentRef().time = self.track.xToTime(self.__segment.trackX())
             self.__segment = None
             self.__action = None
             evt.accept()
             return
 
         if evt.button() == Qt.LeftButton and self.__action == 'move-start':
-            with self.project.apply_mutations('%s: Resize segment' % target.track.name):
-                self.__segment.segmentRef().time = target.xToTime(self.__segment.trackX())
-                self.__segment.segment().duration = audioproc.MusicalDuration((self.__segment.width() - 1) / target.scaleX())
+            with self.project.apply_mutations('%s: Resize segment' % self.track.track.name):
+                self.__segment.segmentRef().time = self.track.xToTime(self.__segment.trackX())
+                self.__segment.segment().duration = audioproc.MusicalDuration((self.__segment.width() - 1) / self.track.scaleX())
             self.__segment = None
             self.__action = None
             evt.accept()
             return
 
         if evt.button() == Qt.LeftButton and self.__action == 'move-end':
-            with self.project.apply_mutations('%s: Resize segment' % target.track.name):
-                self.__segment.segment().duration = audioproc.MusicalDuration((self.__segment.width() - 1) / target.scaleX())
+            with self.project.apply_mutations('%s: Resize segment' % self.track.track.name):
+                self.__segment.segment().duration = audioproc.MusicalDuration((self.__segment.width() - 1) / self.track.scaleX())
             self.__segment = None
             self.__action = None
             evt.accept()
             return
 
         if evt.button() == Qt.RightButton and self.__action in ('drag', 'move-start', 'move-end'):
-            self.__segment.move(target.timeToX(self.__segment.startTime()) - target.xOffset(), 0)
-            self.__segment.resize(int(target.scaleX() * self.__segment.duration().fraction) + 1, target.height())
+            self.__segment.move(self.track.timeToX(self.__segment.startTime()) - self.track.xOffset(), 0)
+            self.__segment.resize(int(self.track.scaleX() * self.__segment.duration().fraction) + 1, self.track.height())
             self.__segment = None
             self.__action = None
             evt.accept()
             return
 
-        super().mouseReleaseEvent(target, evt)
+        super().mouseReleaseEvent(evt)
 
-    def mouseDoubleClickEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, PianoRollTrackEditor), type(target).__name__
-
+    def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
-            seditor = self.__segmentAt(target, evt.pos().x())
+            seditor = self.__segmentAt(evt.pos().x())
             if seditor is not None:
                 # TODO: switch to midi editor tool
-                with self.project.apply_mutations('%s: Remove segment' % target.track.name):
-                    target.track.remove_segment(seditor.segmentRef())
+                with self.project.apply_mutations('%s: Remove segment' % self.track.track.name):
+                    self.track.track.remove_segment(seditor.segmentRef())
 
             else:
-                time = target.xToTime(evt.pos().x())
-                with self.project.apply_mutations('%s: Insert segment' % target.track.name):
-                    target.track.create_segment(
+                time = self.track.xToTime(evt.pos().x())
+                with self.project.apply_mutations('%s: Insert segment' % self.track.track.name):
+                    self.track.track.create_segment(
                         time, audioproc.MusicalDuration(4, 4))
 
             evt.accept()
             return
 
-        super().mouseDoubleClickEvent(target, evt)
+        super().mouseDoubleClickEvent(evt)
 
 
 class EditEventsTool(tools.ToolBase):
@@ -209,8 +203,8 @@ class PianoRollToolBox(tools.ToolBox):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.addTool(ArrangeSegmentsTool(context=self.context))
-        self.addTool(EditEventsTool(context=self.context))
+        self.addTool(ArrangeSegmentsTool)
+        self.addTool(EditEventsTool)
 
 
 class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, QtWidgets.QWidget):
@@ -274,8 +268,6 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, QtWidgets.QWidge
 
 
 class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMixin, base_track_editor.BaseTrackEditor):
-    toolBoxClass = PianoRollToolBox
-
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
 
@@ -317,6 +309,9 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
     @property
     def track(self) -> model.PianoRollTrack:
         return down_cast(model.PianoRollTrack, super().track)
+
+    def createToolBox(self) -> PianoRollToolBox:
+        return PianoRollToolBox(track=self, context=self.context)
 
     def __addSegment(self, insert_index: int, segment_ref: model.PianoRollSegmentRef) -> None:
         seditor = SegmentEditor(track_editor=self, segment_ref=segment_ref)

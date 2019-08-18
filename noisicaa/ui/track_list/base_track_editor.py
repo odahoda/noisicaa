@@ -23,7 +23,7 @@
 import fractions
 import logging
 import typing
-from typing import Any, Type
+from typing import Any
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -52,8 +52,6 @@ class BaseTrackEditor(
     sizeChanged = QtCore.pyqtSignal(QtCore.QSize)
     currentToolChanged = QtCore.pyqtSignal(tools.ToolType)
 
-    toolBoxClass = None  # type: Type[tools.ToolBox]
-
     def __init__(
             self, *,
             track: music.Track,
@@ -76,6 +74,8 @@ class BaseTrackEditor(
 
         self.scaleXChanged.connect(self.__scaleXChanged)
         self.__scaleXChanged(self.scaleX())
+
+        self.__toolbox = self.createToolBox()
 
     @property
     def track(self) -> music.Track:
@@ -120,19 +120,17 @@ class BaseTrackEditor(
     def purgePaintCaches(self) -> None:
         pass
 
+    def createToolBox(self) -> tools.ToolBox:
+        raise NotImplementedError
+
     def toolBox(self) -> tools.ToolBox:
-        tool_box = self.__editor.currentToolBox()
-        assert isinstance(tool_box, self.toolBoxClass)
-        return tool_box
+        return self.__toolbox
 
     def currentTool(self) -> tools.ToolBase:
-        return self.toolBox().currentTool()
+        return self.__toolbox.currentTool()
 
     def currentToolType(self) -> tools.ToolType:
-        return self.toolBox().currentToolType()
-
-    def toolBoxMatches(self) -> bool:
-        return isinstance(self.__editor.currentToolBox(), self.toolBoxClass)
+        return self.__toolbox.currentToolType()
 
     def playerState(self) -> player_state_lib.PlayerState:
         return self.__player_state
@@ -191,41 +189,34 @@ class BaseTrackEditor(
             evt.modifiers())
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
-        if self.toolBoxMatches():
-            self.toolBox().mouseMoveEvent(self, self._makeMouseEvent(evt))
+        self.__toolbox.mouseMoveEvent(self._makeMouseEvent(evt))
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         self.__editor.setCurrentTrack(self.track)
-        if self.toolBoxMatches():
-            self.toolBox().mousePressEvent(self, self._makeMouseEvent(evt))
+        self.__toolbox.mousePressEvent(self._makeMouseEvent(evt))
 
     def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
-        if self.toolBoxMatches():
-            self.toolBox().mouseReleaseEvent(self, self._makeMouseEvent(evt))
+        self.__toolbox.mouseReleaseEvent(self._makeMouseEvent(evt))
 
     def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
-        if self.toolBoxMatches():
-            self.toolBox().mouseDoubleClickEvent(self, self._makeMouseEvent(evt))
+        self.__toolbox.mouseDoubleClickEvent(self._makeMouseEvent(evt))
 
     def wheelEvent(self, evt: QtGui.QWheelEvent) -> None:
-        if self.toolBoxMatches():
-            evt = QtGui.QWheelEvent(
-                evt.pos() + self.offset(),
-                evt.globalPos(),
-                evt.pixelDelta(),
-                evt.angleDelta(),
-                0,
-                Qt.Horizontal,
-                evt.buttons(),
-                evt.modifiers(),
-                evt.phase(),
-                evt.source())
-            self.toolBox().wheelEvent(self, evt)
+        evt = QtGui.QWheelEvent(
+            evt.pos() + self.offset(),
+            evt.globalPos(),
+            evt.pixelDelta(),
+            evt.angleDelta(),
+            0,
+            Qt.Horizontal,
+            evt.buttons(),
+            evt.modifiers(),
+            evt.phase(),
+            evt.source())
+        self.__toolbox.wheelEvent(evt)
 
     def keyPressEvent(self, evt: QtGui.QKeyEvent) -> None:
-        if self.toolBoxMatches():
-            self.toolBox().keyPressEvent(self, evt)
+        self.__toolbox.keyPressEvent(evt)
 
     def keyReleaseEvent(self, evt: QtGui.QKeyEvent) -> None:
-        if self.toolBoxMatches():
-            self.toolBox().keyReleaseEvent(self, evt)
+        self.__toolbox.keyReleaseEvent(evt)

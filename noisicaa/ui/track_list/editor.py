@@ -22,7 +22,7 @@
 
 import fractions
 import logging
-from typing import cast, Any, Dict, List, Type
+from typing import cast, Any, Dict, List
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -206,27 +206,27 @@ class Editor(
             track_editor = down_cast(base_track_editor.BaseTrackEditor, self.__track_map[track.id])
             self.__current_track_editor = track_editor
 
-            self.setCurrentToolBoxClass(track_editor.toolBoxClass)
+            self.setCurrentToolBox(track_editor.toolBox())
 
         else:
             self.__current_track_editor = None
-            self.setCurrentToolBoxClass(None)
+            self.setCurrentToolBox(None)
 
     def currentToolBox(self) -> tools.ToolBox:
         return self.__current_tool_box
 
-    def setCurrentToolBoxClass(self, cls: Type[tools.ToolBox]) -> None:
-        if type(self.__current_tool_box) is cls:  # pylint: disable=unidiomatic-typecheck
+    def setCurrentToolBox(self, toolbox: tools.ToolBox) -> None:
+        if self.__current_tool_box is toolbox:
             return
-        logger.debug("Switching to tool box class %s", cls)
+        logger.debug("Switching to tool box %s", type(toolbox).__name__)
 
         if self.__current_tool_box is not None:
             self.__current_tool_box.currentToolChanged.disconnect(self.__onCurrentToolChanged)
             self.__onCurrentToolChanged(None)
             self.__current_tool_box = None
 
-        if cls is not None:
-            self.__current_tool_box = cls(context=self.context)
+        if toolbox is not None:
+            self.__current_tool_box = toolbox
             self.__onCurrentToolChanged(self.__current_tool_box.currentTool())
             self.__current_tool_box.currentToolChanged.connect(self.__onCurrentToolChanged)
 

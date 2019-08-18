@@ -23,6 +23,7 @@
 import fractions
 import logging
 import time as time_lib
+import typing
 from typing import Any, Optional, Dict
 
 from PyQt5.QtCore import Qt
@@ -36,10 +37,9 @@ from noisicaa.ui import player_state as player_state_lib
 from . import editor
 from . import time_line
 from . import toolbox
-from . import tools
 
-# TODO: fix cyclic dependency
-ProjectView = Any
+if typing.TYPE_CHECKING:
+    from noisicaa.ui import project_view as project_view_lib
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,6 @@ class Frame(QtWidgets.QFrame):
 
 
 class TrackListView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QSplitter):
-    currentToolBoxChanged = QtCore.pyqtSignal(tools.ToolBox)
     playingChanged = QtCore.pyqtSignal(bool)
     loopEnabledChanged = QtCore.pyqtSignal(bool)
 
@@ -68,7 +67,7 @@ class TrackListView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QSplitt
 
     def __init__(
             self, *,
-            project_view: ProjectView,
+            project_view: 'project_view_lib.ProjectView',
             player_state: player_state_lib.PlayerState,
             **kwargs: Any
     ) -> None:
@@ -93,7 +92,6 @@ class TrackListView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QSplitt
         self.__editor.setXOffset(self.__get_session_value('x_offset', 0))
         self.__editor.setYOffset(self.__get_session_value('y_offset', 0))
 
-        self.__editor.currentToolBoxChanged.connect(self.currentToolBoxChanged)
         self.__editor.scaleXChanged.connect(self.__updateScaleX)
 
         time_line_frame = Frame(self)
