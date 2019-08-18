@@ -121,7 +121,11 @@ class ToolBase(ui_base.ProjectMixin, QtCore.QObject):
     def cursor(self) -> QtGui.QCursor:
         return QtGui.QCursor(Qt.ArrowCursor)
 
+    def activated(self) -> None:
+        pass
 
+    def deactivated(self) -> None:
+        pass
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         pass
@@ -174,6 +178,7 @@ class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
         self.__tool_map[tool.type] = tool
         if self.__current_tool is None:
             self.__current_tool = tool
+            self.tool.activate()
         if tool.group not in self.__current_tool_in_group:
             self.__current_tool_in_group[tool.group] = tool.type
 
@@ -186,7 +191,9 @@ class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
     def setCurrentToolType(self, type: ToolType) -> None:  # pylint: disable=redefined-builtin
         if type != self.__current_tool.type:
             self.__previous_tool = self.__current_tool
+            self.__current_tool.deactivate()
             self.__current_tool = self.__tool_map[type]
+            self.__current_tool.activate()
             self.__current_tool_in_group[self.__current_tool.group] = type
             self.toolTypeChanged.emit(self.__current_tool.type)
             self.currentToolChanged.emit(self.__current_tool)
@@ -194,47 +201,48 @@ class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
     def setPreviousTool(self) -> None:
         if self.__previous_tool is not None:
             if self.__previous_tool is not self.__current_tool:
+                self.__current_tool.deactivate()
                 self.__current_tool = self.__previous_tool
+                self.__current_tool.activate()
                 self.toolTypeChanged.emit(self.__current_tool.type)
                 self.currentToolChanged.emit(self.__current_tool)
             self.__previous_tool = None
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
-        assert self.__current_tool is not None
-        return self.__current_tool.mouseMoveEvent(evt)
+        if self.__current_tool is not None:
+            self.__current_tool.mouseMoveEvent(evt)
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
-        assert self.__current_tool is not None
-        return self.__current_tool.mousePressEvent(evt)
+        if self.__current_tool is not None:
+            self.__current_tool.mousePressEvent(evt)
 
     def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
-        assert self.__current_tool is not None
-        return self.__current_tool.mouseReleaseEvent(evt)
+        if self.__current_tool is not None:
+            self.__current_tool.mouseReleaseEvent(evt)
 
     def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
-        assert self.__current_tool is not None
-        return self.__current_tool.mouseDoubleClickEvent(evt)
+        if self.__current_tool is not None:
+            self.__current_tool.mouseDoubleClickEvent(evt)
 
     def wheelEvent(self, evt: QtGui.QWheelEvent) -> None:
-        assert self.__current_tool is not None
-        return self.__current_tool.wheelEvent(evt)
+        if self.__current_tool is not None:
+            self.__current_tool.wheelEvent(evt)
 
     def keyPressEvent(self, evt: QtGui.QKeyEvent) -> None:
-        assert self.__current_tool is not None
+        if self.__current_tool is not None:
+            if (not evt.isAutoRepeat()
+                    and evt.modifiers() == Qt.KeypadModifier
+                    and evt.key() == Qt.Key_Plus):
+                group_idx = self.__groups.index(self.__current_tool.group)
+                group_idx = (group_idx + 1) % len(self.__groups)
+                group = self.__groups[group_idx]
+                tool = self.__current_tool_in_group[group]
+                self.setCurrentToolType(tool)
+                evt.accept()
+                return
 
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.KeypadModifier
-                and evt.key() == Qt.Key_Plus):
-            group_idx = self.__groups.index(self.__current_tool.group)
-            group_idx = (group_idx + 1) % len(self.__groups)
-            group = self.__groups[group_idx]
-            tool = self.__current_tool_in_group[group]
-            self.setCurrentToolType(tool)
-            evt.accept()
-            return
-
-        return self.__current_tool.keyPressEvent(evt)
+            self.__current_tool.keyPressEvent(evt)
 
     def keyReleaseEvent(self, evt: QtGui.QKeyEvent) -> None:
-        assert self.__current_tool is not None
-        return self.__current_tool.keyReleaseEvent(evt)
+        if self.__current_tool is not None:
+            self.__current_tool.keyReleaseEvent(evt)

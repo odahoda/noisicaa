@@ -174,6 +174,8 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
     gridHeightChanged = QtCore.pyqtSignal(int)
     gridXSize, setGridXSize, gridXSizeChanged = slots.slot(fractions.Fraction, 'gridXSize', default=fractions.Fraction(4*80))
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
+    readOnly, setReadOnly, readOnlyChanged = slots.slot(bool, 'readOnly', default=True)
+    hoverNote, setHoverNote, hoverNoteChanged = slots.slot(int, 'hoverNote', default=-1)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -182,13 +184,21 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         self.__black_key_color = QtGui.QColor(230, 230, 230)
         self.__grid_color = QtGui.QColor(200, 200, 200)
         self.__note_color = QtGui.QColor(100, 100, 255)
+        self.__add_interval_color = QtGui.QColor(180, 180, 255)
         self.__playback_position_color = QtGui.QColor(0, 0, 0)
 
         self.__next_event_id = 0
         self.__events = {}  # type: Dict[int, value_types.MidiEvent]
         self.__sorted_events = sortedcontainers.SortedList()
 
+        self.__action = None  # type: str
+        self.__interval_note = None  # type: int
+        self.__interval_start_time = None  # type: audioproc.MusicalTime
+        self.__interval_end_time = None  # type: audioproc.MusicalTime
+
         self.setMinimumSize(100, 50)
+        self.setMouseTracking(not self.readOnly())
+        self.readOnlyChanged.connect(lambda _: self.setMouseTracking(not self.readOnly()))
 
         self.playbackPositionChanged.connect(lambda _: self.update())
         self.durationChanged.connect(lambda _: self.update())
@@ -206,6 +216,15 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
     def sizeHint(self) -> QtCore.QSize:
         return QtCore.QSize(self.gridWidth(), 24 * self.gridYSize())
+
+    def __noteAt(self, y: int) -> int:
+        row, offset = divmod(y, self.gridYSize())
+        if 0 <= row <= 127 and self.gridYSize() <= 3 or offset != 0:
+            return 127 - row
+        return -1
+
+    def leaveEvent(self, evt: QtCore.QEvent) -> None:
+        self.setHoverNote(-1)
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)
@@ -270,6 +289,20 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                         painter.fillRect(
                             x1, y + 1, x2 - x1, grid_y_size - 1, self.__note_color)
 
+            if self.__action == 'add-interval' and self.__interval_end_time is not None:
+                assert self.__interval_start_time is not None
+                assert self.__interval_end_time is not None
+                start_time = self.__interval_start_time
+                end_time = self.__interval_end_time
+                if start_time > end_time:
+                    start_time, end_time = end_time, start_time
+                if start_time != end_time:
+                    y = (127 - self.__interval_note) * grid_y_size
+                    x1 = int(start_time * grid_x_size)
+                    x2 = int(end_time * grid_x_size)
+                    painter.fillRect(
+                        x1, y + 1, x2 - x1, grid_y_size - 1, self.__add_interval_color)
+
             playback_position = self.playbackPosition()
             if playback_position.numerator >= 0:
                 x = int(playback_position * grid_x_size)
@@ -277,6 +310,64 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
         finally:
             painter.end()
+
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if self.readOnly():
+            super().mousePressEvent(evt)
+            return
+
+        if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
+            note = self.__noteAt(evt.pos().y() + self.yOffset())
+            if note >= 0:
+                self.__action = 'add-interval'
+                self.__interval_note = note
+                self.__interval_start_time = audioproc.MusicalTime((evt.pos().x() + self.xOffset()) / self.gridXSize())
+                self.__interval_end_time = self.__interval_start_time
+            evt.accept()
+            return
+
+        if evt.button() == Qt.RightButton and self.__action == 'add-interval':
+            self.__action = None
+            self.update()
+            evt.accept()
+            return
+
+        super().mousePressEvent(evt)
+
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if self.readOnly():
+            super().mouseMoveEvent(evt)
+            return
+
+        if self.__action == 'add-interval':
+            self.__interval_end_time = audioproc.MusicalTime((evt.pos().x() + self.xOffset()) / self.gridXSize())
+            self.update()
+            evt.accept()
+            return
+
+        self.setHoverNote(self.__noteAt(evt.pos().y() + self.yOffset()))
+
+        super().mousePressEvent(evt)
+
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if self.readOnly():
+            super().mouseReleaseEvent(evt)
+            return
+
+        if evt.button() == Qt.LeftButton and self.__action == 'add-interval':
+            start_time = self.__interval_start_time
+            end_time = self.__interval_end_time
+            if start_time > end_time:
+                start_time, end_time = end_time, start_time
+            if start_time != end_time:
+                self.addEvent(value_types.MidiEvent(start_time, bytes([0x90, self.__interval_note, 100])))
+                self.addEvent(value_types.MidiEvent(end_time, bytes([0x80, self.__interval_note, 0])))
+            self.__action = None
+            self.update()
+            evt.accept()
+            return
+
+        super().mouseReleaseEvent(evt)
 
     def clearEvents(self) -> None:
         self.__sorted_events.clear()

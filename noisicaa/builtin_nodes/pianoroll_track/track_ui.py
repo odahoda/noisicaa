@@ -60,6 +60,20 @@ class ArrangeSegmentsTool(tools.ToolBase):
     def iconName(self) -> str:
         return 'arrange-pianoroll-segments'
 
+    def activated(self) -> None:
+        for seditor in self.track.segments:
+            seditor.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+            seditor.setReadOnly(True)
+
+        super().activated()
+
+    def deactivated(self) -> None:
+        for seditor in self.track.segments:
+            seditor.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            seditor.setReadOnly(False)
+
+        super().deactivated()
+
     def __segmentAt(self, x: int) -> 'SegmentEditor':
         for seditor in self.track.segments:
             if seditor.trackX() <= x < seditor.trackX() + seditor.width():
@@ -198,24 +212,23 @@ class EditEventsTool(tools.ToolBase):
     def iconName(self) -> str:
         return 'edit-pianoroll-events'
 
+    def activated(self) -> None:
+        logger.error("EditEventsTool.activated()")
+        super().activated()
 
-class PianoRollToolBox(tools.ToolBox):
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.addTool(ArrangeSegmentsTool)
-        self.addTool(EditEventsTool)
+    def deactivated(self) -> None:
+        logger.error("EditEventsTool.deactivated()")
+        super().deactivated()
 
 
 class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, QtWidgets.QWidget):
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
     scaleX, setScaleX, scaleXChanged = slots.slot(fractions.Fraction, 'scaleX', default=fractions.Fraction(4*80))
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
+    readOnly, setReadOnly, readOnlyChanged = slots.slot(bool, 'readOnly', default=True)
 
     def __init__(self, track_editor: 'PianoRollTrackEditor', segment_ref: model.PianoRollSegmentRef) -> None:
         super().__init__(parent=track_editor)
-
-        self.setAttribute(Qt.WA_TransparentForMouseEvents)
 
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
@@ -231,10 +244,13 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, QtWidgets.QWidge
         self.__grid.move(0, -self.yOffset())
         self.__grid.setGridXSize(self.scaleX())
         self.__grid.setDuration(self.__segment.duration)
+        self.__grid.setReadOnly(self.readOnly())
+        self.__grid.hoverNoteChanged.connect(self.__track_editor.setHoverNote)
 
         self.scaleXChanged.connect(self.__grid.setGridXSize)
         self.gridYSizeChanged.connect(self.__grid.setGridYSize)
         self.yOffsetChanged.connect(lambda _: self.__grid.move(0, -self.yOffset()))
+        self.readOnlyChanged.connect(self.__grid.setReadOnly)
 
     def __timeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
         self.move(self.__track_editor.timeToX(change.new_value) - self.__track_editor.xOffset(), 0)
@@ -270,6 +286,7 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, QtWidgets.QWidge
 class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMixin, base_track_editor.BaseTrackEditor):
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
+    hoverNote, setHoverNote, hoverNoteChanged = slots.slot(int, 'hoverNote', default=-1)
 
     def __init__(self, **kwargs: Any) -> None:
         self.segments = []  # type: List[SegmentEditor]
@@ -279,11 +296,14 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
 
+        self.__hover_note = -1
+
         self.__keys = pianoroll.PianoKeys(parent=self)
         self.__keys.setYOffset(self.yOffset())
         self.yOffsetChanged.connect(self.__keys.setYOffset)
         self.__keys.setGridYSize(self.gridYSize())
         self.gridYSizeChanged.connect(self.__keys.setGridYSize)
+        self.hoverNoteChanged.connect(self.__hoverNoteChanged)
 
         self.__y_scrollbar = QtWidgets.QScrollBar(orientation=Qt.Vertical, parent=self)
         self.__y_scrollbar.setFixedWidth(16)
@@ -310,8 +330,11 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
     def track(self) -> model.PianoRollTrack:
         return down_cast(model.PianoRollTrack, super().track)
 
-    def createToolBox(self) -> PianoRollToolBox:
-        return PianoRollToolBox(track=self, context=self.context)
+    def createToolBox(self) -> tools.ToolBox:
+        toolbox = tools.ToolBox(track=self, context=self.context)
+        toolbox.addTool(ArrangeSegmentsTool)
+        toolbox.addTool(EditEventsTool)
+        return toolbox
 
     def __addSegment(self, insert_index: int, segment_ref: model.PianoRollSegmentRef) -> None:
         seditor = SegmentEditor(track_editor=self, segment_ref=segment_ref)
@@ -345,6 +368,14 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
 
         else:
             raise TypeError(type(change))
+
+    def __hoverNoteChanged(self, note: int) -> None:
+        if self.__hover_note >= 0:
+            self.__keys.noteOff(self.__hover_note)
+
+        self.__hover_note = note
+        if self.__hover_note >= 0:
+            self.__keys.noteOn(self.__hover_note)
 
     def setIsCurrent(self, is_current: bool) -> None:
         super().setIsCurrent(is_current)
