@@ -43,10 +43,10 @@ from . import model
 logger = logging.getLogger(__name__)
 
 
-class EditSegmentsTool(tools.ToolBase):
+class ArrangeSegmentsTool(tools.ToolBase):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(
-            type=tools.ToolType.EDIT_PIANOROLL_SEGMENTS,
+            type=tools.ToolType.ARRANGE_PIANOROLL_SEGMENTS,
             group=tools.ToolGroup.EDIT,
             **kwargs)
 
@@ -56,7 +56,7 @@ class EditSegmentsTool(tools.ToolBase):
         self.__handle_offset = None  # type: int
 
     def iconName(self) -> str:
-        return 'edit-pianoroll-segments'
+        return 'arrange-pianoroll-segments'
 
     def __segmentAt(self, track_editor: 'PianoRollTrack', x: int) -> 'SegmentEditor':
         for seditor in track_editor.segments:
@@ -194,11 +194,23 @@ class EditSegmentsTool(tools.ToolBase):
         super().mouseDoubleClickEvent(target, evt)
 
 
+class EditEventsTool(tools.ToolBase):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(
+            type=tools.ToolType.EDIT_PIANOROLL_EVENTS,
+            group=tools.ToolGroup.EDIT,
+            **kwargs)
+
+    def iconName(self) -> str:
+        return 'edit-pianoroll-events'
+
+
 class PianoRollToolBox(tools.ToolBox):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.addTool(EditSegmentsTool(context=self.context))
+        self.addTool(ArrangeSegmentsTool(context=self.context))
+        self.addTool(EditEventsTool(context=self.context))
 
 
 class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, QtWidgets.QWidget):

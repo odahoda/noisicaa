@@ -74,7 +74,8 @@ class ToolType(enum.IntEnum):
     EDIT_BEATS = 501
     EDIT_CONTROL_POINTS = 502
     EDIT_SAMPLES = 503
-    EDIT_PIANOROLL_SEGMENTS = 504
+    ARRANGE_PIANOROLL_SEGMENTS = 504
+    EDIT_PIANOROLL_EVENTS = 505
 
     @property
     def is_note(self) -> bool:
