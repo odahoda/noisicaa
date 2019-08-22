@@ -76,6 +76,7 @@ def register_classes(pool: music.Pool) -> None:
     pool.register_class(pianoroll_track.PianoRollTrack)
     pool.register_class(pianoroll_track.PianoRollSegment)
     pool.register_class(pianoroll_track.PianoRollSegmentRef)
+    pool.register_class(pianoroll_track.PianoRollEvent)
     pool.register_class(instrument.Instrument)
     pool.register_class(custom_csound.CustomCSoundPort)
     pool.register_class(custom_csound.CustomCSound)

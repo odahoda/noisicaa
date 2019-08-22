@@ -19,6 +19,18 @@
 # @end:license
 
 classes {
+  name: "PianoRollEvent"
+  super_class: "noisicaa.music.model_base.ProjectChild"
+  proto_ext_name: "pianoroll_event"
+  properties {
+    name: "midi_event"
+    type: WRAPPED_PROTO
+    wrapped_type: "noisicaa.value_types.MidiEvent"
+    proto_id: 1
+  }
+}
+
+classes {
   name: "PianoRollSegment"
   super_class: "noisicaa.music.model_base.ProjectChild"
   proto_ext_name: "pianoroll_segment"
@@ -30,8 +42,8 @@ classes {
   }
   properties {
     name: "events"
-    type: WRAPPED_PROTO_LIST
-    wrapped_type: "noisicaa.value_types.MidiEvent"
+    type: OBJECT_LIST
+    obj_type: "PianoRollEvent"
     proto_id: 2
   }
 }

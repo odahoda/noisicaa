@@ -22,7 +22,7 @@
 
 import fractions
 import logging
-from typing import Any, List
+from typing import Any, Dict, List, Sequence
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -33,6 +33,7 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
+from noisicaa.ui import ui_base
 from noisicaa.ui import pianoroll
 from noisicaa.ui import slots
 from noisicaa.ui.track_list import tools
@@ -212,23 +213,15 @@ class EditEventsTool(tools.ToolBase):
     def iconName(self) -> str:
         return 'edit-pianoroll-events'
 
-    def activated(self) -> None:
-        logger.error("EditEventsTool.activated()")
-        super().activated()
 
-    def deactivated(self) -> None:
-        logger.error("EditEventsTool.deactivated()")
-        super().deactivated()
-
-
-class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, QtWidgets.QWidget):
+class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectMixin, QtWidgets.QWidget):
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
     scaleX, setScaleX, scaleXChanged = slots.slot(fractions.Fraction, 'scaleX', default=fractions.Fraction(4*80))
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
     readOnly, setReadOnly, readOnlyChanged = slots.slot(bool, 'readOnly', default=True)
 
-    def __init__(self, track_editor: 'PianoRollTrackEditor', segment_ref: model.PianoRollSegmentRef) -> None:
-        super().__init__(parent=track_editor)
+    def __init__(self, *, track_editor: 'PianoRollTrackEditor', segment_ref: model.PianoRollSegmentRef, **kwargs) -> None:
+        super().__init__(parent=track_editor, **kwargs)
 
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
@@ -246,6 +239,16 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, QtWidgets.QWidge
         self.__grid.setDuration(self.__segment.duration)
         self.__grid.setReadOnly(self.readOnly())
         self.__grid.hoverNoteChanged.connect(self.__track_editor.setHoverNote)
+        self.__listeners.add(self.__grid.mutations.add(self.__gridMutations))
+
+        self.__ignore_model_mutations = False
+        self.__obj_to_grid_map = {}  # type: Dict[int, int]
+        self.__grid_to_obj_map = {}  # type: Dict[int, int]
+        for event in self.__segment.events:
+            event_id = self.__grid.addEvent(event.midi_event)
+            self.__grid_to_obj_map[event_id] = event
+            self.__obj_to_grid_map[event.id] = event_id
+        self.__listeners.add(self.__segment.events_changed.add(self.__eventsChanged))
 
         self.scaleXChanged.connect(self.__grid.setGridXSize)
         self.gridYSizeChanged.connect(self.__grid.setGridYSize)
@@ -258,6 +261,47 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, QtWidgets.QWidge
     def __durationChanged(self, change: music.PropertyValueChange[audioproc.MusicalDuration]) -> None:
         self.__grid.setDuration(change.new_value)
         self.resize(int(self.__track_editor.scaleX() * change.new_value.fraction) + 1, self.__track_editor.height())
+
+    def __eventsChanged(self, change: music.PropertyListChange[model.PianoRollEvent]) -> None:
+        if self.__ignore_model_mutations:
+            return
+
+        if isinstance(change, music.PropertyListInsert):
+            event = change.new_value
+            grid_id = self.__grid.addEvent(event.midi_event)
+            self.__grid_to_obj_map[grid_id] = event
+            self.__obj_to_grid_map[event.id] = grid_id
+
+        elif isinstance(change, music.PropertyListDelete):
+            event = change.old_value
+            grid_id = self.__obj_to_grid_map[event.id]
+            self.__grid.removeEvent(grid_id)
+            del self.__grid_to_obj_map[grid_id]
+            del self.__obj_to_grid_map[event.id]
+
+        else:
+            raise ValueError(type(change))
+
+    def __gridMutations(self, mutations: Sequence[pianoroll.Mutation]) -> None:
+        self.__ignore_model_mutations = True
+        try:
+            with self.project.apply_mutations('%s: Edit MIDI events' % self.__track_editor.track.name):
+                for mutation in mutations:
+                    if isinstance(mutation, pianoroll.AddEvent):
+                        event = self.__segment.append_event(mutation.event)
+                        self.__grid_to_obj_map[mutation.event_id] = event
+                        self.__obj_to_grid_map[event.id] = mutation.event_id
+
+                    elif isinstance(mutation, pianoroll.RemoveEvent):
+                        event = self.__grid_to_obj_map[mutation.event_id]
+                        del self.__segment.events[event.index]
+                        del self.__grid_to_obj_map[mutation.event_id]
+                        del self.__obj_to_grid_map[event.id]
+
+                    else:
+                        raise ValueError(type(mutation))
+        finally:
+            self.__ignore_model_mutations = False
 
     def trackX(self) -> int:
         return self.x() + self.__track_editor.xOffset()
@@ -337,7 +381,7 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         return toolbox
 
     def __addSegment(self, insert_index: int, segment_ref: model.PianoRollSegmentRef) -> None:
-        seditor = SegmentEditor(track_editor=self, segment_ref=segment_ref)
+        seditor = SegmentEditor(track_editor=self, segment_ref=segment_ref, context=self.context)
         self.segments.insert(insert_index, seditor)
         seditor.setEnabled(self.isCurrent())
         seditor.resize(int(self.scaleX() * segment_ref.segment.duration.fraction) + 1, self.height())

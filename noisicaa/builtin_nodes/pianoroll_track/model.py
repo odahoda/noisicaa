@@ -25,6 +25,7 @@ from typing import Any, Callable
 
 from noisicaa import audioproc
 from noisicaa import node_db
+from noisicaa import value_types
 from noisicaa.music import node_connector
 from . import node_description
 from . import _model
@@ -39,11 +40,23 @@ class PianoRollTrackConnector(node_connector.NodeConnector):
         pass
 
 
+class PianoRollEvent(_model.PianoRollEvent):
+    def create(self, *, midi_event: value_types.MidiEvent, **kwargs: Any) -> None:
+        super().create(**kwargs)
+
+        self.midi_event = midi_event
+
+
 class PianoRollSegment(_model.PianoRollSegment):
     def create(self, *, duration: audioproc.MusicalDuration, **kwargs: Any) -> None:
         super().create(**kwargs)
 
         self.duration = duration
+
+    def append_event(self, midi_event: value_types.MidiEvent) -> PianoRollEvent:
+        event = self._pool.create(PianoRollEvent, midi_event=midi_event)
+        self.events.append(event)
+        return event
 
 
 class PianoRollSegmentRef(_model.PianoRollSegmentRef):

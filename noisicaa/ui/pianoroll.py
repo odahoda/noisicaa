@@ -23,7 +23,7 @@
 import enum
 import fractions
 import logging
-from typing import Any, Dict, Set
+from typing import Any, Dict, Set, Sequence
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -31,6 +31,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 import sortedcontainers
 
+from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import value_types
 from . import slots
@@ -159,6 +160,20 @@ class UnfinishedNoteMode(enum.Enum):
     ToEnd = 3
 
 
+class Mutation(object):
+    def __init__(self, event_id: int, event: value_types.MidiEvent) -> None:
+        self.event_id = event_id
+        self.event = event
+
+
+class AddEvent(Mutation):
+    pass
+
+
+class RemoveEvent(Mutation):
+    pass
+
+
 class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
     duration, setDuration, durationChanged = slots.slot(
         audioproc.MusicalDuration, 'duration', default=audioproc.MusicalDuration(8, 4))
@@ -198,6 +213,8 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
+
+        self.mutations = core.Callback[Sequence[Mutation]]()
 
         self.__bg_color = QtGui.QColor(245, 245, 245)
         self.__black_key_color = QtGui.QColor(230, 230, 230)
@@ -360,6 +377,36 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
             evt.accept()
             return
 
+        if evt.button() == Qt.MiddleButton and evt.modifiers() == Qt.NoModifier:
+            note = self.__noteAt(evt.pos().y() + self.yOffset())
+            if note >= 0:
+                time = audioproc.MusicalTime((evt.pos().x() + self.xOffset()) / self.gridXSize())
+                start_event = None
+                start_event_id = None
+                for event, event_id in self.__sorted_events:
+                    if event.midi[0] & 0xf0 not in (0x80, 0x90) or event.midi[1] != note:
+                        continue
+
+                    if start_event is not None and start_event.time <= time < event.time:
+                        mutations = []
+                        self.removeEvent(start_event_id)
+                        mutations.append(RemoveEvent(start_event_id, start_event))
+                        if event.midi[0] & 0xf0 == 0x80:
+                            self.removeEvent(event_id)
+                            mutations.append(RemoveEvent(event_id, event))
+                        self.mutations.call(mutations)
+                        break
+
+                    if event.midi[0] & 0xf0 == 0x90:
+                        start_event = event
+                        start_event_id = event_id
+                    elif event.midi[0] & 0xf0 == 0x80:
+                        start_event = None
+                        start_event_id = None
+
+            evt.accept()
+            return
+
         if evt.button() == Qt.RightButton and self.__action == 'add-interval':
             self.__action = None
             self.update()
@@ -393,9 +440,16 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
             end_time = self.__interval_end_time
             if start_time > end_time:
                 start_time, end_time = end_time, start_time
+
             if start_time != end_time:
-                self.addEvent(value_types.MidiEvent(start_time, bytes([0x90, self.__interval_note, 100])))
-                self.addEvent(value_types.MidiEvent(end_time, bytes([0x80, self.__interval_note, 0])))
+                mutations = []
+                for event in [
+                        value_types.MidiEvent(start_time, bytes([0x90, self.__interval_note, 100])),
+                        value_types.MidiEvent(end_time, bytes([0x80, self.__interval_note, 0]))]:
+                    event_id = self.addEvent(event)
+                    mutations.append(AddEvent(event_id, event))
+                self.mutations.call(mutations)
+
             self.__action = None
             self.update()
             evt.accept()
