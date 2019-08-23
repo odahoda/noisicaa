@@ -63,7 +63,7 @@ public:
   AudioFile* current_audio_file = nullptr;
   uint32_t file_offset;
 
-  void apply_mutation(pb::ProcessorMessage* msg) override;
+  void apply_mutation(Logger* logger, pb::ProcessorMessage* msg) override;
 
 private:
   Logger* _logger;

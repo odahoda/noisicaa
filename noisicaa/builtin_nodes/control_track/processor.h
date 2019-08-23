@@ -56,7 +56,7 @@ public:
   int offset = -1;
   MusicalTime current_time = MusicalTime(0, 1);
 
-  void apply_mutation(pb::ProcessorMessage* msg) override;
+  void apply_mutation(Logger* logger, pb::ProcessorMessage* msg) override;
 
 private:
 };

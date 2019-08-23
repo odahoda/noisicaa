@@ -56,7 +56,7 @@ SampleScript::~SampleScript() {
   }
 }
 
-void SampleScript::apply_mutation(pb::ProcessorMessage* msg) {
+void SampleScript::apply_mutation(Logger* logger, pb::ProcessorMessage* msg) {
   if (msg->HasExtension(pb::sample_script_add_sample)) {
     const pb::SampleScriptAddSample& m =
       msg->GetExtension(pb::sample_script_add_sample);
