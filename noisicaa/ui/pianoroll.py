@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
+    scrollable, setScrollable, scrollableChanged = slots.slot(bool, 'scrollable', default=False)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -61,9 +62,14 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
         self.__active_key_edge1_color = QtGui.QColor(200, 200, 255)
         self.__active_key_edge2_color = QtGui.QColor(100, 100, 160)
 
+        self.__scrolling = False
+        self.__prev_y = 0
         self.__active_keys = set()  # type: Set[int]
 
         self.yOffsetChanged.connect(lambda _: self.update())
+
+    def gridHeight(self) -> int:
+        return 128 * self.gridYSize() + 1
 
     def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
         painter = QtGui.QPainter(self)
@@ -144,6 +150,38 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
 
         finally:
             painter.end()
+
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if not self.scrollable():
+            super().mousePressEvent(evt)
+            return
+
+        if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
+            self.__scrolling = True
+            self.__prev_y = evt.pos().y()
+            evt.accept()
+            return
+
+        super().mousePressEvent(evt)
+
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if self.__scrolling:
+            dy = evt.pos().y() - self.__prev_y
+            self.__prev_y = evt.pos().y()
+            self.setYOffset(
+                max(0, min(self.gridHeight() - self.height(), self.yOffset() - dy)))
+            evt.accept()
+            return
+
+        super().mousePressEvent(evt)
+
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if evt.button() == Qt.LeftButton and self.__scrolling:
+            self.__scrolling = False
+            evt.accept()
+            return
+
+        super().mouseReleaseEvent(evt)
 
     def noteOn(self, note: int) -> None:
         self.__active_keys.add(note)
