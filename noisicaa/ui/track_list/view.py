@@ -166,7 +166,7 @@ class TrackListView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QSplitt
             self.__session_data_last_update[key] = time_lib.time()
 
     def __updateScaleX(self, scale: fractions.Fraction) -> None:
-        self.__lazy_set_session_value('scale_x', scale)
+        self.__set_session_value('scale_x', scale)
 
     def __updateXOffset(self, offset: int) -> None:
         self.__lazy_set_session_value('x_offset', offset)
