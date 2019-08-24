@@ -31,3 +31,4 @@ def build(ctx):
     ctx.py_module('track_ui.py')
     ctx.py_test('track_ui_test.py')
     ctx.py_proto('model.proto')
+    ctx.py_module('processor_messages.py')
