@@ -49,7 +49,7 @@ def _fill_midi_maps(note_to_midi: Dict[str, int], midi_to_note: Dict[int, str]) 
     ]  # type: List[Tuple[str, ...]]
 
     k = 0
-    for o in range(10):
+    for o in range(11):
         for n in note_names:
             if k < 128:
                 for p in n:
