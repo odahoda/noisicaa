@@ -21,7 +21,9 @@
 # @end:license
 
 import fractions
+import functools
 import logging
+import os.path
 from typing import Any, Dict, List, Sequence
 
 from PyQt5.QtCore import Qt
@@ -30,6 +32,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa.core.typing_extra import down_cast
+from noisicaa import constants
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
@@ -251,7 +254,7 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
         self.__listeners.add(self.__segment.events_changed.add(self.__eventsChanged))
 
         self.scaleXChanged.connect(self.__grid.setGridXSize)
-        self.gridYSizeChanged.connect(self.__grid.setGridYSize)
+        self.gridYSizeChanged.connect(self.__gridYSizeChanged)
         self.yOffsetChanged.connect(lambda _: self.__grid.move(0, -self.yOffset()))
         self.readOnlyChanged.connect(self.__grid.setReadOnly)
 
@@ -303,6 +306,10 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
         finally:
             self.__ignore_model_mutations = False
 
+    def __gridYSizeChanged(self, size: int) -> None:
+        self.__grid.setGridYSize(size)
+        self.__grid.resize(self.width(), self.__grid.gridHeight())
+
     def trackX(self) -> int:
         return self.x() + self.__track_editor.xOffset()
 
@@ -332,10 +339,16 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
     hoverNote, setHoverNote, hoverNoteChanged = slots.slot(int, 'hoverNote', default=-1)
 
+    MIN_GRID_Y_SIZE = 2
+    MAX_GRID_Y_SIZE = 64
+
     def __init__(self, **kwargs: Any) -> None:
         self.segments = []  # type: List[SegmentEditor]
 
         super().__init__(**kwargs)
+
+        self.__session_prefix = 'pianoroll-track:%016x:' % self.track.id
+        self.__first_show = True
 
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
@@ -356,6 +369,7 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.__y_scrollbar.setPageStep(self.height())
         self.__y_scrollbar.setValue(self.yOffset())
 
+        self.yOffsetChanged.connect(self.__y_scrollbar.setValue)
         self.__y_scrollbar.valueChanged.connect(self.setYOffset)
 
         for segment_ref in self.track.segments:
@@ -389,6 +403,8 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         seditor.setScaleX(self.scaleX())
         seditor.setYOffset(self.yOffset())
         self.yOffsetChanged.connect(seditor.setYOffset)
+        seditor.setGridYSize(self.gridYSize())
+        self.gridYSizeChanged.connect(seditor.setGridYSize)
         seditor.show()
 
         self.__keys.raise_()
@@ -426,6 +442,9 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         for segment in self.segments:
             segment.setEnabled(is_current)
 
+    def gridHeight(self) -> int:
+        return 128 * self.gridYSize() + 1
+
     def __repositionSegments(self) -> None:
         for segment in self.segments:
             segment.move(self.timeToX(segment.startTime()) - self.xOffset(), 0)
@@ -437,9 +456,65 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
             seditor.setScaleX(self.scaleX())
 
     def __updateYScrollbar(self) -> None:
-        grid_height = 128 * self.gridYSize() + 1
-        self.__y_scrollbar.setRange(0, max(0, grid_height - self.height()))
+        self.__y_scrollbar.setRange(0, max(0, self.gridHeight() - self.height()))
         self.__y_scrollbar.setPageStep(self.height())
+
+    def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
+        super().buildContextMenu(menu, pos)
+
+        view_menu = menu.addMenu("View")
+
+        increase_row_height_button = QtWidgets.QToolButton()
+        increase_row_height_button.setAutoRaise(True)
+        increase_row_height_button.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'zoom-in.svg')))
+        increase_row_height_button.setEnabled(self.gridYSize() < self.MAX_GRID_Y_SIZE)
+        decrease_row_height_button = QtWidgets.QToolButton()
+        decrease_row_height_button.setAutoRaise(True)
+        decrease_row_height_button.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'zoom-out.svg')))
+        decrease_row_height_button.setEnabled(self.gridYSize() > self.MIN_GRID_Y_SIZE)
+
+        row_height_label = QtWidgets.QLabel("%dpx" % self.gridYSize())
+
+        increase_row_height_button.clicked.connect(functools.partial(
+            self.__changeRowHeight,
+            1, row_height_label, increase_row_height_button, decrease_row_height_button))
+        decrease_row_height_button.clicked.connect(functools.partial(
+            self.__changeRowHeight,
+            -1, row_height_label, increase_row_height_button, decrease_row_height_button))
+
+        row_height_widget = QtWidgets.QWidget()
+        l = QtWidgets.QHBoxLayout()
+        l.setContentsMargins(10, 2, 10, 2)
+        l.setSpacing(4)
+        l.addWidget(QtWidgets.QLabel("Row height:"))
+        l.addWidget(decrease_row_height_button)
+        l.addWidget(row_height_label)
+        l.addWidget(increase_row_height_button)
+        l.addStretch(1)
+        row_height_widget.setLayout(l)
+
+        row_height_action = QtWidgets.QWidgetAction(self)
+        row_height_action.setDefaultWidget(row_height_widget)
+        view_menu.addAction(row_height_action)
+
+    def __changeRowHeight(
+            self,
+            delta: int,
+            label: QtWidgets.QLabel,
+            increase_button: QtWidgets.QToolButton,
+            decrease_button: QtWidgets.QToolButton
+    ) -> None:
+        pos = (self.yOffset() + self.height() / 2) / self.gridHeight()
+        self.setGridYSize(
+            max(self.MIN_GRID_Y_SIZE, min(self.MAX_GRID_Y_SIZE, self.gridYSize() + delta)))
+        self.setYOffset(
+            max(0, min(self.gridHeight() - self.height(),
+                       int(pos * self.gridHeight() - self.height() / 2))))
+        label.setText("%dpx" % self.gridYSize())
+        increase_button.setEnabled(self.gridYSize() < self.MAX_GRID_Y_SIZE)
+        decrease_button.setEnabled(self.gridYSize() > self.MIN_GRID_Y_SIZE)
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)
@@ -454,6 +529,23 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
 
         for segment in self.segments:
             segment.resize(segment.width(), self.height())
+
+    def showEvent(self, evt: QtGui.QShowEvent) -> None:
+        super().showEvent(evt)
+
+        if self.__first_show:
+            self.setGridYSize(self.get_session_value(self.__session_prefix + 'grid-y-size', 15))
+            self.gridYSizeChanged.connect(
+                functools.partial(self.set_session_value, self.__session_prefix + 'grid-y-size'))
+
+            default_y_offset = max(0, min(self.gridHeight() - self.height(),
+                                          self.gridHeight() - self.height()) // 2)
+            self.setYOffset(self.get_session_value(
+                self.__session_prefix + 'y-offset', default_y_offset))
+            self.yOffsetChanged.connect(
+                functools.partial(self.set_session_value, self.__session_prefix + 'y-offset'))
+
+            self.__first_show = False
 
     def _paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
         painter.setPen(Qt.black)
