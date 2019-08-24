@@ -330,7 +330,7 @@ class Editor(
             evt.accept()
             return
 
-        elif evt.modifiers() == Qt.NoModifier:
+        elif evt.modifiers() == Qt.ControlModifier:
             offset = self.yOffset()
             offset -= evt.angleDelta().y()
             offset = min(self.maximumYOffset(), offset)

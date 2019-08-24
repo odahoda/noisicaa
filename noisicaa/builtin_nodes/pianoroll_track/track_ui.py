@@ -549,6 +549,22 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
 
             self.__first_show = False
 
+    def wheelEvent(self, evt: QtGui.QWheelEvent) -> None:
+        if evt.modifiers() == Qt.NoModifier:
+            offset = self.yOffset()
+            if evt.angleDelta().y() > 0:
+                offset -= 3 * self.gridYSize()
+            elif evt.angleDelta().y() < 0:
+                offset += 3 * self.gridYSize()
+            offset = min(self.gridHeight() - self.height(), offset)
+            offset = max(0, offset)
+            if offset != self.yOffset():
+                self.setYOffset(offset)
+                evt.accept()
+                return
+
+        super().wheelEvent(evt)
+
     def _paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
         painter.setPen(Qt.black)
 
