@@ -241,7 +241,7 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
         self.__grid.setGridXSize(self.scaleX())
         self.__grid.setDuration(self.__segment.duration)
         self.__grid.setReadOnly(self.readOnly())
-        self.__grid.hoverNoteChanged.connect(self.__track_editor.setHoverNote)
+        self.__grid.hoverPitchChanged.connect(self.__track_editor.setHoverPitch)
         self.__listeners.add(self.__grid.mutations.add(self.__gridMutations))
 
         self.__ignore_model_mutations = False
@@ -337,7 +337,7 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
 class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMixin, base_track_editor.BaseTrackEditor):
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
-    hoverNote, setHoverNote, hoverNoteChanged = slots.slot(int, 'hoverNote', default=-1)
+    hoverPitch, setHoverPitch, hoverPitchChanged = slots.slot(int, 'hoverPitch', default=-1)
 
     MIN_GRID_Y_SIZE = 2
     MAX_GRID_Y_SIZE = 64
@@ -353,7 +353,7 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
 
-        self.__hover_note = -1
+        self.__hover_pitch = -1
 
         self.__keys = pianoroll.PianoKeys(parent=self)
         self.__keys.setScrollable(True)
@@ -362,7 +362,7 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.yOffsetChanged.connect(self.__keys.setYOffset)
         self.__keys.setGridYSize(self.gridYSize())
         self.gridYSizeChanged.connect(self.__keys.setGridYSize)
-        self.hoverNoteChanged.connect(self.__hoverNoteChanged)
+        self.hoverPitchChanged.connect(self.__hoverPitchChanged)
 
         self.__y_scrollbar = QtWidgets.QScrollBar(orientation=Qt.Vertical, parent=self)
         self.__y_scrollbar.setFixedWidth(16)
@@ -431,13 +431,13 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         else:
             raise TypeError(type(change))
 
-    def __hoverNoteChanged(self, note: int) -> None:
-        if self.__hover_note >= 0:
-            self.__keys.noteOff(self.__hover_note)
+    def __hoverPitchChanged(self, pitch: int) -> None:
+        if self.__hover_pitch >= 0:
+            self.__keys.noteOff(self.__hover_pitch)
 
-        self.__hover_note = note
-        if self.__hover_note >= 0:
-            self.__keys.noteOn(self.__hover_note)
+        self.__hover_pitch = pitch
+        if self.__hover_pitch >= 0:
+            self.__keys.noteOn(self.__hover_pitch)
 
     def setIsCurrent(self, is_current: bool) -> None:
         super().setIsCurrent(is_current)

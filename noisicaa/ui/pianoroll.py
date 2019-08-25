@@ -184,12 +184,12 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
 
         super().mouseReleaseEvent(evt)
 
-    def noteOn(self, note: int) -> None:
-        self.__active_keys.add(note)
+    def noteOn(self, pitch: int) -> None:
+        self.__active_keys.add(pitch)
         self.update()
 
-    def noteOff(self, note: int) -> None:
-        self.__active_keys.discard(note)
+    def noteOff(self, pitch: int) -> None:
+        self.__active_keys.discard(pitch)
         self.update()
 
 
@@ -296,7 +296,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         fractions.Fraction, 'gridXSize', default=fractions.Fraction(4*80))
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
     readOnly, setReadOnly, readOnlyChanged = slots.slot(bool, 'readOnly', default=True)
-    hoverNote, setHoverNote, hoverNoteChanged = slots.slot(int, 'hoverNote', default=-1)
+    hoverPitch, setHoverPitch, hoverPitchChanged = slots.slot(int, 'hoverPitch', default=-1)
 
     channel_base_colors = [
         QtGui.QColor(100, 100, 255),
@@ -340,7 +340,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         self.__selection = set()  # type: Set[Interval]
 
         self.__action = None  # type: str
-        self.__interval_note = None  # type: int
+        self.__interval_pitch = None  # type: int
         self.__interval_start_time = None  # type: audioproc.MusicalTime
         self.__interval_end_time = None  # type: audioproc.MusicalTime
         self.__click_pos = None  # type: QtCore.QPoint
@@ -371,14 +371,14 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
     def sizeHint(self) -> QtCore.QSize:
         return QtCore.QSize(self.gridWidth(), 24 * self.gridYSize())
 
-    def __noteAt(self, y: int) -> int:
+    def __pitchAt(self, y: int) -> int:
         row, offset = divmod(y, self.gridYSize())
         if 0 <= row <= 127 and self.gridYSize() <= 3 or offset != 0:
             return 127 - row
         return -1
 
     def leaveEvent(self, evt: QtCore.QEvent) -> None:
-        self.setHoverNote(-1)
+        self.setHoverPitch(-1)
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)
@@ -531,7 +531,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                 if start_time > end_time:
                     start_time, end_time = end_time, start_time
                 if start_time != end_time:
-                    y = (127 - self.__interval_note) * grid_y_size
+                    y = (127 - self.__interval_pitch) * grid_y_size
                     x1 = int(start_time * grid_x_size)
                     x2 = int(end_time * grid_x_size)
                     self.__drawInterval(painter, 0, 100, True, x1, x2, y)
@@ -584,12 +584,12 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
             super().mousePressEvent(evt)
             return
 
-        note = self.__noteAt(evt.pos().y() + self.yOffset())
+        pitch = self.__pitchAt(evt.pos().y() + self.yOffset())
 
         if evt.button() == Qt.LeftButton:
-            if note >= 0:
+            if pitch >= 0:
                 time = audioproc.MusicalTime((evt.pos().x() + self.xOffset()) / self.gridXSize())
-                interval = self.__intervalAt(note, time)
+                interval = self.__intervalAt(pitch, time)
                 if interval is not None:
                     if (not evt.modifiers() & Qt.ControlModifier
                             and interval not in self.__selection):
@@ -618,12 +618,12 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
             evt.accept()
             return
 
-        if (note >= 0
+        if (pitch >= 0
                 and not self.__selection
                 and evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.NoModifier):
             self.__action = 'add-interval'
-            self.__interval_note = note
+            self.__interval_pitch = pitch
             self.__interval_start_time = audioproc.MusicalTime(
                 (evt.pos().x() + self.xOffset()) / self.gridXSize())
             self.__interval_end_time = self.__interval_start_time
@@ -638,9 +638,9 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
             evt.accept()
             return
 
-        if note >= 0 and evt.button() == Qt.MiddleButton and evt.modifiers() == Qt.NoModifier:
+        if pitch >= 0 and evt.button() == Qt.MiddleButton and evt.modifiers() == Qt.NoModifier:
             time = audioproc.MusicalTime((evt.pos().x() + self.xOffset()) / self.gridXSize())
-            interval = self.__intervalAt(note, time)
+            interval = self.__intervalAt(pitch, time)
             if interval is not None:
                 self.__selection.discard(interval)
                 with self.__collect_mutations():
@@ -703,7 +703,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
             evt.accept()
             return
 
-        self.setHoverNote(self.__noteAt(evt.pos().y() + self.yOffset()))
+        self.setHoverPitch(self.__pitchAt(evt.pos().y() + self.yOffset()))
 
         super().mouseMoveEvent(evt)
 
@@ -721,7 +721,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
             if start_time != end_time:
                 with self.__collect_mutations():
                     interval = self.addInterval(
-                        0, self.__interval_note, 100,
+                        0, self.__interval_pitch, 100,
                         start_time, end_time - start_time)
                     self.__selection = {interval}
 
