@@ -20,10 +20,11 @@
 #
 # @end:license
 
+import contextlib
 import enum
 import fractions
 import logging
-from typing import Any, Optional, Dict, List, Set, Tuple, Iterator, Sequence
+from typing import Any, Optional, Dict, List, Set, Tuple, Generator, Iterator, Sequence
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -318,6 +319,8 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
         self.mutations = core.Callback[Sequence[Mutation]]()
 
+        self.__collected_mutations = None  # type: List[Mutation]
+
         self.__bg_color = QtGui.QColor(245, 245, 245)
         self.__black_key_color = QtGui.QColor(230, 230, 230)
         self.__grid_color = QtGui.QColor(200, 200, 200)
@@ -562,14 +565,11 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
             intervals = set(self.__selection)
             self.__selection.clear()
 
-            mutations = []
-            for interval in intervals:
-                self.removeEvent(interval.start_id)
-                mutations.append(RemoveEvent(interval.start_id, interval.start_event))
-                if interval.end_event is not None:
-                    self.removeEvent(interval.end_id)
-                    mutations.append(RemoveEvent(interval.end_id, interval.end_event))
-            self.mutations.call(mutations)
+            with self.__collect_mutations():
+                for interval in intervals:
+                    self.removeEvent(interval.start_id)
+                    if interval.end_event is not None:
+                        self.removeEvent(interval.end_id)
 
             evt.accept()
             return
@@ -639,13 +639,12 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
             time = audioproc.MusicalTime((evt.pos().x() + self.xOffset()) / self.gridXSize())
             interval = self.__intervalAt(note, time)
             if interval is not None:
-                mutations = []
-                self.removeEvent(interval.start_id)
-                mutations.append(RemoveEvent(interval.start_id, interval.start_event))
-                if interval.end_event is not None:
-                    self.removeEvent(interval.end_id)
-                    mutations.append(RemoveEvent(interval.end_id, interval.end_event))
-                self.mutations.call(mutations)
+                self.__selection.discard(interval)
+                with self.__collect_mutations():
+                    self.removeEvent(interval.start_id)
+                    if interval.end_event is not None:
+                        self.removeEvent(interval.end_id)
+
                 evt.accept()
                 return
 
@@ -717,23 +716,19 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                 start_time, end_time = end_time, start_time
 
             if start_time != end_time:
-                start_event = value_types.MidiEvent(
-                    start_time, bytes([0x90, self.__interval_note, 100]))
-                end_event = value_types.MidiEvent(
-                    end_time, bytes([0x80, self.__interval_note, 0]))
-                start_id = self.addEvent(start_event)
-                end_id = self.addEvent(end_event)
-                interval = Interval(
-                    start_event=start_event,
-                    start_id=start_id,
-                    end_event=end_event,
-                    end_id=end_id)
-                self.__selection = {interval}
-
-                mutations = []  # type: List[Mutation]
-                mutations.append(AddEvent(interval.start_id, interval.start_event))
-                mutations.append(AddEvent(interval.end_id, interval.end_event))
-                self.mutations.call(mutations)
+                with self.__collect_mutations():
+                    start_event = value_types.MidiEvent(
+                        start_time, bytes([0x90, self.__interval_note, 100]))
+                    end_event = value_types.MidiEvent(
+                        end_time, bytes([0x80, self.__interval_note, 0]))
+                    start_id = self.addEvent(start_event)
+                    end_id = self.addEvent(end_event)
+                    interval = Interval(
+                        start_event=start_event,
+                        start_id=start_id,
+                        end_event=end_event,
+                        end_id=end_id)
+                    self.__selection = {interval}
 
             self.__action = None
             self.update()
@@ -746,50 +741,43 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                 intervals = set(self.__selection)
                 self.__selection.clear()
 
-                mutations = []  # type: List[Mutation]
-                for interval in intervals:
-                    self.removeEvent(interval.start_id)
-                    mutations.append(RemoveEvent(interval.start_id, interval.start_event))
-                    if interval.end_event is not None:
-                        self.removeEvent(interval.end_id)
-                        mutations.append(RemoveEvent(interval.end_id, interval.end_event))
+                with self.__collect_mutations():
+                    for interval in intervals:
+                        self.removeEvent(interval.start_id)
+                        if interval.end_event is not None:
+                            self.removeEvent(interval.end_id)
 
-                segment_start_time = audioproc.MusicalTime(0, 1)
-                segment_end_time = audioproc.MusicalTime(0, 1) + self.duration()
+                    segment_start_time = audioproc.MusicalTime(0, 1)
+                    segment_end_time = audioproc.MusicalTime(0, 1) + self.duration()
 
-                for interval in intervals:
-                    pitch = interval.pitch + self.__move_delta_pitch
-                    if not 0 <= pitch <= 127:
-                        continue
+                    for interval in intervals:
+                        pitch = interval.pitch + self.__move_delta_pitch
+                        if not 0 <= pitch <= 127:
+                            continue
 
-                    start_time = interval.start_time + self.__move_delta_time
-                    end_time = interval.end_time + self.__move_delta_time
-                    if end_time <= segment_start_time:
-                        continue
-                    if start_time >= segment_end_time:
-                        continue
+                        start_time = interval.start_time + self.__move_delta_time
+                        end_time = interval.end_time + self.__move_delta_time
+                        if end_time <= segment_start_time:
+                            continue
+                        if start_time >= segment_end_time:
+                            continue
 
-                    start_time = max(segment_start_time, start_time)
-                    end_time = min(segment_end_time, end_time)
+                        start_time = max(segment_start_time, start_time)
+                        end_time = min(segment_end_time, end_time)
 
-                    start_event = value_types.MidiEvent(
-                        start_time, bytes([0x90 | interval.channel, pitch, interval.velocity]))
-                    end_event = value_types.MidiEvent(
-                        end_time, bytes([0x80 | interval.channel, pitch, 0]))
-                    start_id = self.addEvent(start_event)
-                    end_id = self.addEvent(end_event)
-                    interval = Interval(
-                        start_event=start_event,
-                        start_id=start_id,
-                        end_event=end_event,
-                        end_id=end_id)
+                        start_event = value_types.MidiEvent(
+                            start_time, bytes([0x90 | interval.channel, pitch, interval.velocity]))
+                        end_event = value_types.MidiEvent(
+                            end_time, bytes([0x80 | interval.channel, pitch, 0]))
+                        start_id = self.addEvent(start_event)
+                        end_id = self.addEvent(end_event)
+                        interval = Interval(
+                            start_event=start_event,
+                            start_id=start_id,
+                            end_event=end_event,
+                            end_id=end_id)
 
-                    self.__selection.add(interval)
-
-                    mutations.append(AddEvent(interval.start_id, interval.start_event))
-                    mutations.append(AddEvent(interval.end_id, interval.end_event))
-
-                self.mutations.call(mutations)
+                        self.__selection.add(interval)
 
             self.__action = None
             self.update()
@@ -804,6 +792,18 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
         super().mouseReleaseEvent(evt)
 
+    @contextlib.contextmanager
+    def __collect_mutations(self) -> Generator:
+        self.__collected_mutations = []
+        try:
+            yield
+            mutations = self.__collected_mutations
+        finally:
+            self.__collected_mutations = None
+
+        if mutations:
+            self.mutations.call(mutations)
+
     def clearEvents(self) -> None:
         self.__sorted_events.clear()
         self.__events.clear()
@@ -814,12 +814,16 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         self.__next_event_id += 1
         self.__events[event_id] = event
         self.__sorted_events.add((event, event_id))
+        if self.__collected_mutations is not None:
+            self.__collected_mutations.append(AddEvent(event_id, event))
         self.update()
         return event_id
 
     def removeEvent(self, event_id: int) -> None:
         event = self.__events.pop(event_id)
         self.__sorted_events.remove((event, event_id))
+        if self.__collected_mutations is not None:
+            self.__collected_mutations.append(RemoveEvent(event_id, event))
         self.update()
 
 
