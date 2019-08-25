@@ -204,6 +204,9 @@ class Mutation(object):
         self.event_id = event_id
         self.event = event
 
+    def __str__(self) -> str:
+        return '%s #%d %s' % (type(self).__name__, self.event_id, self.event)
+
 
 class AddEvent(Mutation):
     pass
@@ -717,17 +720,9 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
             if start_time != end_time:
                 with self.__collect_mutations():
-                    start_event = value_types.MidiEvent(
-                        start_time, bytes([0x90, self.__interval_note, 100]))
-                    end_event = value_types.MidiEvent(
-                        end_time, bytes([0x80, self.__interval_note, 0]))
-                    start_id = self.addEvent(start_event)
-                    end_id = self.addEvent(end_event)
-                    interval = Interval(
-                        start_event=start_event,
-                        start_id=start_id,
-                        end_event=end_event,
-                        end_id=end_id)
+                    interval = self.addInterval(
+                        0, self.__interval_note, 100,
+                        start_time, end_time - start_time)
                     self.__selection = {interval}
 
             self.__action = None
@@ -764,18 +759,12 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
                         start_time = max(segment_start_time, start_time)
                         end_time = min(segment_end_time, end_time)
+                        if start_time == end_time:
+                            continue
 
-                        start_event = value_types.MidiEvent(
-                            start_time, bytes([0x90 | interval.channel, pitch, interval.velocity]))
-                        end_event = value_types.MidiEvent(
-                            end_time, bytes([0x80 | interval.channel, pitch, 0]))
-                        start_id = self.addEvent(start_event)
-                        end_id = self.addEvent(end_event)
-                        interval = Interval(
-                            start_event=start_event,
-                            start_id=start_id,
-                            end_event=end_event,
-                            end_id=end_id)
+                        interval = self.addInterval(
+                            interval.channel, pitch, interval.velocity,
+                            start_time, end_time - start_time)
 
                         self.__selection.add(interval)
 
@@ -802,12 +791,59 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
             self.__collected_mutations = None
 
         if mutations:
+            logger.info("Pianoroll mutations:")
+            for mutation in mutations:
+                logger.info("  %s", mutation)
             self.mutations.call(mutations)
 
     def clearEvents(self) -> None:
         self.__sorted_events.clear()
         self.__events.clear()
         self.update()
+
+    def addInterval(
+            self,
+            channel: int, pitch: int, velocity: int,
+            time: audioproc.MusicalTime,
+            duration: audioproc.MusicalDuration
+    ) -> Interval:
+        start_time = time
+        end_time = time + duration
+
+        for interval in list(self.__intervals()):
+            if interval.channel != channel or interval.pitch != pitch:
+                continue
+            if interval.start_time >= start_time and interval.end_time <= end_time:
+                self.removeEvent(interval.start_id)
+                if interval.end_event is not None:
+                    self.removeEvent(interval.end_id)
+            elif start_time > interval.start_time and end_time < interval.end_time:
+                self.addEvent(value_types.MidiEvent(
+                    start_time, bytes([0x80 | channel, pitch, 0])))
+                self.addEvent(value_types.MidiEvent(
+                    end_time, bytes([0x90 | channel, pitch, interval.velocity])))
+            elif interval.start_time < start_time < interval.end_time:
+                if interval.end_event is not None:
+                    self.removeEvent(interval.end_id)
+                self.addEvent(value_types.MidiEvent(
+                    start_time, bytes([0x80 | channel, pitch, 0])))
+            elif interval.start_time < end_time < interval.end_time:
+                self.removeEvent(interval.start_id)
+                self.addEvent(value_types.MidiEvent(
+                    end_time, bytes([0x90 | channel, pitch, interval.velocity])))
+
+        start_event = value_types.MidiEvent(
+            start_time, bytes([0x90 | channel, pitch, velocity]))
+        end_event = value_types.MidiEvent(
+            end_time, bytes([0x80 | channel, pitch, 0]))
+        start_id = self.addEvent(start_event)
+        end_id = self.addEvent(end_event)
+        interval = Interval(
+            start_event=start_event,
+            start_id=start_id,
+            end_event=end_event,
+            end_id=end_id)
+        return interval
 
     def addEvent(self, event: value_types.MidiEvent) -> int:
         event_id = self.__next_event_id
