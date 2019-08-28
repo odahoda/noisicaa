@@ -394,6 +394,39 @@ class DefaultState(State):
 
             evt.accept()
 
+        if (self.grid.numSelected() > 0
+                and evt.key() in (Qt.Key_Up, Qt.Key_Down)
+                and evt.modifiers() in (Qt.NoModifier, Qt.ShiftModifier)):
+            if evt.key() == Qt.Key_Up:
+                delta_pitch = 1
+            else:
+                delta_pitch = -1
+
+            if evt.modifiers() == Qt.ShiftModifier:
+                delta_pitch *= 12
+
+            intervals = self.grid.selection()
+            self.grid.clearSelection()
+
+            with self.grid.collect_mutations():
+                for interval in intervals:
+                    self.grid.removeEvent(interval.start_id)
+                    if interval.end_event is not None:
+                        self.grid.removeEvent(interval.end_id)
+
+                for interval in intervals:
+                    pitch = interval.pitch + delta_pitch
+                    if not 0 <= pitch <= 127:
+                        continue
+
+                    interval = self.grid.addInterval(
+                        interval.channel, pitch, interval.velocity,
+                        interval.start_time, interval.duration)
+
+                    self.grid.addToSelection(interval)
+
+            evt.accept()
+
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         pitch = self.grid.pitchAt(evt.pos().y() + self.grid.yOffset())
         time = self.grid.timeAt(evt.pos().x() + self.grid.xOffset())
