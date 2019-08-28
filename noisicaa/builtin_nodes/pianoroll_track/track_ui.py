@@ -60,6 +60,7 @@ class ArrangeSegmentsTool(tools.ToolBase):
 
         self.__segment = None  # type: SegmentEditor
         self.__handle_offset = None  # type: int
+        self.__time = None  # type: audioproc.MusicalTime
 
     def iconName(self) -> str:
         return 'arrange-pianoroll-segments'
@@ -94,6 +95,7 @@ class ArrangeSegmentsTool(tools.ToolBase):
                     self.__action = 'move-end'
                     self.__segment = seditor
                     self.__handle_offset = evt.pos().x() - x2
+                    self.__time = seditor.endTime()
                     evt.accept()
                     return
 
@@ -101,6 +103,7 @@ class ArrangeSegmentsTool(tools.ToolBase):
                     self.__action = 'move-start'
                     self.__segment = seditor
                     self.__handle_offset = evt.pos().x() - x1
+                    self.__time = seditor.startTime()
                     evt.accept()
                     return
 
@@ -108,6 +111,7 @@ class ArrangeSegmentsTool(tools.ToolBase):
                     self.__action = 'drag'
                     self.__segment = seditor
                     self.__handle_offset = evt.pos().x() - x1
+                    self.__time = seditor.startTime()
                     evt.accept()
                     return
 
@@ -115,20 +119,33 @@ class ArrangeSegmentsTool(tools.ToolBase):
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         if self.__action == 'drag':
-            self.__segment.move(max(self.track.timeToX(audioproc.MusicalTime(0, 1)), evt.pos().x() - self.__handle_offset) - self.track.xOffset(), 0)
+            self.__time = self.track.xToTime(evt.pos().x() - self.__handle_offset)
+            if self.track.shouldSnap(evt):
+                self.__time = self.track.snapTime(self.__time)
+            self.__time = max(audioproc.MusicalTime(0, 1), self.__time)
+            self.__segment.move(self.track.timeToX(self.__time) - self.track.xOffset(), 0)
             evt.accept()
             return
 
         if self.__action == 'move-end':
-            self.__segment.resize(max(5, evt.pos().x() - self.__segment.trackX() - self.__handle_offset), self.track.height())
+            self.__time = self.track.xToTime(evt.pos().x() - self.__handle_offset)
+            if self.track.shouldSnap(evt):
+                self.__time = self.track.snapTime(self.__time)
+            self.__time = max(self.__segment.startTime() + audioproc.MusicalDuration(1, 16), self.__time)
+            rect = self.__segment.geometry()
+            rect.setRight(self.track.timeToX(self.__time) - self.track.xOffset())
+            self.__segment.setGeometry(rect)
             evt.accept()
             return
 
         if self.__action == 'move-start':
-            x2 = self.__segment.trackX() + self.__segment.width()
-            x1 = max(self.track.timeToX(audioproc.MusicalTime(0, 1)), min(x2 - 5, evt.pos().x() - self.__handle_offset))
-            self.__segment.move(x1 - self.track.xOffset(), 0)
-            self.__segment.resize(x2 - x1, self.track.height())
+            self.__time = self.track.xToTime(evt.pos().x() - self.__handle_offset)
+            if self.track.shouldSnap(evt):
+                self.__time = self.track.snapTime(self.__time)
+            self.__time = min(self.__segment.endTime() - audioproc.MusicalDuration(1, 16), self.__time)
+            rect = self.__segment.geometry()
+            rect.setLeft(self.track.timeToX(self.__time) - self.track.xOffset())
+            self.__segment.setGeometry(rect)
             evt.accept()
             return
 
@@ -153,7 +170,7 @@ class ArrangeSegmentsTool(tools.ToolBase):
     def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and self.__action == 'drag':
             with self.project.apply_mutations('%s: Move segment' % self.track.track.name):
-                self.__segment.segmentRef().time = self.track.xToTime(self.__segment.trackX())
+                self.__segment.segmentRef().time = self.__time
             self.__segment = None
             self.__action = None
             evt.accept()
@@ -161,8 +178,9 @@ class ArrangeSegmentsTool(tools.ToolBase):
 
         if evt.button() == Qt.LeftButton and self.__action == 'move-start':
             with self.project.apply_mutations('%s: Resize segment' % self.track.track.name):
-                self.__segment.segmentRef().time = self.track.xToTime(self.__segment.trackX())
-                self.__segment.segment().duration = audioproc.MusicalDuration((self.__segment.width() - 1) / self.track.scaleX())
+                delta_time = self.__time - self.__segment.startTime()
+                self.__segment.segmentRef().time = self.__time
+                self.__segment.segment().duration -= delta_time
             self.__segment = None
             self.__action = None
             evt.accept()
@@ -170,7 +188,8 @@ class ArrangeSegmentsTool(tools.ToolBase):
 
         if evt.button() == Qt.LeftButton and self.__action == 'move-end':
             with self.project.apply_mutations('%s: Resize segment' % self.track.track.name):
-                self.__segment.segment().duration = audioproc.MusicalDuration((self.__segment.width() - 1) / self.track.scaleX())
+                delta_time = self.__time - self.__segment.endTime()
+                self.__segment.segment().duration += delta_time
             self.__segment = None
             self.__action = None
             evt.accept()
@@ -338,6 +357,7 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
     hoverPitch, setHoverPitch, hoverPitchChanged = slots.slot(int, 'hoverPitch', default=-1)
+    snapToGrid, setSnapToGrid, snapToGridChanged = slots.slot(bool, 'snapToGrid', default=True)
 
     MIN_GRID_Y_SIZE = 2
     MAX_GRID_Y_SIZE = 64
@@ -444,6 +464,12 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         for segment in self.segments:
             segment.setEnabled(is_current)
 
+    def gridStep(self) -> audioproc.MusicalDuration:
+        for s in (64, 32, 16, 8, 4, 2):
+            if self.scaleX() / s > 96:
+                return audioproc.MusicalDuration(1, s)
+        return audioproc.MusicalDuration(1, 1)
+
     def gridHeight(self) -> int:
         return 128 * self.gridYSize() + 1
 
@@ -460,6 +486,19 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
     def __updateYScrollbar(self) -> None:
         self.__y_scrollbar.setRange(0, max(0, self.gridHeight() - self.height()))
         self.__y_scrollbar.setPageStep(self.height())
+
+    def shouldSnap(self, evt: QtGui.QMouseEvent) -> bool:
+        return self.snapToGrid() and not evt.modifiers() & Qt.ShiftModifier
+
+    def snapTime(self, time: audioproc.MusicalTime) -> audioproc.MusicalTime:
+        grid_time = (
+            audioproc.MusicalTime(0, 1)
+            + self.gridStep() * int(round(float(time / self.gridStep()))))
+        time_x = int(time * self.scaleX())
+        grid_x = int(grid_time * self.scaleX())
+        if abs(time_x - grid_x) <= 10:
+            return grid_time
+        return time
 
     def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
         super().buildContextMenu(menu, pos)
@@ -576,9 +615,20 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
             if beat_num == 0:
                 painter.fillRect(x, 0, 2, self.height(), Qt.black)
             else:
-                painter.fillRect(x, 0, 1, self.height(), QtGui.QColor(160, 160, 160))
+                if beat_time % audioproc.MusicalTime(1, 4) == audioproc.MusicalTime(0, 1):
+                    c = QtGui.QColor(160, 160, 160)
+                elif beat_time % audioproc.MusicalTime(1, 8) == audioproc.MusicalTime(0, 1):
+                    c = QtGui.QColor(185, 185, 185)
+                elif beat_time % audioproc.MusicalTime(1, 16) == audioproc.MusicalTime(0, 1):
+                    c = QtGui.QColor(210, 210, 210)
+                elif beat_time % audioproc.MusicalTime(1, 32) == audioproc.MusicalTime(0, 1):
+                    c = QtGui.QColor(225, 225, 225)
+                else:
+                    c = QtGui.QColor(240, 240, 240)
 
-            beat_time += audioproc.MusicalDuration(1, 4)
+                painter.fillRect(x, 0, 1, self.height(), c)
+
+            beat_time += self.gridStep()
             beat_num += 1
 
         x = self.timeToX(self.projectEndTime())
