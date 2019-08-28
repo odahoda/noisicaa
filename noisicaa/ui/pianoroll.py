@@ -712,9 +712,16 @@ class MoveSelectionState(State):
     def __init__(self, evt: QtGui.QMouseEvent, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
+        assert self.grid.numSelected() > 0
+
         self.click_pos = evt.pos()
         self.delta_pitch = 0
         self.delta_time = audioproc.MusicalDuration(0, 1)
+
+        self.min_time = None  # type: audioproc.MusicalTime
+        for interval in self.grid.selection():
+            if self.min_time is None or interval.start_time < self.min_time:
+                self.min_time = interval.start_time
 
     def intervals(self) -> Iterator[Tuple[AbstractInterval, bool]]:
         for interval, selected in super().intervals():
@@ -739,7 +746,11 @@ class MoveSelectionState(State):
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         delta = evt.pos() - self.click_pos
         self.delta_pitch = -int(delta.y() / self.grid.gridYSize())
-        self.delta_time = audioproc.MusicalDuration(delta.x() / self.grid.gridXSize())
+
+        min_time = self.min_time + audioproc.MusicalDuration(delta.x() / self.grid.gridXSize())
+        if self.grid.shouldSnap(evt):
+            min_time = self.grid.snapTime(min_time)
+        self.delta_time = min_time - self.min_time
 
         self.grid.update()
         evt.accept()
