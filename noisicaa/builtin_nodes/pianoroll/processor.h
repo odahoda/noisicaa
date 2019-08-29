@@ -30,6 +30,7 @@
 #include <memory>
 #include <vector>
 #include "lv2/lv2plug.in/ns/ext/atom/forge.h"
+#include "noisicaa/core/fifo_queue.h"
 #include "noisicaa/core/status.h"
 #include "noisicaa/audioproc/public/musical_time.h"
 #include "noisicaa/audioproc/engine/buffers.h"
@@ -137,6 +138,11 @@ protected:
 private:
   void note_on(LV2_Atom_Forge* forge, uint32_t sample, uint8_t channel, uint8_t pitch, uint8_t velocity);
   void note_off(LV2_Atom_Forge* forge, uint32_t sample, uint8_t channel, uint8_t pitch);
+
+  struct ClientMessage {
+    uint8_t midi[3];
+  };
+  FifoQueue<ClientMessage, 20> _client_messages;
 
   uint8_t _active_notes[16][128];
 

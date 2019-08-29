@@ -25,6 +25,20 @@ from noisicaa.builtin_nodes import processor_message_registry_pb2
 from . import processor_messages_pb2
 
 
+def emit_event(node_id: str, midi: bytes) -> audioproc.ProcessorMessage:
+    msg = audioproc.ProcessorMessage(node_id=node_id)
+    pb = msg.Extensions[processor_message_registry_pb2.pianoroll_emit_event]
+    pb.midi = midi
+    return msg
+
+def note_on_event(
+        node_id: str, channel: int, note: int, velocity: int) -> audioproc.ProcessorMessage:
+    return emit_event(node_id, bytes([0x90 | channel, note, velocity]))
+
+def note_off_event(node_id: str, channel: int, note: int) -> audioproc.ProcessorMessage:
+    return emit_event(node_id, bytes([0x80 | channel, note, 0]))
+
+
 def add_interval(
         node_id: str,
         id: int,  # pylint: disable=redefined-builtin

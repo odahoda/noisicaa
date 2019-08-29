@@ -32,6 +32,7 @@ from noisicaa import audioproc
 from noisicaa import value_types
 from noisicaa.ui.track_list import measured_track_editor
 from noisicaa.ui.track_list import tools
+from noisicaa.builtin_nodes.pianoroll import processor_messages
 from . import model
 
 logger = logging.getLogger(__name__)
@@ -248,19 +249,18 @@ class BeatTrackEditor(measured_track_editor.MeasuredTrackEditor):
     def playNoteOn(self, pitch: value_types.Pitch) -> None:
         self.playNoteOff()
 
-        # TODO: use messages instead
-        # self.call_async(
-        #     self.audioproc_client.add_event(
-        #         'track:%s' % self.track.id,
-        #         audioproc.NoteOnEvent(-1, pitch)))
+        if self.playerState().playerID():
+            self.call_async(self.project_view.sendNodeMessage(
+                processor_messages.note_on_event(
+                    self.track.pipeline_node_id, 0, pitch.midi_note, 100)))
 
-        self.__play_last_pitch = pitch
+            self.__play_last_pitch = pitch
 
     def playNoteOff(self) -> None:
         if self.__play_last_pitch is not None:
-            # TODO: use messages instead
-            # self.call_async(
-            #     self.audioproc_client.add_event(
-            #         'track:%s' % self.track.id,
-            #         audioproc.NoteOffEvent(-1, self.__play_last_pitch)))
+            if self.playerState().playerID():
+                self.call_async(self.project_view.sendNodeMessage(
+                    processor_messages.note_off_event(
+                        self.track.pipeline_node_id, 0, self.__play_last_pitch.midi_note)))
+
             self.__play_last_pitch = None

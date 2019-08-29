@@ -285,6 +285,15 @@ Status ProcessorPianoRoll::handle_message_internal(pb::ProcessorMessage* msg) {
       || msg->HasExtension(pb::pianoroll_mutation)) {
     _pianoroll_manager.handle_mutation(msg);
     return Status::Ok();
+  } else if (msg->HasExtension(pb::pianoroll_emit_event)) {
+    const pb::PianoRollEmitEvent& m = msg->GetExtension(pb::pianoroll_emit_event);
+
+    ClientMessage cm;
+    memmove(cm.midi, m.midi().c_str(), 3);
+    if (!_client_messages.push(cm)) {
+      _logger->error("Failed to push MIDI event to queue.");
+    }
+    return Status::Ok();
   }
 
   return Processor::handle_message_internal(msg);
@@ -335,6 +344,13 @@ Status ProcessorPianoRoll::process_block_internal(BlockContext* ctxt, TimeMapper
   lv2_atom_forge_set_buffer(&forge, _buffers[0]->data(), 10240);
 
   lv2_atom_forge_sequence_head(&forge, &frame, _host_system->lv2->urid.atom_frame_time);
+
+  ClientMessage cm;
+  while (_client_messages.pop(cm)) {
+    lv2_atom_forge_frame_time(&forge, 0);
+    lv2_atom_forge_atom(&forge, 3, _host_system->lv2->urid.midi_event);
+    lv2_atom_forge_write(&forge, cm.midi, 3);
+  }
 
   SampleTime* stime = ctxt->time_map.get();
   for (uint32_t sample = 0 ; sample < _host_system->block_size() ; ++sample, ++stime) {

@@ -36,6 +36,7 @@ from noisicaa import value_types
 from noisicaa.ui import svg_symbol
 from noisicaa.ui.track_list import tools
 from noisicaa.ui.track_list import measured_track_editor
+from noisicaa.builtin_nodes.pianoroll import processor_messages
 from . import model
 
 logger = logging.getLogger(__name__)
@@ -1106,7 +1107,7 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
             affected_measure_editors: List[ScoreMeasureEditor],
             clef: value_types.Clef
     ) -> None:
-        with self.project.apply_mutations('%s: Change clef' % self.__track.name):
+        with self.project.apply_mutations('%s: Change clef' % self.track.name):
             for meditor in affected_measure_editors:
                 meditor.measure.clef = clef
 
@@ -1115,7 +1116,7 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
             affected_measure_editors: List[ScoreMeasureEditor],
             key_signature: value_types.KeySignature
     ) -> None:
-        with self.project.apply_mutations('%s: Change key signature' % self.__track.name):
+        with self.project.apply_mutations('%s: Change key signature' % self.track.name):
             for meditor in affected_measure_editors:
                 meditor.measure.key_signature = key_signature
 
@@ -1124,7 +1125,7 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
             affected_measure_editors: List[ScoreMeasureEditor],
             half_notes: int
     ) -> None:
-        with self.project.apply_mutations('%s: Transpose notes' % self.__track.name):
+        with self.project.apply_mutations('%s: Transpose notes' % self.track.name):
             for meditor in affected_measure_editors:
                 for note in meditor.measure.notes:
                     note.transpose(half_notes)
@@ -1133,29 +1134,17 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
         self.playNoteOff()
 
         if self.playerState().playerID():
-            # TODO: reimplement
-            # self.call_async(
-            #     self.project_client.player_send_message(
-            #         self.playerState().playerID(),
-            #         core.build_message(
-            #             {core.MessageKey.trackId: self.track.id},
-            #             core.MessageType.atom,
-            #             lv2.AtomForge.build_midi_noteon(0, pitch.midi_note, 127))))
+            self.call_async(self.project_view.sendNodeMessage(
+                processor_messages.note_on_event(
+                    self.track.pipeline_node_id, 0, pitch.midi_note, 100)))
 
             self.__play_last_pitch = pitch
 
     def playNoteOff(self) -> None:
         if self.__play_last_pitch is not None:
             if self.playerState().playerID():
-                pass
-                # TODO: reimplement
-                # self.call_async(
-                #     self.project_client.player_send_message(
-                #         self.playerState().playerID(),
-                #         core.build_message(
-                #             {core.MessageKey.trackId: self.track.id},
-                #             core.MessageType.atom,
-                #             lv2.AtomForge.build_midi_noteoff(
-                #                 0, self.__play_last_pitch.midi_note))))
+                self.call_async(self.project_view.sendNodeMessage(
+                    processor_messages.note_off_event(
+                        self.track.pipeline_node_id, 0, self.__play_last_pitch.midi_note)))
 
             self.__play_last_pitch = None
