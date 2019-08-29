@@ -551,6 +551,8 @@ class AddIntervalState(State):
             self.start_time = self.grid.snapTime(self.start_time)
         self.end_time = self.start_time
 
+        self.grid.playNote.emit(self.pitch)
+
     def intervals(self) -> Iterator[Tuple[AbstractInterval, bool]]:
         yield from super().intervals()
 
@@ -588,6 +590,8 @@ class AddIntervalState(State):
                         start_time, end_time - start_time)
                 self.grid.clearSelection()
                 self.grid.addToSelection(interval)
+
+            self.grid.playNote.emit(-1)
 
             self.grid.resetCurrentState()
             evt.accept()
@@ -832,6 +836,8 @@ class MoveSelectionState(State):
 
 
 class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
+    playNote = QtCore.pyqtSignal(int)
+
     duration, setDuration, durationChanged = slots.slot(
         audioproc.MusicalDuration, 'duration', default=audioproc.MusicalDuration(8, 4))
     playbackPosition, setPlaybackPosition, playbackPositionChanged = slots.slot(

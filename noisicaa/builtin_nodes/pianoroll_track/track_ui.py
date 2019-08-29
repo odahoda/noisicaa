@@ -42,6 +42,7 @@ from noisicaa.ui import slots
 from noisicaa.ui.track_list import tools
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
+from noisicaa.builtin_nodes.pianoroll import processor_messages
 from . import model
 
 logger = logging.getLogger(__name__)
@@ -237,6 +238,8 @@ class EditEventsTool(tools.ToolBase):
 
 
 class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectMixin, QtWidgets.QWidget):
+    playNote = QtCore.pyqtSignal(int)
+
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
     scaleX, setScaleX, scaleXChanged = slots.slot(fractions.Fraction, 'scaleX', default=fractions.Fraction(4*80))
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
@@ -261,6 +264,7 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
         self.__grid.setDuration(self.__segment.duration)
         self.__grid.setReadOnly(self.readOnly())
         self.__grid.hoverPitchChanged.connect(self.__track_editor.setHoverPitch)
+        self.__grid.playNote.connect(self.playNote.emit)
         self.__listeners.add(self.__grid.mutations.add(self.__gridMutations))
 
         self.__ignore_model_mutations = False
@@ -373,6 +377,7 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
 
+        self.__play_last_pitch = None  # type: int
         self.__hover_pitch = -1
 
         self.__keys = pianoroll.PianoKeys(parent=self)
@@ -427,6 +432,7 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.yOffsetChanged.connect(seditor.setYOffset)
         seditor.setGridYSize(self.gridYSize())
         self.gridYSizeChanged.connect(seditor.setGridYSize)
+        seditor.playNote.connect(self.playNote)
         seditor.show()
 
         self.__keys.raise_()
@@ -633,3 +639,19 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
 
         x = self.timeToX(self.projectEndTime())
         painter.fillRect(x, 0, 2, self.height(), Qt.black)
+
+    def playNote(self, pitch: int) -> None:
+        if self.playerState().playerID():
+            if self.__play_last_pitch is not None:
+                self.call_async(self.project_view.sendNodeMessage(
+                    processor_messages.note_off_event(
+                        self.track.pipeline_node_id, 0, self.__play_last_pitch)))
+
+                self.__play_last_pitch = None
+
+            if pitch >= 0:
+                self.call_async(self.project_view.sendNodeMessage(
+                    processor_messages.note_on_event(
+                        self.track.pipeline_node_id, 0, pitch, 100)))
+
+                self.__play_last_pitch = pitch
