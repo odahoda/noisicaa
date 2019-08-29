@@ -81,16 +81,17 @@ class ArrangeSegmentsTool(tools.ToolBase):
         super().deactivated()
 
     def __segmentAt(self, x: int) -> 'SegmentEditor':
+        time = self.xToTime(x)
         for seditor in self.track.segments:
-            if seditor.trackX() <= x < seditor.trackX() + seditor.width():
+            if seditor.startTime() <= time < seditor.endTime():
                 return seditor
         return None
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
             for seditor in self.track.segments:
-                x1 = seditor.trackX()
-                x2 = seditor.trackX() + seditor.width()
+                x1 = self.track.timeToX(seditor.startTime())
+                x2 = self.track.timeToX(seditor.endTime())
 
                 if abs(x2 - evt.pos().x()) < 4:
                     self.__action = 'move-end'
@@ -124,7 +125,7 @@ class ArrangeSegmentsTool(tools.ToolBase):
             if self.track.shouldSnap(evt):
                 self.__time = self.track.snapTime(self.__time)
             self.__time = max(audioproc.MusicalTime(0, 1), self.__time)
-            self.__segment.move(self.track.timeToX(self.__time) - self.track.xOffset(), 0)
+            self.track.repositionSegment(self.__segment, self.__time, self.__time + self.__segment.duration())
             evt.accept()
             return
 
@@ -133,9 +134,8 @@ class ArrangeSegmentsTool(tools.ToolBase):
             if self.track.shouldSnap(evt):
                 self.__time = self.track.snapTime(self.__time)
             self.__time = max(self.__segment.startTime() + audioproc.MusicalDuration(1, 16), self.__time)
-            rect = self.__segment.geometry()
-            rect.setRight(self.track.timeToX(self.__time) - self.track.xOffset())
-            self.__segment.setGeometry(rect)
+            self.track.repositionSegment(self.__segment, self.__segment.startTime(), self.__time)
+            self.__segment.setDuration(self.__time - self.__segment.startTime())
             evt.accept()
             return
 
@@ -144,15 +144,14 @@ class ArrangeSegmentsTool(tools.ToolBase):
             if self.track.shouldSnap(evt):
                 self.__time = self.track.snapTime(self.__time)
             self.__time = min(self.__segment.endTime() - audioproc.MusicalDuration(1, 16), self.__time)
-            rect = self.__segment.geometry()
-            rect.setLeft(self.track.timeToX(self.__time) - self.track.xOffset())
-            self.__segment.setGeometry(rect)
+            self.track.repositionSegment(self.__segment, self.__time, self.__segment.endTime())
+            self.__segment.setDuration(self.__segment.endTime() - self.__time)
             evt.accept()
             return
 
         for seditor in self.track.segments:
-            x1 = seditor.trackX()
-            x2 = seditor.trackX() + seditor.width()
+            x1 = self.track.timeToX(seditor.startTime())
+            x2 = self.track.timeToX(seditor.endTime())
 
             if abs(x2 - evt.pos().x()) < 4:
                 self.track.setCursor(Qt.SizeHorCursor)
@@ -240,6 +239,7 @@ class EditEventsTool(tools.ToolBase):
 class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectMixin, QtWidgets.QWidget):
     playNote = QtCore.pyqtSignal(int)
 
+    xOffset, setXOffset, xOffsetChanged = slots.slot(int, 'xOffset', default=0)
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
     scaleX, setScaleX, scaleXChanged = slots.slot(fractions.Fraction, 'scaleX', default=fractions.Fraction(4*80))
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
@@ -278,15 +278,16 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
 
         self.scaleXChanged.connect(self.__grid.setGridXSize)
         self.gridYSizeChanged.connect(self.__gridYSizeChanged)
+        self.xOffsetChanged.connect(self.__grid.setXOffset)
         self.yOffsetChanged.connect(lambda _: self.__grid.move(0, -self.yOffset()))
         self.readOnlyChanged.connect(self.__grid.setReadOnly)
 
     def __timeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
-        self.move(self.__track_editor.timeToX(change.new_value) - self.__track_editor.xOffset(), 0)
+        self.__track_editor.repositionSegment(self, change.new_value, change.new_value + self.__segment.duration)
 
     def __durationChanged(self, change: music.PropertyValueChange[audioproc.MusicalDuration]) -> None:
+        self.__track_editor.repositionSegment(self, self.__segment_ref.time, self.__segment_ref.time + change.new_value)
         self.__grid.setDuration(change.new_value)
-        self.resize(int(self.__track_editor.scaleX() * change.new_value.fraction) + 1, self.__track_editor.height())
 
     def __eventsChanged(self, change: music.PropertyListChange[model.PianoRollEvent]) -> None:
         if self.__ignore_model_mutations:
@@ -333,9 +334,6 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
         self.__grid.setGridYSize(size)
         self.__grid.resize(self.width(), self.__grid.gridHeight())
 
-    def trackX(self) -> int:
-        return self.x() + self.__track_editor.xOffset()
-
     def segmentRef(self) -> model.PianoRollSegmentRef:
         return self.__segment_ref
 
@@ -351,9 +349,11 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
     def duration(self) -> audioproc.MusicalDuration:
         return self.__segment.duration
 
+    def setDuration(self, duration: audioproc.MusicalDuration) -> None:
+        self.__grid.setDuration(duration)
+
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         self.__grid.resize(self.width(), self.__grid.gridHeight())
-        self.__grid.setDuration(audioproc.MusicalDuration((self.width() - 1) / self.__track_editor.scaleX()))
         super().resizeEvent(evt)
 
 
@@ -408,7 +408,7 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
 
         self.xOffsetChanged.connect(lambda _: self.__repositionSegments())
         self.xOffsetChanged.connect(lambda _: self.update())
-        self.scaleXChanged.connect(lambda _: self.__resizeSegments())
+        self.scaleXChanged.connect(lambda _: self.__repositionSegments())
         self.gridYSizeChanged.connect(lambda _: self.__updateYScrollbar())
 
     @property
@@ -425,15 +425,14 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         seditor = SegmentEditor(track_editor=self, segment_ref=segment_ref, context=self.context)
         self.segments.insert(insert_index, seditor)
         seditor.setEnabled(self.isCurrent())
-        seditor.resize(int(self.scaleX() * segment_ref.segment.duration.fraction) + 1, self.height())
-        seditor.move(self.timeToX(segment_ref.time) - self.xOffset(), 0)
         seditor.setScaleX(self.scaleX())
+        self.scaleXChanged.connect(seditor.setScaleX)
         seditor.setYOffset(self.yOffset())
         self.yOffsetChanged.connect(seditor.setYOffset)
         seditor.setGridYSize(self.gridYSize())
         self.gridYSizeChanged.connect(seditor.setGridYSize)
         seditor.playNote.connect(self.playNote)
-        seditor.show()
+        self.repositionSegment(seditor, seditor.startTime(), seditor.endTime())
 
         self.__keys.raise_()
         self.__y_scrollbar.raise_()
@@ -479,15 +478,23 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
     def gridHeight(self) -> int:
         return 128 * self.gridYSize() + 1
 
+    def repositionSegment(self, segment: SegmentEditor, start_time: audioproc.MusicalTime, end_time: audioproc.MusicalTime) -> None:
+        x1 = self.timeToX(start_time)
+        x2 = self.timeToX(end_time) + 1
+
+        rect = QtCore.QRect(x1, 0, x2 - x1, self.height())
+        rect.translate(-self.xOffset(), 0)
+        clipped_rect = rect.intersected(QtCore.QRect(0, 0, self.width(), self.height()))
+        if not clipped_rect.isEmpty():
+            segment.setXOffset(max(0, -rect.left()))
+            segment.setGeometry(clipped_rect)
+            segment.show()
+        else:
+            segment.hide()
+
     def __repositionSegments(self) -> None:
         for segment in self.segments:
-            segment.move(self.timeToX(segment.startTime()) - self.xOffset(), 0)
-
-    def __resizeSegments(self) -> None:
-        for seditor in self.segments:
-            seditor.resize(int(self.scaleX() * seditor.duration().fraction) + 1, self.height())
-            seditor.move(self.timeToX(seditor.startTime()) - self.xOffset(), 0)
-            seditor.setScaleX(self.scaleX())
+            self.repositionSegment(segment, segment.startTime(), segment.endTime())
 
     def __updateYScrollbar(self) -> None:
         self.__y_scrollbar.setRange(0, max(0, self.gridHeight() - self.height()))
@@ -573,9 +580,7 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.__y_scrollbar.resize(self.__y_scrollbar.width(), self.height())
 
         self.__updateYScrollbar()
-
-        for segment in self.segments:
-            segment.resize(segment.width(), self.height())
+        self.__repositionSegments()
 
     def showEvent(self, evt: QtGui.QShowEvent) -> None:
         super().showEvent(evt)

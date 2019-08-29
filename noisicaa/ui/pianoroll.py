@@ -1095,13 +1095,15 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
             grid_y_size = self.gridYSize()
             grid_step = self.gridStep()
 
-            painter.translate(QtCore.QPoint(-self.xOffset(), -self.yOffset()))
+            painter.translate(QtCore.QPoint(0, -self.yOffset()))
 
             y = 0
             for n in reversed(range(0, 128)):
                 if n % 12 in {1, 3, 6, 8, 10}:
                     painter.fillRect(0, y, width, grid_y_size, self.__black_key_color)
                 y += grid_y_size
+
+            painter.translate(QtCore.QPoint(-self.xOffset(), 0))
 
             t = audioproc.MusicalTime(0, 1)
             while t <= audioproc.MusicalTime(0, 1) + self.duration():
