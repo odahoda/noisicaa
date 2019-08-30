@@ -40,9 +40,19 @@ from . import slots
 logger = logging.getLogger(__name__)
 
 
+class PlayNotes(object):
+    def __init__(self) -> None:
+        self.note_on = set()  # type: Set[int]
+        self.note_off = set()  # type: Set[int]
+        self.all_notes_off = False
+
+
 class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
+    playNotes = QtCore.pyqtSignal(PlayNotes)
+
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
+    playable, setPlayable, playableChanged = slots.slot(bool, 'playable', default=False)
     scrollable, setScrollable, scrollableChanged = slots.slot(bool, 'scrollable', default=False)
 
     def __init__(self, **kwargs: Any) -> None:
@@ -64,6 +74,7 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
         self.__active_key_edge2_color = QtGui.QColor(100, 100, 160)
 
         self.__scrolling = False
+        self.__played_note = None
         self.__prev_y = 0
         self.__active_keys = set()  # type: Set[int]
 
@@ -91,6 +102,10 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
                 painter.setFont(font)
                 painter.setPen(self.__label_color)
 
+                active_keys = self.__active_keys.copy()
+                if self.__played_note is not None:
+                    active_keys.add(self.__played_note)
+
                 for o in range(0, 12):
                     y = (128 - 12 * o) * grid_y_size
 
@@ -104,7 +119,7 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
                             (9, y - 5 * grid_y_size - 21 * grid_y_size // 4),
                             (11, y - 5 * grid_y_size - 28 * grid_y_size // 4)):
                         n = 12 * o + kn
-                        if n in self.__active_keys:
+                        if n in active_keys:
                             edge1_color = self.__active_key_edge1_color
                             edge2_color = self.__active_key_edge2_color
                             body_color = self.__active_key_body_color
@@ -124,7 +139,7 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
                         n = 12 * o + kn
                         ky1 = y - kt * grid_y_size
                         ky2 = y - kb * grid_y_size
-                        if n in self.__active_keys:
+                        if n in active_keys:
                             edge1_color = self.__active_key_edge1_color
                             edge2_color = self.__active_key_edge2_color
                             body_color = self.__active_key_body_color
@@ -153,11 +168,18 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
             painter.end()
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
-        if not self.scrollable():
-            super().mousePressEvent(evt)
+        if self.playable() and evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
+            pitch = 127 - (evt.pos().y() + self.yOffset()) // self.gridYSize()
+            if 0 <= pitch <= 127:
+                play_notes = PlayNotes()
+                play_notes.note_on.add(pitch)
+                self.playNotes.emit(play_notes)
+                self.__played_note = pitch
+                self.update()
+            evt.accept()
             return
 
-        if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
+        if self.scrollable() and evt.button() == Qt.LeftButton and evt.modifiers() == Qt.ShiftModifier:
             self.__scrolling = True
             self.__prev_y = evt.pos().y()
             evt.accept()
@@ -166,6 +188,19 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
         super().mousePressEvent(evt)
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if self.__played_note is not None:
+            if 0 <= evt.pos().y() < self.height():
+                pitch = 127 - (evt.pos().y() + self.yOffset()) // self.gridYSize()
+                if 0 <= pitch <= 127 and pitch != self.__played_note:
+                    play_notes = PlayNotes()
+                    play_notes.note_off.add(self.__played_note)
+                    play_notes.note_on.add(pitch)
+                    self.playNotes.emit(play_notes)
+                    self.__played_note = pitch
+                    self.update()
+            evt.accept()
+            return
+
         if self.__scrolling:
             dy = evt.pos().y() - self.__prev_y
             self.__prev_y = evt.pos().y()
@@ -177,6 +212,15 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
         super().mousePressEvent(evt)
 
     def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if evt.button() == Qt.LeftButton and self.__played_note is not None:
+            play_notes = PlayNotes()
+            play_notes.note_off.add(self.__played_note)
+            self.playNotes.emit(play_notes)
+            self.__played_note = None
+            self.update()
+            evt.accept()
+            return
+
         if evt.button() == Qt.LeftButton and self.__scrolling:
             self.__scrolling = False
             evt.accept()
@@ -214,13 +258,6 @@ class AddEvent(Mutation):
 
 class RemoveEvent(Mutation):
     pass
-
-
-class PlayNotes(object):
-    def __init__(self) -> None:
-        self.note_on = set()  # type: Set[int]
-        self.note_off = set()  # type: Set[int]
-        self.all_notes_off = False
 
 
 class AbstractInterval(object):

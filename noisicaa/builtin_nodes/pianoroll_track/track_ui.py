@@ -381,6 +381,8 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.__hover_pitch = -1
 
         self.__keys = pianoroll.PianoKeys(parent=self)
+        self.__keys.setPlayable(True)
+        self.__keys.playNotes.connect(self.playNotes)
         self.__keys.setScrollable(True)
         self.__keys.setYOffset(self.yOffset())
         self.__keys.yOffsetChanged.connect(self.setYOffset)
