@@ -941,7 +941,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
     def pitchAt(self, y: int) -> int:
         row, offset = divmod(y, self.gridYSize())
-        if 0 <= row <= 127 and self.gridYSize() <= 3 or offset != 0:
+        if 0 <= row <= 127:
             return 127 - row
         return -1
 
