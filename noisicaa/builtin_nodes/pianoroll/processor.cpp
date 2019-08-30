@@ -285,14 +285,18 @@ Status ProcessorPianoRoll::handle_message_internal(pb::ProcessorMessage* msg) {
       || msg->HasExtension(pb::pianoroll_mutation)) {
     _pianoroll_manager.handle_mutation(msg);
     return Status::Ok();
-  } else if (msg->HasExtension(pb::pianoroll_emit_event)) {
-    const pb::PianoRollEmitEvent& m = msg->GetExtension(pb::pianoroll_emit_event);
+  } else if (msg->HasExtension(pb::pianoroll_emit_events)) {
+    const pb::PianoRollEmitEvents& m = msg->GetExtension(pb::pianoroll_emit_events);
 
-    ClientMessage cm;
-    memmove(cm.midi, m.midi().c_str(), 3);
-    if (!_client_messages.push(cm)) {
-      _logger->error("Failed to push MIDI event to queue.");
+    for (const auto& midi : m.midi()) {
+      ClientMessage cm;
+      memmove(cm.midi, midi.c_str(), 3);
+      if (!_client_messages.push(cm)) {
+        _logger->error("Failed to push MIDI event to queue.");
+        break;
+      }
     }
+
     return Status::Ok();
   }
 

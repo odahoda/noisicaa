@@ -216,6 +216,13 @@ class RemoveEvent(Mutation):
     pass
 
 
+class PlayNotes(object):
+    def __init__(self) -> None:
+        self.note_on = set()  # type: Set[int]
+        self.note_off = set()  # type: Set[int]
+        self.all_notes_off = False
+
+
 class AbstractInterval(object):
     @property
     def channel(self) -> int:
@@ -551,7 +558,7 @@ class AddIntervalState(State):
             self.start_time = self.grid.snapTime(self.start_time)
         self.end_time = self.start_time
 
-        self.grid.playNote.emit(self.pitch)
+        self.__played = False
 
     def intervals(self) -> Iterator[Tuple[AbstractInterval, bool]]:
         yield from super().intervals()
@@ -573,6 +580,13 @@ class AddIntervalState(State):
         self.end_time = self.grid.timeAt(evt.pos().x() + self.grid.xOffset())
         if self.grid.shouldSnap(evt):
             self.end_time = self.grid.snapTime(self.end_time)
+
+        if self.end_time != self.start_time and not self.__played:
+            play_notes = PlayNotes()
+            play_notes.note_on.add(self.pitch)
+            self.grid.playNotes.emit(play_notes)
+            self.__played = True
+
         self.grid.update()
         evt.accept()
 
@@ -591,7 +605,9 @@ class AddIntervalState(State):
                 self.grid.clearSelection()
                 self.grid.addToSelection(interval)
 
-            self.grid.playNote.emit(-1)
+            play_notes = PlayNotes()
+            play_notes.note_off.add(self.pitch)
+            self.grid.playNotes.emit(play_notes)
 
             self.grid.resetCurrentState()
             evt.accept()
@@ -782,7 +798,18 @@ class MoveSelectionState(State):
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         delta = evt.pos() - self.click_pos
-        self.delta_pitch = -int(delta.y() / self.grid.gridYSize())
+
+        delta_pitch = -int(delta.y() / self.grid.gridYSize())
+        if delta_pitch != self.delta_pitch:
+            play_notes = PlayNotes()
+            play_notes.all_notes_off = True
+            for interval in self.grid.selection():
+                pitch = interval.pitch + delta_pitch
+                if 0 <= pitch <= 127:
+                    play_notes.note_on.add(pitch)
+            if play_notes.note_on:
+                self.grid.playNotes.emit(play_notes)
+            self.delta_pitch = delta_pitch
 
         min_time = self.min_time + audioproc.MusicalDuration(delta.x() / self.grid.gridXSize())
         if self.grid.shouldSnap(evt):
@@ -794,6 +821,10 @@ class MoveSelectionState(State):
 
     def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton:
+            play_notes = PlayNotes()
+            play_notes.all_notes_off = True
+            self.grid.playNotes.emit(play_notes)
+
             if (self.delta_pitch != 0
                     or self.delta_time != audioproc.MusicalDuration(0, 1)):
                 intervals = self.grid.selection()
@@ -836,7 +867,7 @@ class MoveSelectionState(State):
 
 
 class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
-    playNote = QtCore.pyqtSignal(int)
+    playNotes = QtCore.pyqtSignal(PlayNotes)
 
     duration, setDuration, durationChanged = slots.slot(
         audioproc.MusicalDuration, 'duration', default=audioproc.MusicalDuration(8, 4))
@@ -940,7 +971,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         return QtCore.QSize(self.gridWidth(), 24 * self.gridYSize())
 
     def pitchAt(self, y: int) -> int:
-        row, offset = divmod(y, self.gridYSize())
+        row = y // self.gridYSize()
         if 0 <= row <= 127:
             return 127 - row
         return -1

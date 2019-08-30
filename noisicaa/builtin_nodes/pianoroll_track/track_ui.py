@@ -237,7 +237,7 @@ class EditEventsTool(tools.ToolBase):
 
 
 class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectMixin, QtWidgets.QWidget):
-    playNote = QtCore.pyqtSignal(int)
+    playNotes = QtCore.pyqtSignal(pianoroll.PlayNotes)
 
     xOffset, setXOffset, xOffsetChanged = slots.slot(int, 'xOffset', default=0)
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
@@ -264,7 +264,7 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
         self.__grid.setDuration(self.__segment.duration)
         self.__grid.setReadOnly(self.readOnly())
         self.__grid.hoverPitchChanged.connect(self.__track_editor.setHoverPitch)
-        self.__grid.playNote.connect(self.playNote.emit)
+        self.__grid.playNotes.connect(self.playNotes.emit)
         self.__listeners.add(self.__grid.mutations.add(self.__gridMutations))
 
         self.__ignore_model_mutations = False
@@ -377,7 +377,7 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
 
-        self.__play_last_pitch = None  # type: int
+        self.__active_notes = set()  # type: Set[int]
         self.__hover_pitch = -1
 
         self.__keys = pianoroll.PianoKeys(parent=self)
@@ -431,7 +431,7 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.yOffsetChanged.connect(seditor.setYOffset)
         seditor.setGridYSize(self.gridYSize())
         self.gridYSizeChanged.connect(seditor.setGridYSize)
-        seditor.playNote.connect(self.playNote)
+        seditor.playNotes.connect(self.playNotes)
         self.repositionSegment(seditor, seditor.startTime(), seditor.endTime())
 
         self.__keys.raise_()
@@ -645,18 +645,27 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         x = self.timeToX(self.projectEndTime())
         painter.fillRect(x, 0, 2, self.height(), Qt.black)
 
-    def playNote(self, pitch: int) -> None:
+    def playNotes(self, play_notes: pianoroll.PlayNotes) -> None:
         if self.playerState().playerID():
-            if self.__play_last_pitch is not None:
-                self.call_async(self.project_view.sendNodeMessage(
-                    processor_messages.note_off_event(
-                        self.track.pipeline_node_id, 0, self.__play_last_pitch)))
+            for pitch in play_notes.note_off:
+                if pitch in self.__active_notes:
+                    self.call_async(self.project_view.sendNodeMessage(
+                        processor_messages.note_off_event(
+                            self.track.pipeline_node_id, 0, pitch)))
 
-                self.__play_last_pitch = None
+                    self.__active_notes.discard(pitch)
 
-            if pitch >= 0:
+            if play_notes.all_notes_off:
+                for pitch in self.__active_notes:
+                    self.call_async(self.project_view.sendNodeMessage(
+                        processor_messages.note_off_event(
+                            self.track.pipeline_node_id, 0, pitch)))
+
+                self.__active_notes.clear()
+
+            for pitch in play_notes.note_on:
                 self.call_async(self.project_view.sendNodeMessage(
                     processor_messages.note_on_event(
                         self.track.pipeline_node_id, 0, pitch, 100)))
 
-                self.__play_last_pitch = pitch
+                self.__active_notes.add(pitch)

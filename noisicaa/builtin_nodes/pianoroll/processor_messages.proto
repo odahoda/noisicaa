@@ -26,8 +26,8 @@ import "noisicaa/audioproc/public/musical_time.proto";
 
 package noisicaa.pb;
 
-message PianoRollEmitEvent {
-  required bytes midi = 1;
+message PianoRollEmitEvents {
+  repeated bytes midi = 1;
 }
 
 message PianoRollAddInterval {
