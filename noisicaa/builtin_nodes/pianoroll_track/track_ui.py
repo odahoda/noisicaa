@@ -48,12 +48,22 @@ from . import model
 logger = logging.getLogger(__name__)
 
 
-class ArrangeSegmentsTool(tools.ToolBase):
+class PianoRollToolMixin(tools.ToolBase):
+    def activateSegment(self, segment: 'SegmentEditor') -> None:
+        pass
+
+    def activated(self) -> None:
+        for segment in self.track.segments:
+            self.activateSegment(segment)
+        super().activated()
+
+
+class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
     track = None  # type: PianoRollTrackEditor
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(
-            type=tools.ToolType.ARRANGE_PIANOROLL_SEGMENTS,
+            type=tools.ToolType.PIANOROLL_ARRANGE_SEGMENTS,
             group=tools.ToolGroup.EDIT,
             **kwargs)
 
@@ -64,24 +74,21 @@ class ArrangeSegmentsTool(tools.ToolBase):
         self.__time = None  # type: audioproc.MusicalTime
 
     def iconName(self) -> str:
-        return 'arrange-pianoroll-segments'
+        return 'pianoroll-arrange-segments'
 
-    def activated(self) -> None:
-        for seditor in self.track.segments:
-            seditor.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-            seditor.setReadOnly(True)
+    def keySequence(self) -> QtGui.QKeySequence:
+        return QtGui.QKeySequence('a')
 
-        super().activated()
+    def activateSegment(self, segment: 'SegmentEditor') -> None:
+        segment.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        segment.setReadOnly(True)
 
     def deactivated(self) -> None:
-        for seditor in self.track.segments:
-            seditor.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-            seditor.setReadOnly(False)
-
+        self.track.unsetCursor()
         super().deactivated()
 
     def __segmentAt(self, x: int) -> 'SegmentEditor':
-        time = self.xToTime(x)
+        time = self.grid.xToTime(x)
         for seditor in self.track.segments:
             if seditor.startTime() <= time < seditor.endTime():
                 return seditor
@@ -225,15 +232,61 @@ class ArrangeSegmentsTool(tools.ToolBase):
         super().mouseDoubleClickEvent(evt)
 
 
-class EditEventsTool(tools.ToolBase):
+class EditEventsTool(PianoRollToolMixin, tools.ToolBase):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(
-            type=tools.ToolType.EDIT_PIANOROLL_EVENTS,
+            type=tools.ToolType.PIANOROLL_EDIT_EVENTS,
             group=tools.ToolGroup.EDIT,
             **kwargs)
 
     def iconName(self) -> str:
-        return 'edit-pianoroll-events'
+        return 'pianoroll-edit-events'
+
+    def keySequence(self) -> QtGui.QKeySequence:
+        return QtGui.QKeySequence('e')
+
+    def activateSegment(self, segment: 'SegmentEditor') -> None:
+        segment.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        segment.setReadOnly(False)
+        segment.setEditMode(pianoroll.EditMode.AddInterval)
+
+
+class SelectEventsTool(PianoRollToolMixin, tools.ToolBase):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(
+            type=tools.ToolType.PIANOROLL_SELECT_EVENTS,
+            group=tools.ToolGroup.EDIT,
+            **kwargs)
+
+    def iconName(self) -> str:
+        return 'pianoroll-select-events'
+
+    def keySequence(self) -> QtGui.QKeySequence:
+        return QtGui.QKeySequence('s')
+
+    def activateSegment(self, segment: 'SegmentEditor') -> None:
+        segment.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        segment.setReadOnly(False)
+        segment.setEditMode(pianoroll.EditMode.SelectRect)
+
+
+class EditVelocityTool(PianoRollToolMixin, tools.ToolBase):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(
+            type=tools.ToolType.PIANOROLL_EDIT_VELOCITY,
+            group=tools.ToolGroup.EDIT,
+            **kwargs)
+
+    def iconName(self) -> str:
+        return 'pianoroll-edit-velocity'
+
+    def keySequence(self) -> QtGui.QKeySequence:
+        return QtGui.QKeySequence('v')
+
+    def activateSegment(self, segment: 'SegmentEditor') -> None:
+        segment.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        segment.setReadOnly(False)
+        segment.setEditMode(pianoroll.EditMode.EditVelocity)
 
 
 class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectMixin, QtWidgets.QWidget):
@@ -244,6 +297,7 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
     scaleX, setScaleX, scaleXChanged = slots.slot(fractions.Fraction, 'scaleX', default=fractions.Fraction(4*80))
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
     readOnly, setReadOnly, readOnlyChanged = slots.slot(bool, 'readOnly', default=True)
+    editMode, setEditMode, editModeChanged = slots.slot(pianoroll.EditMode, 'editMode', default=pianoroll.EditMode.AddInterval)
 
     def __init__(self, *, track_editor: 'PianoRollTrackEditor', segment_ref: model.PianoRollSegmentRef, **kwargs: Any) -> None:
         super().__init__(parent=track_editor, **kwargs)
@@ -281,6 +335,7 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
         self.xOffsetChanged.connect(self.__grid.setXOffset)
         self.yOffsetChanged.connect(lambda _: self.__grid.move(0, -self.yOffset()))
         self.readOnlyChanged.connect(self.__grid.setReadOnly)
+        self.editModeChanged.connect(self.__grid.setEditMode)
 
     def __timeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
         self.__track_editor.repositionSegment(self, change.new_value, change.new_value + self.__segment.duration)
@@ -413,6 +468,8 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.scaleXChanged.connect(lambda _: self.__repositionSegments())
         self.gridYSizeChanged.connect(lambda _: self.__updateYScrollbar())
 
+        self.setFocusPolicy(Qt.StrongFocus)
+
     @property
     def track(self) -> model.PianoRollTrack:
         return down_cast(model.PianoRollTrack, super().track)
@@ -421,6 +478,8 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         toolbox = tools.ToolBox(track=self, context=self.context)
         toolbox.addTool(ArrangeSegmentsTool)
         toolbox.addTool(EditEventsTool)
+        toolbox.addTool(SelectEventsTool)
+        toolbox.addTool(EditVelocityTool)
         return toolbox
 
     def __addSegment(self, insert_index: int, segment_ref: model.PianoRollSegmentRef) -> None:
@@ -435,6 +494,7 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.gridYSizeChanged.connect(seditor.setGridYSize)
         seditor.playNotes.connect(self.playNotes)
         self.repositionSegment(seditor, seditor.startTime(), seditor.endTime())
+        down_cast(PianoRollToolMixin, self.currentTool()).activateSegment(seditor)
 
         self.__keys.raise_()
         self.__y_scrollbar.raise_()

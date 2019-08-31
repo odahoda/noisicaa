@@ -132,6 +132,9 @@ class BaseTrackEditor(
     def currentToolType(self) -> tools.ToolType:
         return self.__toolbox.currentToolType()
 
+    def setCurrentToolType(self, tool: tools.ToolType) -> None:
+        self.__toolbox.setCurrentToolType(tool)
+
     def playerState(self) -> player_state_lib.PlayerState:
         return self.__player_state
 

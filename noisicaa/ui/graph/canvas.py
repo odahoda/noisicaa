@@ -783,8 +783,8 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
         self.__mini_map.zoomStarted.connect(self.zoomStarted)
 
     def __currentTrackChanged(self, track: music.Track) -> None:
-        logger.error("%s", track)
         # TODO: select and show the node
+        pass
 
     def __zoomStarted(self, zoom: Zoom) -> None:
         self.__zoom_point = zoom.center

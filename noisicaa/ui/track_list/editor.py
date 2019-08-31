@@ -96,6 +96,20 @@ class Editor(
         self.__player_state.currentTimeChanged.connect(
             lambda time: self.setPlaybackPos(time, 1))
 
+        self.__increase_scale_x_action = QtWidgets.QAction(self)
+        self.__increase_scale_x_action.setShortcut("ctrl+left")
+        self.__increase_scale_x_action.setShortcutContext(Qt.WindowShortcut)
+        self.__increase_scale_x_action.triggered.connect(
+            lambda: self.setScaleX(max(fractions.Fraction(5, 1), self.scaleX() * fractions.Fraction(2, 3))))
+        self.addAction(self.__increase_scale_x_action)
+
+        self.__decrease_scale_x_action = QtWidgets.QAction(self)
+        self.__decrease_scale_x_action.setShortcut("ctrl+right")
+        self.__decrease_scale_x_action.setShortcutContext(Qt.WindowShortcut)
+        self.__decrease_scale_x_action.triggered.connect(
+            lambda: self.setScaleX(min(fractions.Fraction(10000, 1), self.scaleX() * fractions.Fraction(3, 2))))
+        self.addAction(self.__decrease_scale_x_action)
+
     def cleanup(self) -> None:
         for track_editor in list(self.__tracks):
             self.__removeNode(track_editor.track)
@@ -340,17 +354,3 @@ class Editor(
             return
 
         super().wheelEvent(evt)
-
-    def keyPressEvent(self, evt: QtGui.QKeyEvent) -> None:
-        if evt.modifiers() == Qt.ControlModifier and evt.key() == Qt.Key_Left:
-            if self.scaleX() > fractions.Fraction(10, 1):
-                self.setScaleX(self.scaleX() * fractions.Fraction(2, 3))
-            evt.accept()
-            return
-
-        if evt.modifiers() == Qt.ControlModifier and evt.key() == Qt.Key_Right:
-            self.setScaleX(self.scaleX() * fractions.Fraction(3, 2))
-            evt.accept()
-            return
-
-        super().keyPressEvent(evt)

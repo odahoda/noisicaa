@@ -22,9 +22,10 @@
 
 import contextlib
 import enum
+import functools
 import fractions
 import logging
-from typing import Any, Optional, Dict, List, Set, Tuple, Generator, Iterator, Sequence
+from typing import Any, Optional, Dict, List, Set, Tuple, Callable, Generator, Iterator, Sequence
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -74,7 +75,7 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
         self.__active_key_edge2_color = QtGui.QColor(100, 100, 160)
 
         self.__scrolling = False
-        self.__played_note = None
+        self.__played_note = None  # type: int
         self.__prev_y = 0
         self.__active_keys = set()  # type: Set[int]
 
@@ -243,6 +244,12 @@ class UnfinishedNoteMode(enum.Enum):
     ToEnd = 3
 
 
+class EditMode(enum.Enum):
+    AddInterval = 1
+    SelectRect = 2
+    EditVelocity = 3
+
+
 class Mutation(object):
     def __init__(self, event_id: int, event: value_types.MidiEvent) -> None:
         self.event_id = event_id
@@ -394,6 +401,9 @@ class State(object):
     def __init__(self, *, grid: 'PianoRollGrid') -> None:
         self.grid = grid
 
+    def close(self) -> None:
+        pass
+
     def intervals(self) -> Iterator[Tuple[AbstractInterval, bool]]:
         selected_intervals = []  # type: List[Interval]
         for interval in self.grid.intervals():
@@ -423,83 +433,51 @@ class State(object):
 
 
 class DefaultState(State):
-    def keyPressEvent(self, evt: QtGui.QKeyEvent) -> None:
-        if (self.grid.numSelected() > 0
-                and evt.key() == Qt.Key_Delete
-                and evt.modifiers() == Qt.NoModifier):
-            intervals = self.grid.selection()
-            self.grid.clearSelection()
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
 
-            with self.grid.collect_mutations():
-                for interval in intervals:
-                    self.grid.removeEvent(interval.start_id)
-                    if interval.end_event is not None:
-                        self.grid.removeEvent(interval.end_id)
+        self.grid.addAction(self.grid.select_all_action)
+        self.grid.addAction(self.grid.select_none_action)
+        self.grid.addAction(self.grid.delete_selection_action)
+        self.grid.addAction(self.grid.transpose_selection_up_step_action)
+        self.grid.addAction(self.grid.transpose_selection_down_step_action)
+        self.grid.addAction(self.grid.transpose_selection_up_octave_action)
+        self.grid.addAction(self.grid.transpose_selection_down_octave_action)
 
-            evt.accept()
-
-        if (self.grid.numSelected() > 0
-                and evt.key() in (Qt.Key_Up, Qt.Key_Down)
-                and evt.modifiers() in (Qt.NoModifier, Qt.ShiftModifier)):
-            if evt.key() == Qt.Key_Up:
-                delta_pitch = 1
-            else:
-                delta_pitch = -1
-
-            if evt.modifiers() == Qt.ShiftModifier:
-                delta_pitch *= 12
-
-            intervals = self.grid.selection()
-            self.grid.clearSelection()
-
-            with self.grid.collect_mutations():
-                for interval in intervals:
-                    self.grid.removeEvent(interval.start_id)
-                    if interval.end_event is not None:
-                        self.grid.removeEvent(interval.end_id)
-
-                for interval in intervals:
-                    pitch = interval.pitch + delta_pitch
-                    if not 0 <= pitch <= 127:
-                        continue
-
-                    interval = self.grid.addInterval(
-                        interval.channel, pitch, interval.velocity,
-                        interval.start_time, interval.duration)
-
-                    self.grid.addToSelection(interval)
-
-            evt.accept()
+    def close(self) -> None:
+        self.grid.removeAction(self.grid.select_all_action)
+        self.grid.removeAction(self.grid.select_none_action)
+        self.grid.removeAction(self.grid.transpose_selection_up_step_action)
+        self.grid.removeAction(self.grid.transpose_selection_down_step_action)
+        self.grid.removeAction(self.grid.transpose_selection_up_octave_action)
+        self.grid.removeAction(self.grid.transpose_selection_down_octave_action)
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         pitch = self.grid.pitchAt(evt.pos().y() + self.grid.yOffset())
         time = self.grid.timeAt(evt.pos().x() + self.grid.xOffset())
+        interval = self.grid.intervalAt(pitch, time) if pitch >= 0 else None
+
+        if (self.grid.editMode() == EditMode.EditVelocity
+                and evt.button() == Qt.LeftButton
+                and evt.modifiers() == Qt.NoModifier):
+            self.grid.setCurrentState(ChangeVelocityState(grid=self.grid, evt=evt))
+            evt.accept()
+            return
 
         if evt.button() == Qt.LeftButton:
-            if pitch >= 0:
-                interval = self.grid.intervalAt(pitch, time)
-                if interval is not None:
-                    is_selected = self.grid.isSelected(interval)
-                    if not evt.modifiers() & Qt.ControlModifier and not is_selected:
-                        self.grid.clearSelection()
+            if interval is not None:
+                is_selected = self.grid.isSelected(interval)
+                if not evt.modifiers() & Qt.ControlModifier and not is_selected:
+                    self.grid.clearSelection()
 
-                    if evt.modifiers() & Qt.ControlModifier and self.grid.isSelected(interval):
-                        self.grid.removeFromSelection(interval)
-                    else:
-                        self.grid.addToSelection(interval)
-
+                if evt.modifiers() & Qt.ControlModifier and self.grid.isSelected(interval):
+                    self.grid.removeFromSelection(interval)
                 else:
-                    if not evt.modifiers() & Qt.ControlModifier:
-                        self.grid.clearSelection()
+                    self.grid.addToSelection(interval)
 
             else:
                 if not evt.modifiers() & Qt.ControlModifier:
                     self.grid.clearSelection()
-
-        if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.ControlModifier:
-            self.grid.setCurrentState(SelectRectState(grid=self.grid, evt=evt))
-            evt.accept()
-            return
 
         if (self.grid.numSelected() <= 1
                 and evt.button() == Qt.LeftButton
@@ -527,7 +505,16 @@ class DefaultState(State):
                     evt.accept()
                     return
 
-        if (pitch >= 0
+        if (self.grid.editMode() == EditMode.SelectRect
+                and (interval is None or self.grid.numSelected() == 0)
+                and evt.button() == Qt.LeftButton
+                and evt.modifiers() == Qt.NoModifier):
+            self.grid.setCurrentState(SelectRectState(grid=self.grid, evt=evt))
+            evt.accept()
+            return
+
+        if (self.grid.editMode() == EditMode.AddInterval
+                and pitch >= 0
                 and self.grid.numSelected() == 0
                 and evt.button() == Qt.LeftButton
                 and evt.modifiers() in (Qt.NoModifier, Qt.ShiftModifier)):
@@ -808,7 +795,7 @@ class MoveSelectionState(State):
         self.delta_pitch = 0
         self.delta_time = audioproc.MusicalDuration(0, 1)
 
-        self.min_time = None  # type: audioproc.MusicalTime
+        self.min_time = None  # type: Optional[audioproc.MusicalTime]
         for interval in self.grid.selection():
             if self.min_time is None or interval.start_time < self.min_time:
                 self.min_time = interval.start_time
@@ -903,6 +890,70 @@ class MoveSelectionState(State):
             evt.accept()
 
 
+class ChangeVelocityState(State):
+    def __init__(self, evt: QtGui.QMouseEvent, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        assert self.grid.numSelected() > 0
+
+        self.click_pos = evt.pos()
+        self.delta_velocity = 0
+
+    def intervals(self) -> Iterator[Tuple[AbstractInterval, bool]]:
+        for interval, selected in super().intervals():
+            if selected:
+                velocity = max(1, min(127, interval.velocity + self.delta_velocity))
+
+                interval = TempInterval(
+                    channel=interval.channel,
+                    pitch=interval.pitch,
+                    velocity=velocity,
+                    start_time=interval.start_time,
+                    end_time=interval.end_time)
+                yield interval, True
+
+            else:
+                yield interval, False
+
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
+        delta = evt.pos() - self.click_pos
+
+        self.delta_velocity = int(delta.x() / 3)
+        self.grid.update()
+        evt.accept()
+
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if evt.button() == Qt.LeftButton:
+            if self.delta_velocity != 0:
+                intervals = self.grid.selection()
+                self.grid.clearSelection()
+
+                with self.grid.collect_mutations():
+                    for interval in intervals:
+                        self.grid.removeEvent(interval.start_id)
+
+                        velocity = max(1, min(127, interval.velocity + self.delta_velocity))
+                        start_event = value_types.MidiEvent(
+                            interval.start_time, bytes([0x90 | interval.channel, interval.pitch, velocity]))
+                        start_id = self.grid.addEvent(start_event)
+
+                        if interval.end_event is not None:
+                            new_interval = Interval(
+                                start_event=start_event,
+                                start_id=start_id,
+                                end_event=interval.end_event,
+                                end_id=interval.end_id)
+                        else:
+                            new_interval = Interval(
+                                start_event=start_event,
+                                start_id=start_id,
+                                duration=interval.duration)
+                        self.grid.addToSelection(new_interval)
+
+            self.grid.resetCurrentState()
+            evt.accept()
+
+
 class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
     playNotes = QtCore.pyqtSignal(PlayNotes)
 
@@ -924,6 +975,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
     readOnly, setReadOnly, readOnlyChanged = slots.slot(bool, 'readOnly', default=True)
     snapToGrid, setSnapToGrid, snapToGridChanged = slots.slot(bool, 'snapToGrid', default=True)
     hoverPitch, setHoverPitch, hoverPitchChanged = slots.slot(int, 'hoverPitch', default=-1)
+    editMode, setEditMode, editModeChanged = slots.slot(EditMode, 'editMode', default=EditMode.AddInterval)
 
     channel_base_colors = [
         QtGui.QColor(100, 100, 255),
@@ -973,14 +1025,16 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
         self.__selection = set()  # type: Set[Interval]
 
-        self.__default_state = DefaultState(grid=self)
-        self.__current_state = self.__default_state  # type: State
+        self.__current_state = None  # type: State
 
         self.setMinimumSize(100, 50)
-        self.setFocusPolicy(Qt.ClickFocus)
+        self.setFocusPolicy(Qt.StrongFocus)
+        #self.setFocusPolicy(Qt.StrongFocus if not self.readOnly() else Qt.NoFocus)
+        #self.readOnlyChanged.connect(lambda _: self.setFocusPolicy(Qt.StrongFocus if not self.readOnly() else Qt.NoFocus))
         self.setMouseTracking(not self.readOnly())
         self.readOnlyChanged.connect(lambda _: self.setMouseTracking(not self.readOnly()))
 
+        self.readOnlyChanged.connect(lambda _: self.update())
         self.playbackPositionChanged.connect(lambda _: self.update())
         self.durationChanged.connect(lambda _: self.update())
         self.unfinishedNoteModeChanged.connect(lambda _: self.update())
@@ -988,6 +1042,25 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         self.yOffsetChanged.connect(lambda _: self.update())
 
         self.durationChanged.connect(lambda _: self.gridWidthChanged.emit(self.gridWidth()))
+
+        def createAction(seq: str, func: Callable[[], None]) -> QtWidgets.QAction:
+            action = QtWidgets.QAction(self)
+            action.setEnabled(not self.readOnly())
+            self.readOnlyChanged.connect(lambda _: action.setEnabled(not self.readOnly()))
+            action.setShortcut(QtGui.QKeySequence(seq))
+            action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+            action.triggered.connect(func)
+            return action
+
+        self.select_all_action = createAction('ctrl+a', self.__selectAll)
+        self.select_none_action = createAction('ctrl+shift+a', self.__selectNone)
+        self.delete_selection_action = createAction('del', self.__deleteSelection)
+        self.transpose_selection_up_step_action = createAction('up', functools.partial(self.__transposeSelection, 1))
+        self.transpose_selection_down_step_action = createAction('down', functools.partial(self.__transposeSelection, -1))
+        self.transpose_selection_up_octave_action = createAction('shift+up', functools.partial(self.__transposeSelection, 12))
+        self.transpose_selection_down_octave_action = createAction('shift+down', functools.partial(self.__transposeSelection, -12))
+
+        self.resetCurrentState()
 
     def offset(self) -> QtCore.QPoint:
         return QtCore.QPoint(self.xOffset(), self.yOffset())
@@ -1051,12 +1124,53 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         return interval in self.__selection
 
     def setCurrentState(self, state: State) -> None:
+        if self.__current_state is not None:
+            self.__current_state.close()
         self.__current_state = state
         self.update()
 
     def resetCurrentState(self) -> None:
-        self.__current_state = self.__default_state
-        self.update()
+        self.setCurrentState(DefaultState(grid=self))
+
+    def __selectAll(self) -> None:
+        for interval in self.intervals():
+            self.addToSelection(interval)
+
+    def __selectNone(self) -> None:
+        self.clearSelection()
+
+    def __deleteSelection(self) -> None:
+        if self.numSelected() > 0:
+            intervals = self.selection()
+            self.clearSelection()
+
+            with self.collect_mutations():
+                for interval in intervals:
+                    self.removeEvent(interval.start_id)
+                    if interval.end_event is not None:
+                        self.removeEvent(interval.end_id)
+
+    def __transposeSelection(self, delta: int) -> None:
+        if self.numSelected() > 0:
+            intervals = self.selection()
+            self.clearSelection()
+
+            with self.collect_mutations():
+                for interval in intervals:
+                    self.removeEvent(interval.start_id)
+                    if interval.end_event is not None:
+                        self.removeEvent(interval.end_id)
+
+                for interval in intervals:
+                    pitch = interval.pitch + delta
+                    if not 0 <= pitch <= 127:
+                        continue
+
+                    interval = self.addInterval(
+                        interval.channel, pitch, interval.velocity,
+                        interval.start_time, interval.duration)
+
+                    self.addToSelection(interval)
 
     def leaveEvent(self, evt: QtCore.QEvent) -> None:
         self.setHoverPitch(-1)
@@ -1203,7 +1317,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                 self.__drawInterval(
                     painter,
                     interval.channel, interval.velocity,
-                    selected,
+                    selected and not self.readOnly(),
                     x1, x2, y)
 
             self.__current_state.paintOverlay(painter)
