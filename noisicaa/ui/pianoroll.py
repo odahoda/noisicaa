@@ -292,6 +292,14 @@ class AbstractInterval(object):
     def duration(self) -> audioproc.MusicalDuration:
         raise NotImplementedError
 
+    @property
+    def selected(self) -> bool:
+        raise NotImplementedError
+
+    @property
+    def display_velocity(self) -> bool:
+        raise NotImplementedError
+
 
 class Interval(AbstractInterval):
     __slots__ = ['start_event', 'start_id', 'end_event', 'end_id', '__duration']
@@ -302,7 +310,8 @@ class Interval(AbstractInterval):
             start_id: int,
             end_event: value_types.MidiEvent = None,
             end_id: int = None,
-            duration: audioproc.MusicalDuration = None) -> None:
+            duration: audioproc.MusicalDuration = None,
+            selected: bool = False) -> None:
         assert start_event.midi[0] & 0xf0 == 0x90
         self.start_event = start_event
         self.start_id = start_id
@@ -320,6 +329,7 @@ class Interval(AbstractInterval):
             self.end_event = None
             self.end_id = None
             self.__duration = duration
+        self.__selected = selected
 
     def __hash__(self) -> int:
         return self.start_id
@@ -359,18 +369,30 @@ class Interval(AbstractInterval):
     def duration(self) -> audioproc.MusicalDuration:
         return self.__duration
 
+    @property
+    def selected(self) -> bool:
+        return self.__selected
+
+    @property
+    def display_velocity(self) -> bool:
+        return False
+
 
 class TempInterval(AbstractInterval):
     def __init__(
             self, *,
             channel: int, pitch: int, velocity: int,
-            start_time: audioproc.MusicalTime, end_time: audioproc.MusicalTime
+            start_time: audioproc.MusicalTime, end_time: audioproc.MusicalTime,
+            selected: bool,
+            display_velocity: bool = False
     ) -> None:
         self.__channel = channel
         self.__pitch = pitch
         self.__velocity = velocity
         self.__start_time = start_time
         self.__end_time = end_time
+        self.__selected = selected
+        self.__display_velocity = display_velocity
 
     @property
     def channel(self) -> int:
@@ -396,6 +418,14 @@ class TempInterval(AbstractInterval):
     def duration(self) -> audioproc.MusicalDuration:
         return self.__end_time - self.__start_time
 
+    @property
+    def selected(self) -> bool:
+        return self.__selected
+
+    @property
+    def display_velocity(self) -> bool:
+        return self.__display_velocity
+
 
 class State(object):
     def __init__(self, *, grid: 'PianoRollGrid') -> None:
@@ -404,17 +434,17 @@ class State(object):
     def close(self) -> None:
         pass
 
-    def intervals(self) -> Iterator[Tuple[AbstractInterval, bool]]:
+    def intervals(self) -> Iterator[AbstractInterval]:
         selected_intervals = []  # type: List[Interval]
         for interval in self.grid.intervals():
-            if self.grid.isSelected(interval):
+            if interval.selected:
                 selected_intervals.append(interval)
                 continue
 
-            yield interval, False
+            yield interval
 
         for interval in selected_intervals:
-            yield interval, True
+            yield interval
 
     def paintOverlay(self, painter: QtGui.QPainter) -> None:
         pass
@@ -466,11 +496,10 @@ class DefaultState(State):
 
         if evt.button() == Qt.LeftButton:
             if interval is not None:
-                is_selected = self.grid.isSelected(interval)
-                if not evt.modifiers() & Qt.ControlModifier and not is_selected:
+                if not evt.modifiers() & Qt.ControlModifier and not interval.selected:
                     self.grid.clearSelection()
 
-                if evt.modifiers() & Qt.ControlModifier and self.grid.isSelected(interval):
+                if evt.modifiers() & Qt.ControlModifier and interval.selected:
                     self.grid.removeFromSelection(interval)
                 else:
                     self.grid.addToSelection(interval)
@@ -584,7 +613,7 @@ class AddIntervalState(State):
 
         self.__played = False
 
-    def intervals(self) -> Iterator[Tuple[AbstractInterval, bool]]:
+    def intervals(self) -> Iterator[AbstractInterval]:
         yield from super().intervals()
 
         start_time = self.start_time
@@ -597,8 +626,9 @@ class AddIntervalState(State):
                 pitch=self.pitch,
                 velocity=100,
                 start_time=start_time,
-                end_time=end_time)
-            yield interval, True
+                end_time=end_time,
+                selected=True)
+            yield interval
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         self.end_time = self.grid.timeAt(evt.pos().x() + self.grid.xOffset())
@@ -714,8 +744,8 @@ class ResizeIntervalState(State):
             self.time_limit = audioproc.MusicalTime(
                 (start_x + 1 + self.grid.xOffset()) / self.grid.gridXSize())
 
-    def intervals(self) -> Iterator[Tuple[AbstractInterval, bool]]:
-        for interval, selected in super().intervals():
+    def intervals(self) -> Iterator[AbstractInterval]:
+        for interval in super().intervals():
             if interval == self.interval:
                 if self.side == ResizeIntervalState.START:
                     start_time = self.time
@@ -729,11 +759,12 @@ class ResizeIntervalState(State):
                     pitch=interval.pitch,
                     velocity=interval.velocity,
                     start_time=start_time,
-                    end_time=end_time)
-                yield interval, selected
+                    end_time=end_time,
+                    selected=interval.selected)
+                yield interval
 
             else:
-                yield interval, selected
+                yield interval
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         if self.side == ResizeIntervalState.START:
@@ -800,9 +831,9 @@ class MoveSelectionState(State):
             if self.min_time is None or interval.start_time < self.min_time:
                 self.min_time = interval.start_time
 
-    def intervals(self) -> Iterator[Tuple[AbstractInterval, bool]]:
-        for interval, selected in super().intervals():
-            if selected:
+    def intervals(self) -> Iterator[AbstractInterval]:
+        for interval in super().intervals():
+            if interval.selected:
                 pitch = interval.pitch + self.delta_pitch
                 if not 0 <= pitch <= 127:
                     continue
@@ -814,11 +845,12 @@ class MoveSelectionState(State):
                     pitch=pitch,
                     velocity=interval.velocity,
                     start_time=start_time,
-                    end_time=end_time)
-                yield interval, True
+                    end_time=end_time,
+                    selected=True)
+                yield interval
 
             else:
-                yield interval, False
+                yield interval
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         delta = evt.pos() - self.click_pos
@@ -899,9 +931,9 @@ class ChangeVelocityState(State):
         self.click_pos = evt.pos()
         self.delta_velocity = 0
 
-    def intervals(self) -> Iterator[Tuple[AbstractInterval, bool]]:
-        for interval, selected in super().intervals():
-            if selected:
+    def intervals(self) -> Iterator[AbstractInterval]:
+        for interval in super().intervals():
+            if interval.selected:
                 velocity = max(1, min(127, interval.velocity + self.delta_velocity))
 
                 interval = TempInterval(
@@ -909,11 +941,13 @@ class ChangeVelocityState(State):
                     pitch=interval.pitch,
                     velocity=velocity,
                     start_time=interval.start_time,
-                    end_time=interval.end_time)
-                yield interval, True
+                    end_time=interval.end_time,
+                    selected=True,
+                    display_velocity=True)
+                yield interval
 
             else:
-                yield interval, False
+                yield interval
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         delta = evt.pos() - self.click_pos
@@ -1023,7 +1057,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         self.__events = {}  # type: Dict[int, value_types.MidiEvent]
         self.__sorted_events = sortedcontainers.SortedList()
 
-        self.__selection = set()  # type: Set[Interval]
+        self.__selection = set()  # type: Set[int]
 
         self.__current_state = None  # type: State
 
@@ -1103,25 +1137,26 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         return time
 
     def selection(self) -> Set[Interval]:
-        return set(self.__selection)
+        intervals = set()  # type: Set[Interval]
+        for interval in self.intervals():
+            if interval.start_id in self.__selection:
+                intervals.add(interval)
+        return intervals
 
     def numSelected(self) -> int:
         return len(self.__selection)
 
     def addToSelection(self, interval: Interval) -> None:
-        self.__selection.add(interval)
+        self.__selection.add(interval.start_id)
         self.update()
 
     def removeFromSelection(self, interval: Interval) -> None:
-        self.__selection.discard(interval)
+        self.__selection.discard(interval.start_id)
         self.update()
 
     def clearSelection(self) -> None:
         self.__selection.clear()
         self.update()
-
-    def isSelected(self, interval: Interval) -> bool:
-        return interval in self.__selection
 
     def setCurrentState(self, state: State) -> None:
         if self.__current_state is not None:
@@ -1203,12 +1238,14 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                         start_id=start_event_id,
                         start_event=start_event,
                         end_id=event_id,
-                        end_event=event)
+                        end_event=event,
+                        selected=start_event_id in self.__selection)
                 else:
                     yield Interval(
                         start_id=start_event_id,
                         start_event=start_event,
-                        duration=event.time - start_event.time)
+                        duration=event.time - start_event.time,
+                        selected=start_event_id in self.__selection)
 
             if event.midi[0] & 0xf0 == 0x90:
                 active_pitches[(ch, p)] = (event, event_id)
@@ -1223,7 +1260,8 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                 yield Interval(
                     start_id=event_id,
                     start_event=event,
-                    duration=end_time - event.time)
+                    duration=end_time - event.time,
+                    selected=event_id in self.__selection)
 
     def intervalAt(self, pitch: int, time: audioproc.MusicalTime) -> Optional[Interval]:
         for interval in self.intervals(pitch=pitch):
@@ -1310,15 +1348,34 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                     y += grid_y_size
                 painter.fillRect(0, y, width, 1, self.__grid1_color)
 
-            for interval, selected in self.__current_state.intervals():
+            for interval in self.__current_state.intervals():
                 y = (127 - interval.pitch) * grid_y_size
                 x1 = int(interval.start_time * grid_x_size)
                 x2 = int(interval.end_time * grid_x_size)
                 self.__drawInterval(
                     painter,
                     interval.channel, interval.velocity,
-                    selected and not self.readOnly(),
+                    interval.selected and not self.readOnly(),
                     x1, x2, y)
+
+            font = QtGui.QFont(self.font())
+            font.setPixelSize(max(10, min(20, grid_y_size - 2)))
+            font_metrics = QtGui.QFontMetrics(font)
+            painter.setFont(font)
+            painter.setPen(Qt.black)
+
+            label_rect = font_metrics.boundingRect('127').adjusted(-3, 0, 3, 0)
+
+            for interval in self.__current_state.intervals():
+                if not interval.display_velocity:
+                    continue
+
+                y = (127 - interval.pitch) * grid_y_size - label_rect.bottom()
+                x = int(interval.start_time * grid_x_size) - label_rect.left()
+
+                painter.fillRect(label_rect.translated(x, y), QtGui.QColor(200, 200, 160))
+                painter.fillRect(label_rect.translated(x, y).adjusted(1, 1, -1, -1), QtGui.QColor(255, 255, 200))
+                painter.drawText(label_rect.translated(x, y).adjusted(3, 0, -3, 0), Qt.AlignRight, '%d' % interval.velocity)
 
             self.__current_state.paintOverlay(painter)
 
