@@ -487,13 +487,6 @@ class DefaultState(State):
         time = self.grid.timeAt(evt.pos().x() + self.grid.xOffset())
         interval = self.grid.intervalAt(pitch, time) if pitch >= 0 else None
 
-        if (self.grid.editMode() == EditMode.EditVelocity
-                and evt.button() == Qt.LeftButton
-                and evt.modifiers() == Qt.NoModifier):
-            self.grid.setCurrentState(ChangeVelocityState(grid=self.grid, evt=evt))
-            evt.accept()
-            return
-
         if evt.button() == Qt.LeftButton:
             if interval is not None:
                 if not evt.modifiers() & Qt.ControlModifier and not interval.selected:
@@ -508,7 +501,15 @@ class DefaultState(State):
                 if not evt.modifiers() & Qt.ControlModifier:
                     self.grid.clearSelection()
 
-        if (self.grid.numSelected() <= 1
+        if (self.grid.editMode() == EditMode.EditVelocity
+                and self.grid.numSelected() >= 1
+                and evt.button() == Qt.LeftButton):
+            self.grid.setCurrentState(ChangeVelocityState(grid=self.grid, evt=evt))
+            evt.accept()
+            return
+
+        if (self.grid.editMode() == EditMode.AddInterval
+                and self.grid.numSelected() <= 1
                 and evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.NoModifier):
             grid_x_size = self.grid.gridXSize()
@@ -577,7 +578,8 @@ class DefaultState(State):
 
         cursor = None
 
-        if self.grid.numSelected() <= 1:
+        if (self.grid.editMode() == EditMode.AddInterval
+                and self.grid.numSelected() <= 1):
             grid_x_size = self.grid.gridXSize()
             for interval in self.grid.intervals(pitch=pitch):
                 start_x = int(interval.start_time * grid_x_size) - self.grid.xOffset()
@@ -928,13 +930,14 @@ class ChangeVelocityState(State):
 
         assert self.grid.numSelected() > 0
 
-        self.click_pos = evt.pos()
-        self.delta_velocity = 0
+        self.prev_pos = evt.pos()
+        self.delta_velocity = 0.0
 
     def intervals(self) -> Iterator[AbstractInterval]:
+        delta_velocity = int(self.delta_velocity)
         for interval in super().intervals():
             if interval.selected:
-                velocity = max(1, min(127, interval.velocity + self.delta_velocity))
+                velocity = max(1, min(127, interval.velocity + delta_velocity))
 
                 interval = TempInterval(
                     channel=interval.channel,
@@ -950,15 +953,22 @@ class ChangeVelocityState(State):
                 yield interval
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
-        delta = evt.pos() - self.click_pos
+        delta = evt.pos().x() - self.prev_pos.x()
+        self.prev_pos = evt.pos()
 
-        self.delta_velocity = int(delta.x() / 3)
+        if evt.modifiers() == Qt.ShiftModifier:
+            delta = delta / 10
+        else:
+            delta = delta / 3
+
+        self.delta_velocity += delta
         self.grid.update()
         evt.accept()
 
     def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton:
-            if self.delta_velocity != 0:
+            delta_velocity = int(self.delta_velocity)
+            if delta_velocity != 0:
                 intervals = self.grid.selection()
                 self.grid.clearSelection()
 
@@ -966,7 +976,7 @@ class ChangeVelocityState(State):
                     for interval in intervals:
                         self.grid.removeEvent(interval.start_id)
 
-                        velocity = max(1, min(127, interval.velocity + self.delta_velocity))
+                        velocity = max(1, min(127, interval.velocity + delta_velocity))
                         start_event = value_types.MidiEvent(
                             interval.start_time, bytes([0x90 | interval.channel, interval.pitch, velocity]))
                         start_id = self.grid.addEvent(start_event)
