@@ -43,8 +43,8 @@ logger = logging.getLogger(__name__)
 
 class PlayNotes(object):
     def __init__(self) -> None:
-        self.note_on = set()  # type: Set[int]
-        self.note_off = set()  # type: Set[int]
+        self.note_on = set()  # type: Set[Tuple[int, int]]
+        self.note_off = set()  # type: Set[Tuple[int, int]]
         self.all_notes_off = False
 
 
@@ -54,6 +54,8 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
     playable, setPlayable, playableChanged = slots.slot(bool, 'playable', default=False)
+    playbackChannel, setPlaybackChannel, playbackChannelChanged = slots.slot(
+        int, 'playbackChannel', default=0)
     scrollable, setScrollable, scrollableChanged = slots.slot(bool, 'scrollable', default=False)
 
     def __init__(self, **kwargs: Any) -> None:
@@ -169,18 +171,22 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
             painter.end()
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
-        if self.playable() and evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
+        if (self.playable()
+                and evt.button() == Qt.LeftButton
+                and evt.modifiers() == Qt.NoModifier):
             pitch = 127 - (evt.pos().y() + self.yOffset()) // self.gridYSize()
             if 0 <= pitch <= 127:
                 play_notes = PlayNotes()
-                play_notes.note_on.add(pitch)
+                play_notes.note_on.add((self.playbackChannel(), pitch))
                 self.playNotes.emit(play_notes)
                 self.__played_note = pitch
                 self.update()
             evt.accept()
             return
 
-        if self.scrollable() and evt.button() == Qt.LeftButton and evt.modifiers() == Qt.ShiftModifier:
+        if (self.scrollable()
+                and evt.button() == Qt.LeftButton
+                and evt.modifiers() == Qt.ShiftModifier):
             self.__scrolling = True
             self.__prev_y = evt.pos().y()
             evt.accept()
@@ -194,8 +200,8 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
                 pitch = 127 - (evt.pos().y() + self.yOffset()) // self.gridYSize()
                 if 0 <= pitch <= 127 and pitch != self.__played_note:
                     play_notes = PlayNotes()
-                    play_notes.note_off.add(self.__played_note)
-                    play_notes.note_on.add(pitch)
+                    play_notes.note_off.add((self.playbackChannel(), self.__played_note))
+                    play_notes.note_on.add((self.playbackChannel(), pitch))
                     self.playNotes.emit(play_notes)
                     self.__played_note = pitch
                     self.update()
@@ -215,7 +221,7 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
     def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and self.__played_note is not None:
             play_notes = PlayNotes()
-            play_notes.note_off.add(self.__played_note)
+            play_notes.note_off.add((self.playbackChannel(), self.__played_note))
             self.playNotes.emit(play_notes)
             self.__played_note = None
             self.update()
@@ -435,12 +441,19 @@ class State(object):
         pass
 
     def intervals(self) -> Iterator[AbstractInterval]:
+        current_channel_intervals = []  # type: List[Interval]
         selected_intervals = []  # type: List[Interval]
         for interval in self.grid.intervals():
             if interval.selected:
                 selected_intervals.append(interval)
                 continue
+            elif interval.channel == self.grid.currentChannel():
+                current_channel_intervals.append(interval)
+                continue
 
+            yield interval
+
+        for interval in current_channel_intervals:
             yield interval
 
         for interval in selected_intervals:
@@ -485,7 +498,9 @@ class DefaultState(State):
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         pitch = self.grid.pitchAt(evt.pos().y() + self.grid.yOffset())
         time = self.grid.timeAt(evt.pos().x() + self.grid.xOffset())
-        interval = self.grid.intervalAt(pitch, time) if pitch >= 0 else None
+        interval = (
+            self.grid.intervalAt(pitch, time, self.grid.currentChannel())
+            if pitch >= 0 else None)
 
         if evt.button() == Qt.LeftButton:
             if interval is not None:
@@ -513,7 +528,7 @@ class DefaultState(State):
                 and evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.NoModifier):
             grid_x_size = self.grid.gridXSize()
-            for interval in self.grid.intervals(pitch=pitch):
+            for interval in self.grid.intervals(pitch=pitch, channel=self.grid.currentChannel()):
                 start_x = int(interval.start_time * grid_x_size) - self.grid.xOffset()
                 end_x = int(interval.end_time * grid_x_size) - self.grid.xOffset()
                 if max(end_x - 3, start_x) <= evt.pos().x() <= end_x + 3:
@@ -560,7 +575,7 @@ class DefaultState(State):
             return
 
         if pitch >= 0 and evt.button() == Qt.MiddleButton and evt.modifiers() == Qt.NoModifier:
-            interval = self.grid.intervalAt(pitch, time)
+            interval = self.grid.intervalAt(pitch, time, self.grid.currentChannel())
             if interval is not None:
                 self.grid.removeFromSelection(interval)
                 with self.grid.collect_mutations():
@@ -581,7 +596,7 @@ class DefaultState(State):
         if (self.grid.editMode() == EditMode.AddInterval
                 and self.grid.numSelected() <= 1):
             grid_x_size = self.grid.gridXSize()
-            for interval in self.grid.intervals(pitch=pitch):
+            for interval in self.grid.intervals(pitch=pitch, channel=self.grid.currentChannel()):
                 start_x = int(interval.start_time * grid_x_size) - self.grid.xOffset()
                 end_x = int(interval.end_time * grid_x_size) - self.grid.xOffset()
                 if max(end_x - 3, start_x) <= evt.pos().x() <= end_x + 3:
@@ -607,6 +622,7 @@ class AddIntervalState(State):
     def __init__(self, evt: QtGui.QMouseEvent, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
+        self.channel = self.grid.currentChannel()
         self.pitch = self.grid.pitchAt(evt.pos().y() + self.grid.yOffset())
         self.start_time = self.grid.timeAt(evt.pos().x() + self.grid.xOffset())
         if self.grid.shouldSnap(evt):
@@ -624,7 +640,7 @@ class AddIntervalState(State):
             start_time, end_time = end_time, start_time
         if start_time != end_time:
             interval = TempInterval(
-                channel=0,
+                channel=self.channel,
                 pitch=self.pitch,
                 velocity=100,
                 start_time=start_time,
@@ -639,7 +655,7 @@ class AddIntervalState(State):
 
         if self.end_time != self.start_time and not self.__played:
             play_notes = PlayNotes()
-            play_notes.note_on.add(self.pitch)
+            play_notes.note_on.add((self.channel, self.pitch))
             self.grid.playNotes.emit(play_notes)
             self.__played = True
 
@@ -656,13 +672,13 @@ class AddIntervalState(State):
             if start_time != end_time:
                 with self.grid.collect_mutations():
                     interval = self.grid.addInterval(
-                        0, self.pitch, 100,
+                        self.channel, self.pitch, 100,
                         start_time, end_time - start_time)
                 self.grid.clearSelection()
                 self.grid.addToSelection(interval)
 
             play_notes = PlayNotes()
-            play_notes.note_off.add(self.pitch)
+            play_notes.note_off.add((self.channel, self.pitch))
             self.grid.playNotes.emit(play_notes)
 
             self.grid.resetCurrentState()
@@ -673,6 +689,7 @@ class SelectRectState(State):
     def __init__(self, evt: QtGui.QMouseEvent, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
+        self.channel = self.grid.currentChannel()
         self.pos1 = evt.pos() + self.grid.offset()
         self.pos2 = evt.pos() + self.grid.offset()
 
@@ -704,7 +721,7 @@ class SelectRectState(State):
         time2 = self.grid.timeAt(rect.right())
 
         self.grid.clearSelection()
-        for interval in self.grid.intervals():
+        for interval in self.grid.intervals(channel=self.channel):
             if (pitch1 <= interval.pitch <= pitch2
                     and interval.start_time <= time2
                     and interval.end_time >= time1):
@@ -828,10 +845,8 @@ class MoveSelectionState(State):
         self.delta_pitch = 0
         self.delta_time = audioproc.MusicalDuration(0, 1)
 
-        self.min_time = None  # type: Optional[audioproc.MusicalTime]
-        for interval in self.grid.selection():
-            if self.min_time is None or interval.start_time < self.min_time:
-                self.min_time = interval.start_time
+        self.min_time = min(
+            interval.start_time for interval in self.grid.selection())
 
     def intervals(self) -> Iterator[AbstractInterval]:
         for interval in super().intervals():
@@ -864,7 +879,7 @@ class MoveSelectionState(State):
             for interval in self.grid.selection():
                 pitch = interval.pitch + delta_pitch
                 if 0 <= pitch <= 127:
-                    play_notes.note_on.add(pitch)
+                    play_notes.note_on.add((interval.channel, pitch))
             if play_notes.note_on:
                 self.grid.playNotes.emit(play_notes)
             self.delta_pitch = delta_pitch
@@ -953,13 +968,13 @@ class ChangeVelocityState(State):
                 yield interval
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
-        delta = evt.pos().x() - self.prev_pos.x()
+        delta_x = evt.pos().x() - self.prev_pos.x()
         self.prev_pos = evt.pos()
 
         if evt.modifiers() == Qt.ShiftModifier:
-            delta = delta / 10
+            delta = delta_x / 10
         else:
-            delta = delta / 3
+            delta = delta_x / 3
 
         self.delta_velocity += delta
         self.grid.update()
@@ -978,7 +993,8 @@ class ChangeVelocityState(State):
 
                         velocity = max(1, min(127, interval.velocity + delta_velocity))
                         start_event = value_types.MidiEvent(
-                            interval.start_time, bytes([0x90 | interval.channel, interval.pitch, velocity]))
+                            interval.start_time,
+                            bytes([0x90 | interval.channel, interval.pitch, velocity]))
                         start_id = self.grid.addEvent(start_event)
 
                         if interval.end_event is not None:
@@ -1019,7 +1035,10 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
     readOnly, setReadOnly, readOnlyChanged = slots.slot(bool, 'readOnly', default=True)
     snapToGrid, setSnapToGrid, snapToGridChanged = slots.slot(bool, 'snapToGrid', default=True)
     hoverPitch, setHoverPitch, hoverPitchChanged = slots.slot(int, 'hoverPitch', default=-1)
-    editMode, setEditMode, editModeChanged = slots.slot(EditMode, 'editMode', default=EditMode.AddInterval)
+    editMode, setEditMode, editModeChanged = slots.slot(
+        EditMode, 'editMode', default=EditMode.AddInterval)
+    currentChannel, setCurrentChannel, currentChannelChanged = slots.slot(
+        int, 'currentChannel', default=0)
 
     channel_base_colors = [
         QtGui.QColor(100, 100, 255),
@@ -1073,8 +1092,6 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
         self.setMinimumSize(100, 50)
         self.setFocusPolicy(Qt.StrongFocus)
-        #self.setFocusPolicy(Qt.StrongFocus if not self.readOnly() else Qt.NoFocus)
-        #self.readOnlyChanged.connect(lambda _: self.setFocusPolicy(Qt.StrongFocus if not self.readOnly() else Qt.NoFocus))
         self.setMouseTracking(not self.readOnly())
         self.readOnlyChanged.connect(lambda _: self.setMouseTracking(not self.readOnly()))
 
@@ -1084,6 +1101,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         self.unfinishedNoteModeChanged.connect(lambda _: self.update())
         self.xOffsetChanged.connect(lambda _: self.update())
         self.yOffsetChanged.connect(lambda _: self.update())
+        self.currentChannelChanged.connect(lambda _: self.update())
 
         self.durationChanged.connect(lambda _: self.gridWidthChanged.emit(self.gridWidth()))
 
@@ -1099,10 +1117,14 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         self.select_all_action = createAction('ctrl+a', self.__selectAll)
         self.select_none_action = createAction('ctrl+shift+a', self.__selectNone)
         self.delete_selection_action = createAction('del', self.__deleteSelection)
-        self.transpose_selection_up_step_action = createAction('up', functools.partial(self.__transposeSelection, 1))
-        self.transpose_selection_down_step_action = createAction('down', functools.partial(self.__transposeSelection, -1))
-        self.transpose_selection_up_octave_action = createAction('shift+up', functools.partial(self.__transposeSelection, 12))
-        self.transpose_selection_down_octave_action = createAction('shift+down', functools.partial(self.__transposeSelection, -12))
+        self.transpose_selection_up_step_action = createAction(
+            'up', functools.partial(self.__transposeSelection, 1))
+        self.transpose_selection_down_step_action = createAction(
+            'down', functools.partial(self.__transposeSelection, -1))
+        self.transpose_selection_up_octave_action = createAction(
+            'shift+up', functools.partial(self.__transposeSelection, 12))
+        self.transpose_selection_down_octave_action = createAction(
+            'shift+down', functools.partial(self.__transposeSelection, -12))
 
         self.resetCurrentState()
 
@@ -1178,7 +1200,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         self.setCurrentState(DefaultState(grid=self))
 
     def __selectAll(self) -> None:
-        for interval in self.intervals():
+        for interval in self.intervals(channel=self.currentChannel()):
             self.addToSelection(interval)
 
     def __selectNone(self) -> None:
@@ -1273,8 +1295,13 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                     duration=end_time - event.time,
                     selected=event_id in self.__selection)
 
-    def intervalAt(self, pitch: int, time: audioproc.MusicalTime) -> Optional[Interval]:
-        for interval in self.intervals(pitch=pitch):
+    def intervalAt(
+            self,
+            pitch: int,
+            time: audioproc.MusicalTime,
+            channel: int = None
+    ) -> Optional[Interval]:
+        for interval in self.intervals(pitch=pitch, channel=channel):
             if interval.start_time <= time < interval.end_time:
                 return interval
 
@@ -1358,15 +1385,41 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                     y += grid_y_size
                 painter.fillRect(0, y, width, 1, self.__grid1_color)
 
-            for interval in self.__current_state.intervals():
-                y = (127 - interval.pitch) * grid_y_size
-                x1 = int(interval.start_time * grid_x_size)
-                x2 = int(interval.end_time * grid_x_size)
-                self.__drawInterval(
-                    painter,
-                    interval.channel, interval.velocity,
-                    interval.selected and not self.readOnly(),
-                    x1, x2, y)
+            other_channels_pixmap = QtGui.QPixmap(self.size())
+            other_channels_pixmap.fill(QtGui.QColor(0, 0, 0, 0))
+            other_channels_painter = QtGui.QPainter(other_channels_pixmap)
+            other_channels_painter.translate(-self.xOffset(), -self.yOffset())
+            current_channel_pixmap = QtGui.QPixmap(self.size())
+            current_channel_pixmap.fill(QtGui.QColor(0, 0, 0, 0))
+            current_channel_painter = QtGui.QPainter(current_channel_pixmap)
+            current_channel_painter.translate(-self.xOffset(), -self.yOffset())
+
+            try:
+                for interval in self.__current_state.intervals():
+                    y = (127 - interval.pitch) * grid_y_size
+                    x1 = int(interval.start_time * grid_x_size)
+                    x2 = int(interval.end_time * grid_x_size)
+
+                    if interval.selected or interval.channel == self.currentChannel():
+                        interval_painter = current_channel_painter
+                    else:
+                        interval_painter = other_channels_painter
+
+                    self.__drawInterval(
+                        interval_painter,
+                        interval.channel, interval.velocity,
+                        interval.selected and not self.readOnly(),
+                        x1, x2, y)
+
+            finally:
+                other_channels_painter.end()
+                current_channel_painter.end()
+
+            painter.save()
+            painter.setOpacity(0.2)
+            painter.drawPixmap(self.xOffset(), 0, other_channels_pixmap)
+            painter.restore()
+            painter.drawPixmap(self.xOffset(), 0, current_channel_pixmap)
 
             font = QtGui.QFont(self.font())
             font.setPixelSize(max(10, min(20, grid_y_size - 2)))
@@ -1382,10 +1435,10 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
                 y = (127 - interval.pitch) * grid_y_size - label_rect.bottom()
                 x = int(interval.start_time * grid_x_size) - label_rect.left()
-
-                painter.fillRect(label_rect.translated(x, y), QtGui.QColor(200, 200, 160))
-                painter.fillRect(label_rect.translated(x, y).adjusted(1, 1, -1, -1), QtGui.QColor(255, 255, 200))
-                painter.drawText(label_rect.translated(x, y).adjusted(3, 0, -3, 0), Qt.AlignRight, '%d' % interval.velocity)
+                r = label_rect.translated(x, y)
+                painter.fillRect(r, QtGui.QColor(200, 200, 160))
+                painter.fillRect(r.adjusted(1, 1, -1, -1), QtGui.QColor(255, 255, 200))
+                painter.drawText(r.adjusted(3, 0, -3, 0), Qt.AlignRight, '%d' % interval.velocity)
 
             self.__current_state.paintOverlay(painter)
 

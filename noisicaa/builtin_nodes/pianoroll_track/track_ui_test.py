@@ -20,6 +20,9 @@
 #
 # @end:license
 
+from PyQt5 import QtCore
+from PyQt5 import QtWidgets
+
 from noisidev import uitest
 from noisicaa import audioproc
 from noisicaa.ui.track_list import track_editor_tests
@@ -52,3 +55,8 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
                 self.track.remove_segment(ref)
 
             self.renderWidget(ti)
+
+    def test_context_menu(self):
+        with self._trackItem() as ti:
+            menu = QtWidgets.QMenu()
+            ti.buildContextMenu(menu, QtCore.QPoint())

@@ -24,7 +24,7 @@ import fractions
 import functools
 import logging
 import os.path
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Set, Sequence, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -48,7 +48,7 @@ from . import model
 logger = logging.getLogger(__name__)
 
 
-class PianoRollToolMixin(tools.ToolBase):
+class PianoRollToolMixin(tools.ToolBase):  # pylint: disable=abstract-method
     def activateSegment(self, segment: 'SegmentEditor') -> None:
         pass
 
@@ -88,7 +88,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
         super().deactivated()
 
     def __segmentAt(self, x: int) -> 'SegmentEditor':
-        time = self.grid.xToTime(x)
+        time = self.track.xToTime(x)
         for seditor in self.track.segments:
             if seditor.startTime() <= time < seditor.endTime():
                 return seditor
@@ -132,7 +132,8 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
             if self.track.shouldSnap(evt):
                 self.__time = self.track.snapTime(self.__time)
             self.__time = max(audioproc.MusicalTime(0, 1), self.__time)
-            self.track.repositionSegment(self.__segment, self.__time, self.__time + self.__segment.duration())
+            self.track.repositionSegment(
+                self.__segment, self.__time, self.__time + self.__segment.duration())
             evt.accept()
             return
 
@@ -140,8 +141,11 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
             self.__time = self.track.xToTime(evt.pos().x() - self.__handle_offset)
             if self.track.shouldSnap(evt):
                 self.__time = self.track.snapTime(self.__time)
-            self.__time = max(self.__segment.startTime() + audioproc.MusicalDuration(1, 16), self.__time)
-            self.track.repositionSegment(self.__segment, self.__segment.startTime(), self.__time)
+            self.__time = max(
+                self.__segment.startTime() + audioproc.MusicalDuration(1, 16),
+                self.__time)
+            self.track.repositionSegment(
+                self.__segment, self.__segment.startTime(), self.__time)
             self.__segment.setDuration(self.__time - self.__segment.startTime())
             evt.accept()
             return
@@ -150,8 +154,11 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
             self.__time = self.track.xToTime(evt.pos().x() - self.__handle_offset)
             if self.track.shouldSnap(evt):
                 self.__time = self.track.snapTime(self.__time)
-            self.__time = min(self.__segment.endTime() - audioproc.MusicalDuration(1, 16), self.__time)
-            self.track.repositionSegment(self.__segment, self.__time, self.__segment.endTime())
+            self.__time = min(
+                self.__segment.endTime() - audioproc.MusicalDuration(1, 16),
+                self.__time)
+            self.track.repositionSegment(
+                self.__segment, self.__time, self.__segment.endTime())
             self.__segment.setDuration(self.__segment.endTime() - self.__time)
             evt.accept()
             return
@@ -203,8 +210,12 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
             return
 
         if evt.button() == Qt.RightButton and self.__action in ('drag', 'move-start', 'move-end'):
-            self.__segment.move(self.track.timeToX(self.__segment.startTime()) - self.track.xOffset(), 0)
-            self.__segment.resize(int(self.track.scaleX() * self.__segment.duration().fraction) + 1, self.track.height())
+            self.__segment.move(
+                self.track.timeToX(self.__segment.startTime()) - self.track.xOffset(),
+                0)
+            self.__segment.resize(
+                int(self.track.scaleX() * self.__segment.duration().fraction) + 1,
+                self.track.height())
             self.__segment = None
             self.__action = None
             evt.accept()
@@ -289,17 +300,27 @@ class EditVelocityTool(PianoRollToolMixin, tools.ToolBase):
         segment.setEditMode(pianoroll.EditMode.EditVelocity)
 
 
-class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectMixin, QtWidgets.QWidget):
+class SegmentEditor(
+        slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectMixin, QtWidgets.QWidget):
     playNotes = QtCore.pyqtSignal(pianoroll.PlayNotes)
 
     xOffset, setXOffset, xOffsetChanged = slots.slot(int, 'xOffset', default=0)
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
-    scaleX, setScaleX, scaleXChanged = slots.slot(fractions.Fraction, 'scaleX', default=fractions.Fraction(4*80))
+    scaleX, setScaleX, scaleXChanged = slots.slot(
+        fractions.Fraction, 'scaleX', default=fractions.Fraction(4*80))
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
     readOnly, setReadOnly, readOnlyChanged = slots.slot(bool, 'readOnly', default=True)
-    editMode, setEditMode, editModeChanged = slots.slot(pianoroll.EditMode, 'editMode', default=pianoroll.EditMode.AddInterval)
+    editMode, setEditMode, editModeChanged = slots.slot(
+        pianoroll.EditMode, 'editMode', default=pianoroll.EditMode.AddInterval)
+    currentChannel, setCurrentChannel, currentChannelChanged = slots.slot(
+        int, 'currentChannel', default=0)
 
-    def __init__(self, *, track_editor: 'PianoRollTrackEditor', segment_ref: model.PianoRollSegmentRef, **kwargs: Any) -> None:
+    def __init__(
+            self, *,
+            track_editor: 'PianoRollTrackEditor',
+            segment_ref: model.PianoRollSegmentRef,
+            **kwargs: Any
+    ) -> None:
         super().__init__(parent=track_editor, **kwargs)
 
         self.__listeners = core.ListenerList()
@@ -314,9 +335,17 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
 
         self.__grid = pianoroll.PianoRollGrid(parent=self)
         self.__grid.move(0, -self.yOffset())
-        self.__grid.setGridXSize(self.scaleX())
         self.__grid.setDuration(self.__segment.duration)
+        self.__grid.setXOffset(self.xOffset())
+        self.xOffsetChanged.connect(self.__grid.setXOffset)
+        self.__grid.setGridXSize(self.scaleX())
+        self.scaleXChanged.connect(self.__grid.setGridXSize)
         self.__grid.setReadOnly(self.readOnly())
+        self.readOnlyChanged.connect(self.__grid.setReadOnly)
+        self.__grid.setEditMode(self.editMode())
+        self.editModeChanged.connect(self.__grid.setEditMode)
+        self.__grid.setCurrentChannel(self.currentChannel())
+        self.currentChannelChanged.connect(self.__grid.setCurrentChannel)
         self.__grid.hoverPitchChanged.connect(self.__track_editor.setHoverPitch)
         self.__grid.playNotes.connect(self.playNotes.emit)
         self.__listeners.add(self.__grid.mutations.add(self.__gridMutations))
@@ -330,18 +359,17 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
             self.__obj_to_grid_map[event.id] = event_id
         self.__listeners.add(self.__segment.events_changed.add(self.__eventsChanged))
 
-        self.scaleXChanged.connect(self.__grid.setGridXSize)
         self.gridYSizeChanged.connect(self.__gridYSizeChanged)
-        self.xOffsetChanged.connect(self.__grid.setXOffset)
         self.yOffsetChanged.connect(lambda _: self.__grid.move(0, -self.yOffset()))
-        self.readOnlyChanged.connect(self.__grid.setReadOnly)
-        self.editModeChanged.connect(self.__grid.setEditMode)
 
     def __timeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
-        self.__track_editor.repositionSegment(self, change.new_value, change.new_value + self.__segment.duration)
+        self.__track_editor.repositionSegment(
+            self, change.new_value, change.new_value + self.__segment.duration)
 
-    def __durationChanged(self, change: music.PropertyValueChange[audioproc.MusicalDuration]) -> None:
-        self.__track_editor.repositionSegment(self, self.__segment_ref.time, self.__segment_ref.time + change.new_value)
+    def __durationChanged(
+            self, change: music.PropertyValueChange[audioproc.MusicalDuration]) -> None:
+        self.__track_editor.repositionSegment(
+            self, self.__segment_ref.time, self.__segment_ref.time + change.new_value)
         self.__grid.setDuration(change.new_value)
 
     def __eventsChanged(self, change: music.PropertyListChange[model.PianoRollEvent]) -> None:
@@ -367,7 +395,8 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
     def __gridMutations(self, mutations: Sequence[pianoroll.Mutation]) -> None:
         self.__ignore_model_mutations = True
         try:
-            with self.project.apply_mutations('%s: Edit MIDI events' % self.__track_editor.track.name):
+            with self.project.apply_mutations(
+                    '%s: Edit MIDI events' % self.__track_editor.track.name):
                 for mutation in mutations:
                     if isinstance(mutation, pianoroll.AddEvent):
                         event = self.__segment.append_event(mutation.event)
@@ -412,11 +441,16 @@ class SegmentEditor(slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectM
         super().resizeEvent(evt)
 
 
-class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMixin, base_track_editor.BaseTrackEditor):
+class PianoRollTrackEditor(
+        slots.SlotContainer,
+        time_view_mixin.ContinuousTimeMixin,
+        base_track_editor.BaseTrackEditor):
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
     hoverPitch, setHoverPitch, hoverPitchChanged = slots.slot(int, 'hoverPitch', default=-1)
     snapToGrid, setSnapToGrid, snapToGridChanged = slots.slot(bool, 'snapToGrid', default=True)
+    currentChannel, setCurrentChannel, currentChannelChanged = slots.slot(
+        int, 'currentChannel', default=0)
 
     MIN_GRID_Y_SIZE = 2
     MAX_GRID_Y_SIZE = 64
@@ -432,11 +466,13 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
 
-        self.__active_notes = set()  # type: Set[int]
+        self.__active_notes = set()  # type: Set[Tuple[int, int]]
         self.__hover_pitch = -1
 
         self.__keys = pianoroll.PianoKeys(parent=self)
         self.__keys.setPlayable(True)
+        self.__keys.setPlaybackChannel(self.currentChannel())
+        self.currentChannelChanged.connect(self.__keys.setPlaybackChannel)
         self.__keys.playNotes.connect(self.playNotes)
         self.__keys.setScrollable(True)
         self.__keys.setYOffset(self.yOffset())
@@ -468,7 +504,41 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.scaleXChanged.connect(lambda _: self.__repositionSegments())
         self.gridYSizeChanged.connect(lambda _: self.__updateYScrollbar())
 
+        self.setCurrentChannel(
+            self.get_session_value(self.__session_prefix + 'current-channel', 0))
+        self.currentChannelChanged.connect(
+            functools.partial(self.set_session_value, self.__session_prefix + 'current-channel'))
+
         self.setFocusPolicy(Qt.StrongFocus)
+
+        self.__current_channel_action_group = QtWidgets.QActionGroup(self)
+        self.__current_channel_action_group.setExclusive(True)
+        self.__current_channel_action_group.triggered.connect(
+            lambda action: self.setCurrentChannel(action.data()))
+
+        self.__set_current_channel_actions = []  # type: List[QtWidgets.QAction]
+        for ch in range(16):
+            action = QtWidgets.QAction(self)
+            action.setData(ch)
+            action.setCheckable(True)
+            action.setText("Channel %d" % (ch + 1))
+            pixmap = QtGui.QPixmap(16, 16)
+            pixmap.fill(pianoroll.PianoRollGrid.channel_base_colors[ch])
+            icon = QtGui.QIcon(pixmap)
+            action.setIcon(icon)
+            action.setShortcut(QtGui.QKeySequence(
+                ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
+                 'shift+1', 'shift+2', 'shift+3', 'shift+4', 'shift+5', 'shift+6',
+                ][ch]))
+            action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+            action.setShortcutVisibleInContextMenu(True)
+            self.__current_channel_action_group.addAction(action)
+            self.__set_current_channel_actions.append(action)
+            self.addAction(action)
+
+        self.__set_current_channel_actions[self.currentChannel()].setChecked(True)
+        self.currentChannelChanged.connect(
+            lambda ch: self.__set_current_channel_actions[ch].setChecked(True))
 
     @property
     def track(self) -> model.PianoRollTrack:
@@ -492,6 +562,8 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         self.yOffsetChanged.connect(seditor.setYOffset)
         seditor.setGridYSize(self.gridYSize())
         self.gridYSizeChanged.connect(seditor.setGridYSize)
+        seditor.setCurrentChannel(self.currentChannel())
+        self.currentChannelChanged.connect(seditor.setCurrentChannel)
         seditor.playNotes.connect(self.playNotes)
         self.repositionSegment(seditor, seditor.startTime(), seditor.endTime())
         down_cast(PianoRollToolMixin, self.currentTool()).activateSegment(seditor)
@@ -508,7 +580,8 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         seditor.setParent(None)
         self.update()
 
-    def __segmentsChanged(self, change: music.PropertyListChange[model.PianoRollSegmentRef]) -> None:
+    def __segmentsChanged(
+            self, change: music.PropertyListChange[model.PianoRollSegmentRef]) -> None:
         if isinstance(change, music.PropertyListInsert):
             self.__addSegment(change.index, change.new_value)
 
@@ -540,7 +613,12 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
     def gridHeight(self) -> int:
         return 128 * self.gridYSize() + 1
 
-    def repositionSegment(self, segment: SegmentEditor, start_time: audioproc.MusicalTime, end_time: audioproc.MusicalTime) -> None:
+    def repositionSegment(
+            self,
+            segment: SegmentEditor,
+            start_time: audioproc.MusicalTime,
+            end_time: audioproc.MusicalTime
+    ) -> None:
         x1 = self.timeToX(start_time)
         x2 = self.timeToX(end_time) + 1
 
@@ -614,6 +692,11 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
         row_height_action = QtWidgets.QWidgetAction(self)
         row_height_action.setDefaultWidget(row_height_widget)
         view_menu.addAction(row_height_action)
+
+        current_channel_menu = menu.addMenu("Current MIDI Channel")
+        for ch in range(16):
+            current_channel_menu.addAction(
+                self.__set_current_channel_actions[ch])
 
     def __changeRowHeight(
             self,
@@ -709,25 +792,25 @@ class PianoRollTrackEditor(slots.SlotContainer, time_view_mixin.ContinuousTimeMi
 
     def playNotes(self, play_notes: pianoroll.PlayNotes) -> None:
         if self.playerState().playerID():
-            for pitch in play_notes.note_off:
-                if pitch in self.__active_notes:
+            for channel, pitch in play_notes.note_off:
+                if (channel, pitch) in self.__active_notes:
                     self.call_async(self.project_view.sendNodeMessage(
                         processor_messages.note_off_event(
-                            self.track.pipeline_node_id, 0, pitch)))
+                            self.track.pipeline_node_id, channel, pitch)))
 
-                    self.__active_notes.discard(pitch)
+                    self.__active_notes.discard((channel, pitch))
 
             if play_notes.all_notes_off:
-                for pitch in self.__active_notes:
+                for channel, pitch in self.__active_notes:
                     self.call_async(self.project_view.sendNodeMessage(
                         processor_messages.note_off_event(
-                            self.track.pipeline_node_id, 0, pitch)))
+                            self.track.pipeline_node_id, channel, pitch)))
 
                 self.__active_notes.clear()
 
-            for pitch in play_notes.note_on:
+            for channel, pitch in play_notes.note_on:
                 self.call_async(self.project_view.sendNodeMessage(
                     processor_messages.note_on_event(
-                        self.track.pipeline_node_id, 0, pitch, 100)))
+                        self.track.pipeline_node_id, channel, pitch, 100)))
 
-                self.__active_notes.add(pitch)
+                self.__active_notes.add((channel, pitch))
