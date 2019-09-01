@@ -98,7 +98,7 @@ class PianoRollTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase)
 
             messages.clear()
             with self.project.apply_mutations('test'):
-                event = segment_ref.segment.append_event(
+                event = segment_ref.segment.add_event(
                     value_types.MidiEvent(
                         audioproc.MusicalTime(1, 8),
                         bytes([0x90, 64, 100])))

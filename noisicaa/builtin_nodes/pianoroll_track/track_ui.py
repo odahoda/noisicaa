@@ -399,13 +399,13 @@ class SegmentEditor(
                     '%s: Edit MIDI events' % self.__track_editor.track.name):
                 for mutation in mutations:
                     if isinstance(mutation, pianoroll.AddEvent):
-                        event = self.__segment.append_event(mutation.event)
+                        event = self.__segment.add_event(mutation.event)
                         self.__grid_to_obj_map[mutation.event_id] = event
                         self.__obj_to_grid_map[event.id] = mutation.event_id
 
                     elif isinstance(mutation, pianoroll.RemoveEvent):
                         event = self.__grid_to_obj_map[mutation.event_id]
-                        del self.__segment.events[event.index]
+                        self.__segment.remove_event(event)
                         del self.__grid_to_obj_map[mutation.event_id]
                         del self.__obj_to_grid_map[event.id]
 

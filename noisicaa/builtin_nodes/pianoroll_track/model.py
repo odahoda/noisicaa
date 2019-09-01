@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import bisect
 import functools
 import logging
 from typing import Any, Callable
@@ -164,6 +165,36 @@ class PianoRollEvent(_model.PianoRollEvent):
 
         self.midi_event = midi_event
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, PianoRollEvent):
+            raise TypeError
+        return self.midi_event == other.midi_event
+
+    def __ne__(self, other: object) -> bool:
+        if not isinstance(other, PianoRollEvent):
+            raise TypeError
+        return self.midi_event != other.midi_event
+
+    def __gt__(self, other: object) -> bool:
+        if not isinstance(other, PianoRollEvent):
+            raise TypeError
+        return self.midi_event > other.midi_event
+
+    def __ge__(self, other: object) -> bool:
+        if not isinstance(other, PianoRollEvent):
+            raise TypeError
+        return self.midi_event >= other.midi_event
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, PianoRollEvent):
+            raise TypeError
+        return self.midi_event < other.midi_event
+
+    def __le__(self, other: object) -> bool:
+        if not isinstance(other, PianoRollEvent):
+            raise TypeError
+        return self.midi_event <= other.midi_event
+
 
 class PianoRollSegment(_model.PianoRollSegment):
     def create(self, *, duration: audioproc.MusicalDuration, **kwargs: Any) -> None:
@@ -171,10 +202,14 @@ class PianoRollSegment(_model.PianoRollSegment):
 
         self.duration = duration
 
-    def append_event(self, midi_event: value_types.MidiEvent) -> PianoRollEvent:
+    def add_event(self, midi_event: value_types.MidiEvent) -> PianoRollEvent:
         event = self._pool.create(PianoRollEvent, midi_event=midi_event)
-        self.events.append(event)
+        index = bisect.bisect(self.events, event)
+        self.events.insert(index, event)
         return event
+
+    def remove_event(self, event: PianoRollEvent) -> None:
+        del self.events[event.index]
 
 
 class PianoRollSegmentRef(_model.PianoRollSegmentRef):
