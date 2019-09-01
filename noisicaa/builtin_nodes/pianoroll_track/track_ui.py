@@ -314,6 +314,8 @@ class SegmentEditor(
         pianoroll.EditMode, 'editMode', default=pianoroll.EditMode.AddInterval)
     currentChannel, setCurrentChannel, currentChannelChanged = slots.slot(
         int, 'currentChannel', default=0)
+    playbackPosition, setPlaybackPosition, playbackPositionChanged = slots.slot(
+        audioproc.MusicalTime, 'playbackPosition', default=audioproc.MusicalTime(-1, 1))
 
     def __init__(
             self, *,
@@ -348,6 +350,7 @@ class SegmentEditor(
         self.currentChannelChanged.connect(self.__grid.setCurrentChannel)
         self.__grid.hoverPitchChanged.connect(self.__track_editor.setHoverPitch)
         self.__grid.playNotes.connect(self.playNotes.emit)
+        self.playbackPositionChanged.connect(self.__grid.setPlaybackPosition)
         self.__listeners.add(self.__grid.mutations.add(self.__gridMutations))
 
         self.__ignore_model_mutations = False
@@ -603,6 +606,13 @@ class PianoRollTrackEditor(
         super().setIsCurrent(is_current)
         for segment in self.segments:
             segment.setEnabled(is_current)
+
+    def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
+        for segment in self.segments:
+            if segment.startTime() <= time < segment.endTime():
+                segment.setPlaybackPosition(time.relative_to(segment.startTime()))
+            else:
+                segment.setPlaybackPosition(audioproc.MusicalTime(-1, 1))
 
     def gridStep(self) -> audioproc.MusicalDuration:
         for s in (64, 32, 16, 8, 4, 2):

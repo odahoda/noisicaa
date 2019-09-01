@@ -98,6 +98,9 @@ cdef class PyMusicalDuration(object):
     def to_float(self):
         return float(self._duration.to_float())
 
+    def as_time(self):
+        return PyMusicalTime.create(MusicalTime(self._duration.numerator(), self._duration.denominator()))
+
     def __bool__(PyMusicalDuration self):
         return self._duration != MusicalDuration(0, 1)
 
@@ -209,6 +212,9 @@ cdef class PyMusicalTime(object):
 
     def to_float(self):
         return float(self._time.to_float())
+
+    def relative_to(PyMusicalTime self, PyMusicalTime other):
+        return (self - other).as_time()
 
     def __bool__(PyMusicalTime self):
         return self._time != MusicalTime(0, 1)
