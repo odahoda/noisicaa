@@ -100,14 +100,16 @@ class Editor(
         self.__increase_scale_x_action.setShortcut("ctrl+left")
         self.__increase_scale_x_action.setShortcutContext(Qt.WindowShortcut)
         self.__increase_scale_x_action.triggered.connect(
-            lambda: self.setScaleX(max(fractions.Fraction(5, 1), self.scaleX() * fractions.Fraction(2, 3))))
+            lambda: self.setScaleX(
+                max(fractions.Fraction(5, 1), self.scaleX() * fractions.Fraction(2, 3))))
         self.addAction(self.__increase_scale_x_action)
 
         self.__decrease_scale_x_action = QtWidgets.QAction(self)
         self.__decrease_scale_x_action.setShortcut("ctrl+right")
         self.__decrease_scale_x_action.setShortcutContext(Qt.WindowShortcut)
         self.__decrease_scale_x_action.triggered.connect(
-            lambda: self.setScaleX(min(fractions.Fraction(10000, 1), self.scaleX() * fractions.Fraction(3, 2))))
+            lambda: self.setScaleX(
+                min(fractions.Fraction(10000, 1), self.scaleX() * fractions.Fraction(3, 2))))
         self.addAction(self.__decrease_scale_x_action)
 
     def cleanup(self) -> None:

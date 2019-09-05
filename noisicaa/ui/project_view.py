@@ -299,4 +299,5 @@ class ProjectView(ui_base.AbstractProjectView):
     def hideEvent(self, evt: QtGui.QHideEvent) -> None:
         super().hideEvent(evt)
 
-        self.set_session_value(self.__session_prefix + 'splitter-state', bytes(self.__splitter.saveState()))
+        self.set_session_value(
+            self.__session_prefix + 'splitter-state', bytes(self.__splitter.saveState()))

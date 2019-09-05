@@ -179,7 +179,7 @@ class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
     def tools(self) -> Iterator[ToolBase]:
         return iter(self.__tools)
 
-    def addTool(self, cls: Type[ToolBase], **kwargs) -> None:
+    def addTool(self, cls: Type[ToolBase], **kwargs: Any) -> None:
         tool = cls(track=self.track, context=self.context, **kwargs)
         assert tool.type not in self.__tool_map
 

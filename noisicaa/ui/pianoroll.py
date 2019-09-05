@@ -273,7 +273,7 @@ class RemoveEvent(Mutation):
     pass
 
 
-class AbstractInterval(object):
+class AbstractInterval(object):  # pragma: no coverage
     @property
     def channel(self) -> int:
         raise NotImplementedError
@@ -460,9 +460,6 @@ class State(object):
             yield interval
 
     def paintOverlay(self, painter: QtGui.QPainter) -> None:
-        pass
-
-    def keyPressEvent(self, evt: QtGui.QKeyEvent) -> None:
         pass
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
@@ -1307,6 +1304,17 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
         return None
 
+    def pointAt(
+            self,
+            pitch: int,
+            time: audioproc.MusicalTime,
+    ) -> QtCore.QPoint:
+        assert 0 <= pitch <= 127
+        assert audioproc.MusicalTime(0, 1) <= time <= self.duration().as_time()
+        x = int(time * self.gridXSize())
+        y = (127 - pitch) * self.gridYSize() + self.gridYSize() // 2
+        return QtCore.QPoint(x, y) - self.offset()
+
     def __drawInterval(
             self,
             painter: QtGui.QPainter,
@@ -1450,17 +1458,6 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         finally:
             painter.end()
 
-    def keyPressEvent(self, evt: QtGui.QKeyEvent) -> None:
-        if self.readOnly():
-            super().keyPressEvent(evt)
-            return
-
-        self.__current_state.keyPressEvent(evt)
-        if evt.isAccepted():
-            return
-
-        super().keyPressEvent(evt)
-
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if self.readOnly():
             super().mousePressEvent(evt)
@@ -1508,6 +1505,9 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
             for mutation in mutations:
                 logger.info("  %s", mutation)
             self.mutations.call(mutations)
+
+    def events(self) -> List[value_types.MidiEvent]:
+        return [event for event, _ in self.__sorted_events]
 
     def clearEvents(self) -> None:
         self.__sorted_events.clear()

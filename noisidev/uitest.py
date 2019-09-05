@@ -24,8 +24,9 @@ import functools
 import logging
 import os.path
 import uuid
-from typing import cast, Any, Dict
+from typing import cast, Any, Dict, Set
 
+from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
@@ -165,6 +166,206 @@ class MockApp(ui_base.AbstractEditorApp):  # pylint: disable=abstract-method
         self.node_messages = None  # type: core.CallbackMap
 
 
+class HIDState(object):
+    def __init__(self):
+        self.__pressed_keys = set()  # type: Set[Qt.Key]
+        self.__pressed_mouse_buttons = set()  # type: Set[Qt.MouseButton]
+        self.__mouse_pos = QtCore.QPointF(0, 0)
+
+    @property
+    def window_pos(self):
+        return QtCore.QPointF(100, 200)
+
+    def press_mouse_button(self, button):
+        assert button not in self.__pressed_mouse_buttons
+        self.__pressed_mouse_buttons.add(button)
+
+    def release_mouse_button(self, button):
+        assert button in self.__pressed_mouse_buttons
+        self.__pressed_mouse_buttons.remove(button)
+
+    def set_mouse_pos(self, pos):
+        self.__mouse_pos = pos
+
+    @property
+    def mouse_pos(self):
+        return self.__mouse_pos
+
+    @property
+    def mouse_buttons(self):
+        buttons = Qt.NoButton
+        for button in self.__pressed_mouse_buttons:
+            buttons |= button
+        return buttons
+
+    def press_key(self, key):
+        assert key not in self.__pressed_keys
+        self.__pressed_keys.add(key)
+
+    def release_key(self, key):
+        assert key in self.__pressed_keys
+        self.__pressed_keys.remove(key)
+
+    @property
+    def modifiers(self):
+        modifiers = Qt.KeyboardModifiers()
+        for key in self.__pressed_keys:
+            if key == Qt.Key_Shift:
+                modifiers |= Qt.ShiftModifier
+            elif key == Qt.Key_Control:
+                modifiers |= Qt.ControlModifier
+            elif key == Qt.Key_Alt:
+                modifiers |= Qt.AltModifier
+            elif key == Qt.Key_Meta:
+                modifiers |= Qt.MetaModifier
+
+        return modifiers
+
+
+class Event(object):
+    def replay(self, state, widget):
+        raise NotImplementedError
+
+
+class MoveMouse(Event):
+    def __init__(self, p):
+        self.__p = QtCore.QPointF(p)
+
+    def replay(self, state, widget):
+        state.set_mouse_pos(self.__p)
+        widget.mouseMoveEvent(QtGui.QMouseEvent(
+            QtCore.QEvent.MouseMove,
+            self.__p,
+            self.__p + widget.pos(),
+            self.__p + widget.pos() + state.window_pos,
+            Qt.NoButton,
+            state.mouse_buttons,
+            state.modifiers))
+
+
+class PressMouseButton(Event):
+    def __init__(self, button):
+        self.__button = button
+
+    def replay(self, state, widget):
+        state.press_mouse_button(self.__button)
+        widget.mousePressEvent(QtGui.QMouseEvent(
+            QtCore.QEvent.MouseButtonPress,
+            state.mouse_pos,
+            state.mouse_pos + widget.pos(),
+            state.mouse_pos + widget.pos() + state.window_pos,
+            self.__button,
+            state.mouse_buttons,
+            state.modifiers))
+
+
+class DoubleClickButton(Event):
+    def __init__(self, button):
+        self.__button = button
+
+    def replay(self, state, widget):
+        state.press_mouse_button(self.__button)
+        widget.mousePressEvent(QtGui.QMouseEvent(
+            QtCore.QEvent.MouseButtonPress,
+            state.mouse_pos,
+            state.mouse_pos + widget.pos(),
+            state.mouse_pos + widget.pos() + state.window_pos,
+            self.__button,
+            state.mouse_buttons,
+            state.modifiers))
+        widget.mouseReleaseEvent(QtGui.QMouseEvent(
+            QtCore.QEvent.MouseButtonRelease,
+            state.mouse_pos,
+            state.mouse_pos + widget.pos(),
+            state.mouse_pos + widget.pos() + state.window_pos,
+            self.__button,
+            state.mouse_buttons,
+            state.modifiers))
+        widget.mouseDoubleClickEvent(QtGui.QMouseEvent(
+            QtCore.QEvent.MouseButtonDblClick,
+            state.mouse_pos,
+            state.mouse_pos + widget.pos(),
+            state.mouse_pos + widget.pos() + state.window_pos,
+            self.__button,
+            state.mouse_buttons,
+            state.modifiers))
+        widget.mouseReleaseEvent(QtGui.QMouseEvent(
+            QtCore.QEvent.MouseButtonRelease,
+            state.mouse_pos,
+            state.mouse_pos + widget.pos(),
+            state.mouse_pos + widget.pos() + state.window_pos,
+            self.__button,
+            state.mouse_buttons,
+            state.modifiers))
+
+
+class ReleaseMouseButton(Event):
+    def __init__(self, button):
+        self.__button = button
+
+    def replay(self, state, widget):
+        state.release_mouse_button(self.__button)
+        widget.mouseReleaseEvent(QtGui.QMouseEvent(
+            QtCore.QEvent.MouseButtonRelease,
+            state.mouse_pos,
+            state.mouse_pos + widget.pos(),
+            state.mouse_pos + widget.pos() + state.window_pos,
+            self.__button,
+            state.mouse_buttons,
+            state.modifiers))
+
+
+class MoveWheel(Event):
+    def __init__(self, steps):
+        self.__steps = steps
+
+    def replay(self, state, widget):
+        widget.wheelEvent(QtGui.QWheelEvent(
+            state.mouse_pos,
+            state.mouse_pos + widget.pos() + state.window_pos,
+            QtCore.QPoint(0, 10 * self.__steps),
+            QtCore.QPoint(0, 15 * self.__steps),
+            0, Qt.Vertical,
+            state.mouse_buttons,
+            state.modifiers))
+
+
+class PressKey(Event):
+    def __init__(self, key):
+        self.__key = key
+
+    def replay(self, state, widget):
+        state.press_key(self.__key)
+        widget.keyPressEvent(QtGui.QKeyEvent(
+            QtCore.QEvent.KeyPress,
+            self.__key,
+            state.modifiers,
+            0,
+            0,
+            0,
+            '',
+            False,
+            0))
+
+
+class ReleaseKey(Event):
+    def __init__(self, key):
+        self.__key = key
+
+    def replay(self, state, widget):
+        state.release_key(self.__key)
+        widget.keyReleaseEvent(QtGui.QKeyEvent(
+            QtCore.QEvent.KeyRelease,
+            self.__key,
+            state.modifiers,
+            0,
+            0,
+            0,
+            '',
+            False,
+            0))
+
+
 class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -176,6 +377,8 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.context = None
 
     async def setup_testcase(self):
+        self.__hid_state = HIDState()
+
         self.setup_node_db_process(inline=True)
         self.setup_urid_mapper_process(inline=True)
         self.setup_instrument_db_process(inline=True)
@@ -234,6 +437,28 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
             painter.end()
             painter = None  # QPainter must be destroyed before QImage.
         return pixmap
+
+    def replayEvents(self, widget, *events):
+        for event in events:
+            event.replay(self.__hid_state, widget)
+
+    def moveMouse(self, widget, pos, steps=10):
+        p1 = self.__hid_state.mouse_pos
+        p2 = pos
+        for i in range(1, steps + 1):
+            MoveMouse(i * (p2 - p1) / steps + p1).replay(self.__hid_state, widget)
+
+    def pressKey(self, widget, key):
+        PressKey(key).replay(self.__hid_state, widget)
+
+    def releaseKey(self, widget, key):
+        ReleaseKey(key).replay(self.__hid_state, widget)
+
+    def pressMouseButton(self, widget, button):
+        PressMouseButton(button).replay(self.__hid_state, widget)
+
+    def releaseMouseButton(self, widget, button):
+        ReleaseMouseButton(button).replay(self.__hid_state, widget)
 
 
 class ProjectMixin(
