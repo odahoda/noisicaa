@@ -40,6 +40,12 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
     def cleanup_testcase(self):
         self.editor.cleanup()
 
+    def openContextMenu(self):
+        menu = QtWidgets.QMenu(self.widget_under_test)
+        self.widget_under_test.buildContextMenu(menu, self.hid_state.mouse_pos)
+        menu.show()
+        return menu
+
     def _createTrackItem(self, **kwargs):
         raise NotImplementedError
 
@@ -47,6 +53,10 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
     def _trackItem(self, **kwargs):
         ti = self._createTrackItem(**kwargs)
         try:
+            ti.resize(800, ti.minimumHeight())
+            self.setWidgetUnderTest(ti)
+            ti.show()
+            self.processQtEvents()
             yield ti
         finally:
             ti.cleanup()
@@ -67,7 +77,6 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
     def test_mouse_events(self):
         with self._trackItem() as ti:
             self.replayEvents(
-                ti,
                 uitest.MoveMouse(QtCore.QPoint(100, 50)),
                 uitest.PressMouseButton(Qt.LeftButton),
                 uitest.MoveMouse(QtCore.QPoint(110, 54)),
@@ -81,7 +90,6 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
     def test_key_events(self):
         with self._trackItem() as ti:
             self.replayEvents(
-                ti,
                 uitest.MoveMouse(QtCore.QPoint(100, 50)),
                 uitest.PressKey(Qt.Key_Shift),
                 uitest.PressKey(Qt.Key_A),
@@ -97,7 +105,7 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
     def test_paint(self):
         with self._trackItem() as ti:
             ti.resize(QtCore.QSize(200, 100))
-            self.renderWidget(ti)
+            self.renderWidget()
 
             ti.setIsCurrent(True)
-            self.renderWidget(ti)
+            self.renderWidget()

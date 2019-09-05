@@ -188,8 +188,12 @@ class HIDState(object):
         self.__mouse_pos = pos
 
     @property
-    def mouse_pos(self):
+    def mouse_posf(self):
         return self.__mouse_pos
+
+    @property
+    def mouse_pos(self):
+        return self.__mouse_pos.toPoint()
 
     @property
     def mouse_buttons(self):
@@ -377,7 +381,8 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.context = None
 
     async def setup_testcase(self):
-        self.__hid_state = HIDState()
+        self.hid_state = HIDState()
+        self.widget = None
 
         self.setup_node_db_process(inline=True)
         self.setup_urid_mapper_process(inline=True)
@@ -428,37 +433,53 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         if self.process is not None:
             await self.process.cleanup()
 
-    def renderWidget(self, widget):
-        pixmap = QtGui.QPixmap(widget.size())
+    def setWidgetUnderTest(self, widget):
+        self.widget_under_test = widget
+
+    def processQtEvents(self):
+        self.qt_app.processEvents()
+
+    def renderWidget(self):
+        pixmap = QtGui.QPixmap(self.widget_under_test.size())
         painter = QtGui.QPainter(pixmap)
         try:
-            widget.render(painter)
+            self.widget_under_test.render(painter)
         finally:
             painter.end()
-            painter = None  # QPainter must be destroyed before QImage.
+            painter = None  # QPainter must be destroyed before QPixmap.
         return pixmap
 
-    def replayEvents(self, widget, *events):
+    def replayEvents(self, *events):
         for event in events:
-            event.replay(self.__hid_state, widget)
+            event.replay(self.hid_state, self.widget_under_test)
+            self.processQtEvents()
 
-    def moveMouse(self, widget, pos, steps=10):
-        p1 = self.__hid_state.mouse_pos
+    def moveMouse(self, pos, steps=10):
+        p1 = self.hid_state.mouse_pos
         p2 = pos
         for i in range(1, steps + 1):
-            MoveMouse(i * (p2 - p1) / steps + p1).replay(self.__hid_state, widget)
+            MoveMouse(i * (p2 - p1) / steps + p1).replay(self.hid_state, self.widget_under_test)
+            self.processQtEvents()
 
-    def pressKey(self, widget, key):
-        PressKey(key).replay(self.__hid_state, widget)
+    def pressKey(self, key):
+        PressKey(key).replay(self.hid_state, self.widget_under_test)
+        self.processQtEvents()
 
-    def releaseKey(self, widget, key):
-        ReleaseKey(key).replay(self.__hid_state, widget)
+    def releaseKey(self, key):
+        ReleaseKey(key).replay(self.hid_state, self.widget_under_test)
+        self.processQtEvents()
 
-    def pressMouseButton(self, widget, button):
-        PressMouseButton(button).replay(self.__hid_state, widget)
+    def pressMouseButton(self, button):
+        PressMouseButton(button).replay(self.hid_state, self.widget_under_test)
+        self.processQtEvents()
 
-    def releaseMouseButton(self, widget, button):
-        ReleaseMouseButton(button).replay(self.__hid_state, widget)
+    def releaseMouseButton(self, button):
+        ReleaseMouseButton(button).replay(self.hid_state, self.widget_under_test)
+        self.processQtEvents()
+
+    def scrollWheel(self, direction):
+        MoveWheel(direction).replay(self.hid_state, self.widget_under_test)
+        self.processQtEvents()
 
 
 class ProjectMixin(

@@ -227,15 +227,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
             seditor = self.__segmentAt(evt.pos().x())
             if seditor is not None:
-                # TODO: switch to midi editor tool
-                with self.project.apply_mutations('%s: Remove segment' % self.track.track.name):
-                    self.track.track.remove_segment(seditor.segmentRef())
-
-            else:
-                time = self.track.xToTime(evt.pos().x())
-                with self.project.apply_mutations('%s: Insert segment' % self.track.track.name):
-                    self.track.track.create_segment(
-                        time, audioproc.MusicalDuration(4, 4))
+                self.track.setCurrentToolType(tools.ToolType.PIANOROLL_EDIT_EVENTS)
 
             evt.accept()
             return
@@ -325,6 +317,8 @@ class SegmentEditor(
     ) -> None:
         super().__init__(parent=track_editor, **kwargs)
 
+        self.setObjectName('segment-editor[%016x]' % segment_ref.id)
+
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
 
@@ -336,6 +330,7 @@ class SegmentEditor(
         self.__listeners.add(self.__segment.duration_changed.add(self.__durationChanged))
 
         self.__grid = pianoroll.PianoRollGrid(parent=self)
+        self.__grid.setObjectName('grid')
         self.__grid.move(0, -self.yOffset())
         self.__grid.setDuration(self.__segment.duration)
         self.__grid.setXOffset(self.xOffset())
@@ -646,6 +641,13 @@ class PianoRollTrackEditor(
         for segment in self.segments:
             self.repositionSegment(segment, segment.startTime(), segment.endTime())
 
+    def __segmentAt(self, x: int) -> 'SegmentEditor':
+        time = self.xToTime(x)
+        for seditor in self.segments:
+            if seditor.startTime() <= time < seditor.endTime():
+                return seditor
+        return None
+
     def __updateYScrollbar(self) -> None:
         self.__y_scrollbar.setRange(0, max(0, self.gridHeight() - self.height()))
         self.__y_scrollbar.setPageStep(self.height())
@@ -666,14 +668,21 @@ class PianoRollTrackEditor(
     def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
         super().buildContextMenu(menu, pos)
 
+        affected_segments = []
+        segment = self.__segmentAt(pos.x())
+        if segment:
+            affected_segments.append(segment)
+
         view_menu = menu.addMenu("View")
 
         increase_row_height_button = QtWidgets.QToolButton()
+        increase_row_height_button.setObjectName('incr-row-height')
         increase_row_height_button.setAutoRaise(True)
         increase_row_height_button.setIcon(QtGui.QIcon(
             os.path.join(constants.DATA_DIR, 'icons', 'zoom-in.svg')))
         increase_row_height_button.setEnabled(self.gridYSize() < self.MAX_GRID_Y_SIZE)
         decrease_row_height_button = QtWidgets.QToolButton()
+        decrease_row_height_button.setObjectName('decr-row-height')
         decrease_row_height_button.setAutoRaise(True)
         decrease_row_height_button.setIcon(QtGui.QIcon(
             os.path.join(constants.DATA_DIR, 'icons', 'zoom-out.svg')))
@@ -708,6 +717,27 @@ class PianoRollTrackEditor(
             current_channel_menu.addAction(
                 self.__set_current_channel_actions[ch])
 
+        menu.addSeparator()
+
+        add_segment_action = QtWidgets.QAction(menu)
+        add_segment_action.setObjectName('add-segment')
+        add_segment_action.setText("Add segment")
+        add_segment_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'list-add.svg')))
+        add_segment_action.triggered.connect(functools.partial(self.__createSegment, self.xToTime(pos.x())))
+        menu.addAction(add_segment_action)
+
+        delete_segment_action = QtWidgets.QAction(menu)
+        delete_segment_action.setObjectName('delete-segment')
+        delete_segment_action.setText("Delete segment" if len(affected_segments) < 2 else "Delete segments")
+        delete_segment_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'list-remove.svg')))
+        if affected_segments:
+            delete_segment_action.triggered.connect(functools.partial(self.__deleteSegments, affected_segments))
+        else:
+            delete_segment_action.setEnabled(False)
+        menu.addAction(delete_segment_action)
+
     def __changeRowHeight(
             self,
             delta: int,
@@ -724,6 +754,16 @@ class PianoRollTrackEditor(
         label.setText("%dpx" % self.gridYSize())
         increase_button.setEnabled(self.gridYSize() < self.MAX_GRID_Y_SIZE)
         decrease_button.setEnabled(self.gridYSize() > self.MIN_GRID_Y_SIZE)
+
+    def __createSegment(self, time: audioproc.MusicalTime) -> None:
+        with self.project.apply_mutations('%s: Add segment' % self.track.name):
+            self.track.create_segment(
+                time, audioproc.MusicalDuration(16, 4))
+
+    def __deleteSegments(self, segments: List[SegmentEditor]) -> None:
+        with self.project.apply_mutations('%s: Remove segment(s)' % self.track.name):
+            for segment in segments:
+                self.track.remove_segment(segment.segmentRef())
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)
