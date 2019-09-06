@@ -462,6 +462,9 @@ class State(object):
     def paintOverlay(self, painter: QtGui.QPainter) -> None:
         pass
 
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        pass
+
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         pass
 
@@ -491,6 +494,10 @@ class DefaultState(State):
         self.grid.removeAction(self.grid.transpose_selection_down_step_action)
         self.grid.removeAction(self.grid.transpose_selection_up_octave_action)
         self.grid.removeAction(self.grid.transpose_selection_down_octave_action)
+
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        # Do not swallow the context menu and let a parent widget show it menu.
+        evt.ignore()
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         pitch = self.grid.pitchAt(evt.pos().y() + self.grid.yOffset())
@@ -660,6 +667,11 @@ class AddIntervalState(State):
         evt.accept()
 
     def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if evt.button() == Qt.RightButton:
+            self.grid.resetCurrentState()
+            evt.accept()
+            return
+
         if evt.button() == Qt.LeftButton:
             start_time = self.start_time
             end_time = self.end_time
@@ -799,6 +811,11 @@ class ResizeIntervalState(State):
         evt.accept()
 
     def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if evt.button() == Qt.RightButton:
+            self.grid.resetCurrentState()
+            evt.accept()
+            return
+
         if evt.button() == Qt.LeftButton:
             if self.side == ResizeIntervalState.START:
                 if self.time != self.interval.start_time:
@@ -890,6 +907,11 @@ class MoveSelectionState(State):
         evt.accept()
 
     def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if evt.button() == Qt.RightButton:
+            self.grid.resetCurrentState()
+            evt.accept()
+            return
+
         if evt.button() == Qt.LeftButton:
             play_notes = PlayNotes()
             play_notes.all_notes_off = True
@@ -978,6 +1000,11 @@ class ChangeVelocityState(State):
         evt.accept()
 
     def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if evt.button() == Qt.RightButton:
+            self.grid.resetCurrentState()
+            evt.accept()
+            return
+
         if evt.button() == Qt.LeftButton:
             delta_velocity = int(self.delta_velocity)
             if delta_velocity != 0:
@@ -1457,6 +1484,17 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
         finally:
             painter.end()
+
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        if self.readOnly():
+            super().contextMenuEvent(evt)
+            return
+
+        self.__current_state.contextMenuEvent(evt)
+        if evt.isAccepted():
+            return
+
+        super().contextMenuEvent(evt)
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if self.readOnly():
