@@ -144,14 +144,6 @@ class BaseTrackEditor(
     def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
         pass
 
-    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
-        menu = QtWidgets.QMenu()
-        self.buildContextMenu(menu, evt.pos() + self.offset())
-        if not menu.isEmpty():
-            menu.exec_(evt.globalPos())
-            evt.accept()
-            return
-
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         self.sizeChanged.emit(evt.size())
         super().resizeEvent(evt)
@@ -190,6 +182,14 @@ class BaseTrackEditor(
             evt.button(),
             evt.buttons(),
             evt.modifiers())
+
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        evt = QtGui.QContextMenuEvent(
+            evt.reason(),
+            evt.pos() + self.offset(),
+            evt.globalPos(),
+            evt.modifiers())
+        self.__toolbox.contextMenuEvent(evt)
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         self.__toolbox.mouseMoveEvent(self._makeMouseEvent(evt))

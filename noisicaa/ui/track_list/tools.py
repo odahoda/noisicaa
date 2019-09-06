@@ -138,6 +138,14 @@ class ToolBase(ui_base.ProjectMixin, QtCore.QObject):
     def deactivated(self) -> None:
         pass
 
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        menu = QtWidgets.QMenu()
+        self.track.buildContextMenu(menu, evt.pos())
+        if not menu.isEmpty():
+            menu.exec_(evt.globalPos())
+            evt.accept()
+            return
+
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         pass
 
@@ -226,6 +234,10 @@ class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
                 self.toolTypeChanged.emit(self.__current_tool.type)
                 self.currentToolChanged.emit(self.__current_tool)
             self.__previous_tool = None
+
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        if self.__current_tool is not None:
+            self.__current_tool.contextMenuEvent(evt)
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         if self.__current_tool is not None:

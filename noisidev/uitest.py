@@ -174,6 +174,10 @@ class HIDState(object):
 
     @property
     def window_pos(self):
+        return self.window_posf.toPoint()
+
+    @property
+    def window_posf(self):
         return QtCore.QPointF(100, 200)
 
     def press_mouse_button(self, button):
@@ -370,6 +374,15 @@ class ReleaseKey(Event):
             0))
 
 
+class OpenContextMenu(Event):
+    def replay(self, state, widget):
+        widget.contextMenuEvent(QtGui.QContextMenuEvent(
+            QtGui.QContextMenuEvent.Mouse,
+            state.mouse_pos,
+            state.mouse_pos + widget.pos() + state.window_pos,
+            state.modifiers))
+
+
 class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -480,6 +493,14 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
     def scrollWheel(self, direction):
         MoveWheel(direction).replay(self.hid_state, self.widget_under_test)
         self.processQtEvents()
+
+    def openContextMenu(self):
+        assert self.widget_under_test.findChild(QtWidgets.QMenu, 'context-menu') is None
+        OpenContextMenu().replay(self.hid_state, self.widget_under_test)
+        self.processQtEvents()
+        menu = self.widget_under_test.findChild(QtWidgets.QMenu, 'context-menu')
+        assert menu is not None
+        return menu
 
 
 class ProjectMixin(

@@ -57,6 +57,114 @@ class PianoRollToolMixin(tools.ToolBase):  # pylint: disable=abstract-method
             self.activateSegment(segment)
         super().activated()
 
+    def __changeRowHeight(
+            self,
+            delta: int,
+            label: QtWidgets.QLabel,
+            increase_button: QtWidgets.QToolButton,
+            decrease_button: QtWidgets.QToolButton
+    ) -> None:
+        tr = self.track
+        pos = (tr.yOffset() + tr.height() / 2) / tr.gridHeight()
+        tr.setGridYSize(
+            max(tr.MIN_GRID_Y_SIZE, min(tr.MAX_GRID_Y_SIZE, tr.gridYSize() + delta)))
+        tr.setYOffset(
+            max(0, min(tr.gridHeight() - tr.height(),
+                       int(pos * tr.gridHeight() - tr.height() / 2))))
+        label.setText("%dpx" % tr.gridYSize())
+        increase_button.setEnabled(tr.gridYSize() < tr.MAX_GRID_Y_SIZE)
+        decrease_button.setEnabled(tr.gridYSize() > tr.MIN_GRID_Y_SIZE)
+
+    def __createSegment(self, time: audioproc.MusicalTime) -> None:
+        tr = self.track
+        with tr.project.apply_mutations('%s: Add segment' % tr.track.name):
+            tr.track.create_segment(
+                time, audioproc.MusicalDuration(16, 4))
+
+    def __deleteSegments(self, segments: List['SegmentEditor']) -> None:
+        tr = self.track
+        with tr.project.apply_mutations('%s: Remove segment(s)' % tr.track.name):
+            for segment in segments:
+                tr.track.remove_segment(segment.segmentRef())
+
+    def buildContextMenu(self, menu: QtWidgets.QMenu, evt: QtGui.QContextMenuEvent) -> None:
+        affected_segments = []
+        segment = self.track.segmentAt(evt.pos().x())
+        if segment:
+            affected_segments.append(segment)
+
+        view_menu = menu.addMenu("View")
+
+        increase_row_height_button = QtWidgets.QToolButton()
+        increase_row_height_button.setObjectName('incr-row-height')
+        increase_row_height_button.setAutoRaise(True)
+        increase_row_height_button.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'zoom-in.svg')))
+        increase_row_height_button.setEnabled(self.track.gridYSize() < self.track.MAX_GRID_Y_SIZE)
+        decrease_row_height_button = QtWidgets.QToolButton()
+        decrease_row_height_button.setObjectName('decr-row-height')
+        decrease_row_height_button.setAutoRaise(True)
+        decrease_row_height_button.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'zoom-out.svg')))
+        decrease_row_height_button.setEnabled(self.track.gridYSize() > self.track.MIN_GRID_Y_SIZE)
+
+        row_height_label = QtWidgets.QLabel("%dpx" % self.track.gridYSize())
+
+        increase_row_height_button.clicked.connect(functools.partial(
+            self.__changeRowHeight,
+            1, row_height_label, increase_row_height_button, decrease_row_height_button))
+        decrease_row_height_button.clicked.connect(functools.partial(
+            self.__changeRowHeight,
+            -1, row_height_label, increase_row_height_button, decrease_row_height_button))
+
+        row_height_widget = QtWidgets.QWidget()
+        l = QtWidgets.QHBoxLayout()
+        l.setContentsMargins(10, 2, 10, 2)
+        l.setSpacing(4)
+        l.addWidget(QtWidgets.QLabel("Row height:"))
+        l.addWidget(decrease_row_height_button)
+        l.addWidget(row_height_label)
+        l.addWidget(increase_row_height_button)
+        l.addStretch(1)
+        row_height_widget.setLayout(l)
+
+        row_height_action = QtWidgets.QWidgetAction(self)
+        row_height_action.setDefaultWidget(row_height_widget)
+        view_menu.addAction(row_height_action)
+
+        current_channel_menu = menu.addMenu("Current MIDI Channel")
+        for ch in range(16):
+            current_channel_menu.addAction(
+                self.track.set_current_channel_actions[ch])
+
+        menu.addSeparator()
+
+        add_segment_action = QtWidgets.QAction(menu)
+        add_segment_action.setObjectName('add-segment')
+        add_segment_action.setText("Add segment")
+        add_segment_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'list-add.svg')))
+        add_segment_action.triggered.connect(functools.partial(self.__createSegment, self.track.xToTime(evt.pos().x())))
+        menu.addAction(add_segment_action)
+
+        delete_segment_action = QtWidgets.QAction(menu)
+        delete_segment_action.setObjectName('delete-segment')
+        delete_segment_action.setText("Delete segment" if len(affected_segments) < 2 else "Delete segments")
+        delete_segment_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'list-remove.svg')))
+        if affected_segments:
+            delete_segment_action.triggered.connect(functools.partial(self.__deleteSegments, affected_segments))
+        else:
+            delete_segment_action.setEnabled(False)
+        menu.addAction(delete_segment_action)
+
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        menu = QtWidgets.QMenu(self.track)
+        menu.setObjectName('context-menu')
+        self.buildContextMenu(menu, evt)
+        menu.popup(evt.globalPos())
+        evt.accept()
+
 
 class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
     track = None  # type: PianoRollTrackEditor
@@ -86,13 +194,6 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
     def deactivated(self) -> None:
         self.track.unsetCursor()
         super().deactivated()
-
-    def __segmentAt(self, x: int) -> 'SegmentEditor':
-        time = self.track.xToTime(x)
-        for seditor in self.track.segments:
-            if seditor.startTime() <= time < seditor.endTime():
-                return seditor
-        return None
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
@@ -225,7 +326,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
 
     def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
-            seditor = self.__segmentAt(evt.pos().x())
+            seditor = self.track.segmentAt(evt.pos().x())
             if seditor is not None:
                 self.track.setCurrentToolType(tools.ToolType.PIANOROLL_EDIT_EVENTS)
 
@@ -514,7 +615,7 @@ class PianoRollTrackEditor(
         self.__current_channel_action_group.triggered.connect(
             lambda action: self.setCurrentChannel(action.data()))
 
-        self.__set_current_channel_actions = []  # type: List[QtWidgets.QAction]
+        self.set_current_channel_actions = []  # type: List[QtWidgets.QAction]
         for ch in range(16):
             action = QtWidgets.QAction(self)
             action.setData(ch)
@@ -531,12 +632,12 @@ class PianoRollTrackEditor(
             action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
             action.setShortcutVisibleInContextMenu(True)
             self.__current_channel_action_group.addAction(action)
-            self.__set_current_channel_actions.append(action)
+            self.set_current_channel_actions.append(action)
             self.addAction(action)
 
-        self.__set_current_channel_actions[self.currentChannel()].setChecked(True)
+        self.set_current_channel_actions[self.currentChannel()].setChecked(True)
         self.currentChannelChanged.connect(
-            lambda ch: self.__set_current_channel_actions[ch].setChecked(True))
+            lambda ch: self.set_current_channel_actions[ch].setChecked(True))
 
     @property
     def track(self) -> model.PianoRollTrack:
@@ -641,7 +742,7 @@ class PianoRollTrackEditor(
         for segment in self.segments:
             self.repositionSegment(segment, segment.startTime(), segment.endTime())
 
-    def __segmentAt(self, x: int) -> 'SegmentEditor':
+    def segmentAt(self, x: int) -> 'SegmentEditor':
         time = self.xToTime(x)
         for seditor in self.segments:
             if seditor.startTime() <= time < seditor.endTime():
@@ -664,106 +765,6 @@ class PianoRollTrackEditor(
         if abs(time_x - grid_x) <= 10:
             return grid_time
         return time
-
-    def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
-        super().buildContextMenu(menu, pos)
-
-        affected_segments = []
-        segment = self.__segmentAt(pos.x())
-        if segment:
-            affected_segments.append(segment)
-
-        view_menu = menu.addMenu("View")
-
-        increase_row_height_button = QtWidgets.QToolButton()
-        increase_row_height_button.setObjectName('incr-row-height')
-        increase_row_height_button.setAutoRaise(True)
-        increase_row_height_button.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'zoom-in.svg')))
-        increase_row_height_button.setEnabled(self.gridYSize() < self.MAX_GRID_Y_SIZE)
-        decrease_row_height_button = QtWidgets.QToolButton()
-        decrease_row_height_button.setObjectName('decr-row-height')
-        decrease_row_height_button.setAutoRaise(True)
-        decrease_row_height_button.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'zoom-out.svg')))
-        decrease_row_height_button.setEnabled(self.gridYSize() > self.MIN_GRID_Y_SIZE)
-
-        row_height_label = QtWidgets.QLabel("%dpx" % self.gridYSize())
-
-        increase_row_height_button.clicked.connect(functools.partial(
-            self.__changeRowHeight,
-            1, row_height_label, increase_row_height_button, decrease_row_height_button))
-        decrease_row_height_button.clicked.connect(functools.partial(
-            self.__changeRowHeight,
-            -1, row_height_label, increase_row_height_button, decrease_row_height_button))
-
-        row_height_widget = QtWidgets.QWidget()
-        l = QtWidgets.QHBoxLayout()
-        l.setContentsMargins(10, 2, 10, 2)
-        l.setSpacing(4)
-        l.addWidget(QtWidgets.QLabel("Row height:"))
-        l.addWidget(decrease_row_height_button)
-        l.addWidget(row_height_label)
-        l.addWidget(increase_row_height_button)
-        l.addStretch(1)
-        row_height_widget.setLayout(l)
-
-        row_height_action = QtWidgets.QWidgetAction(self)
-        row_height_action.setDefaultWidget(row_height_widget)
-        view_menu.addAction(row_height_action)
-
-        current_channel_menu = menu.addMenu("Current MIDI Channel")
-        for ch in range(16):
-            current_channel_menu.addAction(
-                self.__set_current_channel_actions[ch])
-
-        menu.addSeparator()
-
-        add_segment_action = QtWidgets.QAction(menu)
-        add_segment_action.setObjectName('add-segment')
-        add_segment_action.setText("Add segment")
-        add_segment_action.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'list-add.svg')))
-        add_segment_action.triggered.connect(functools.partial(self.__createSegment, self.xToTime(pos.x())))
-        menu.addAction(add_segment_action)
-
-        delete_segment_action = QtWidgets.QAction(menu)
-        delete_segment_action.setObjectName('delete-segment')
-        delete_segment_action.setText("Delete segment" if len(affected_segments) < 2 else "Delete segments")
-        delete_segment_action.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'list-remove.svg')))
-        if affected_segments:
-            delete_segment_action.triggered.connect(functools.partial(self.__deleteSegments, affected_segments))
-        else:
-            delete_segment_action.setEnabled(False)
-        menu.addAction(delete_segment_action)
-
-    def __changeRowHeight(
-            self,
-            delta: int,
-            label: QtWidgets.QLabel,
-            increase_button: QtWidgets.QToolButton,
-            decrease_button: QtWidgets.QToolButton
-    ) -> None:
-        pos = (self.yOffset() + self.height() / 2) / self.gridHeight()
-        self.setGridYSize(
-            max(self.MIN_GRID_Y_SIZE, min(self.MAX_GRID_Y_SIZE, self.gridYSize() + delta)))
-        self.setYOffset(
-            max(0, min(self.gridHeight() - self.height(),
-                       int(pos * self.gridHeight() - self.height() / 2))))
-        label.setText("%dpx" % self.gridYSize())
-        increase_button.setEnabled(self.gridYSize() < self.MAX_GRID_Y_SIZE)
-        decrease_button.setEnabled(self.gridYSize() > self.MIN_GRID_Y_SIZE)
-
-    def __createSegment(self, time: audioproc.MusicalTime) -> None:
-        with self.project.apply_mutations('%s: Add segment' % self.track.name):
-            self.track.create_segment(
-                time, audioproc.MusicalDuration(16, 4))
-
-    def __deleteSegments(self, segments: List[SegmentEditor]) -> None:
-        with self.project.apply_mutations('%s: Remove segment(s)' % self.track.name):
-            for segment in segments:
-                self.track.remove_segment(segment.segmentRef())
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)

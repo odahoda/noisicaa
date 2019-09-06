@@ -40,12 +40,6 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
     def cleanup_testcase(self):
         self.editor.cleanup()
 
-    def openContextMenu(self):
-        menu = QtWidgets.QMenu(self.widget_under_test)
-        self.widget_under_test.buildContextMenu(menu, self.hid_state.mouse_pos)
-        menu.show()
-        return menu
-
     def _createTrackItem(self, **kwargs):
         raise NotImplementedError
 
