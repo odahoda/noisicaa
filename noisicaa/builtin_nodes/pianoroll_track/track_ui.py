@@ -541,7 +541,6 @@ class SegmentEditor(
 
 
 class PianoRollTrackEditor(
-        slots.SlotContainer,
         time_view_mixin.ContinuousTimeMixin,
         base_track_editor.BaseTrackEditor):
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
@@ -602,6 +601,7 @@ class PianoRollTrackEditor(
         self.xOffsetChanged.connect(lambda _: self.update())
         self.scaleXChanged.connect(lambda _: self.__repositionSegments())
         self.gridYSizeChanged.connect(lambda _: self.__updateYScrollbar())
+        self.playbackPositionChanged.connect(self.__playbackPositionChanged)
 
         self.setCurrentChannel(
             self.get_session_value(self.__session_prefix + 'current-channel', 0))
@@ -703,7 +703,7 @@ class PianoRollTrackEditor(
         for segment in self.segments:
             segment.setEnabled(is_current)
 
-    def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
+    def __playbackPositionChanged(self, time: audioproc.MusicalTime) -> None:
         for segment in self.segments:
             if segment.startTime() <= time < segment.endTime():
                 segment.setPlaybackPosition(time.relative_to(segment.startTime()))

@@ -33,6 +33,7 @@ from PyQt5 import QtWidgets
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
+from noisicaa.ui import slots
 from noisicaa.ui import ui_base
 from noisicaa.ui import player_state as player_state_lib
 from . import time_view_mixin
@@ -48,9 +49,12 @@ class BaseTrackEditor(
         time_view_mixin.TimeViewMixin,
         ui_base.ProjectMixin,
         core.AutoCleanupMixin,
+        slots.SlotContainer,
         QtWidgets.QWidget):
     sizeChanged = QtCore.pyqtSignal(QtCore.QSize)
     currentToolChanged = QtCore.pyqtSignal(tools.ToolType)
+    playbackPosition, setPlaybackPosition, playbackPositionChanged = slots.slot(
+        audioproc.MusicalTime, 'playbackPosition', default=audioproc.MusicalTime(-1, 1))
 
     def __init__(
             self, *,
@@ -137,9 +141,6 @@ class BaseTrackEditor(
 
     def playerState(self) -> player_state_lib.PlayerState:
         return self.__player_state
-
-    def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
-        pass
 
     def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
         pass

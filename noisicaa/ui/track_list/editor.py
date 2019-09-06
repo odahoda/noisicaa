@@ -33,6 +33,7 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
+from noisicaa.ui import slots
 from noisicaa.ui import ui_base
 from noisicaa.ui import player_state as player_state_lib
 from noisicaa.builtin_nodes import ui_registry
@@ -45,13 +46,18 @@ logger = logging.getLogger(__name__)
 
 
 class Editor(
-        time_view_mixin.TimeViewMixin, ui_base.ProjectMixin, QtWidgets.QWidget):
+        time_view_mixin.TimeViewMixin,
+        ui_base.ProjectMixin,
+        slots.SlotContainer,
+        QtWidgets.QWidget):
     maximumYOffsetChanged = QtCore.pyqtSignal(int)
     yOffsetChanged = QtCore.pyqtSignal(int)
     pageHeightChanged = QtCore.pyqtSignal(int)
 
     currentToolBoxChanged = QtCore.pyqtSignal(tools.ToolBox)
     currentTrackChanged = QtCore.pyqtSignal(object)
+    playbackPosition, setPlaybackPosition, playbackPositionChanged = slots.slot(
+        audioproc.MusicalTime, 'playbackPosition', default=audioproc.MusicalTime(-1, 1))
 
     def __init__(self, *, player_state: player_state_lib.PlayerState, **kwargs: Any) -> None:
         self.__player_state = player_state
@@ -93,8 +99,7 @@ class Editor(
 
         self.currentTrackChanged.connect(self.__onCurrentTrackChanged)
 
-        self.__player_state.currentTimeChanged.connect(
-            lambda time: self.setPlaybackPos(time, 1))
+        self.__player_state.currentTimeChanged.connect(self.setPlaybackPosition)
 
         self.__increase_scale_x_action = QtWidgets.QAction(self)
         self.__increase_scale_x_action.setShortcut("ctrl+left")
@@ -196,6 +201,7 @@ class Editor(
             context=self.context)
         self.xOffsetChanged.connect(track_editor.setXOffset)
         self.scaleXChanged.connect(track_editor.setScaleX)
+        self.playbackPositionChanged.connect(track_editor.setPlaybackPosition)
         track_editor.setXOffset(self.xOffset())
         return track_editor
 
@@ -291,10 +297,6 @@ class Editor(
 
     def offset(self) -> QtCore.QPoint:
         return QtCore.QPoint(self.xOffset(), self.__y_offset)
-
-    def setPlaybackPos(self, current_time: audioproc.MusicalTime, num_samples: int) -> None:
-        for track_editor in self.__tracks:
-            track_editor.setPlaybackPos(current_time)
 
     def onClearSelection(self) -> None:
         if self.selection_set.empty():

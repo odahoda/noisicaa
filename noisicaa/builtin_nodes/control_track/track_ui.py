@@ -281,6 +281,7 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
         self.setFixedHeight(120)
 
         self.scaleXChanged.connect(self.__onScaleXChanged)
+        self.playbackPositionChanged.connect(self.__playbackPositionChanged)
 
     def cleanup(self) -> None:
         for points in self.points:
@@ -350,7 +351,7 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
         else:
             raise TypeError(type(change))
 
-    def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
+    def __playbackPositionChanged(self, time: audioproc.MusicalTime) -> None:
         if self.__playback_time is not None:
             x = self.timeToX(self.__playback_time)
             self.update(x - self.xOffset(), 0, 2, self.height())

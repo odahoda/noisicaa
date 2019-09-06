@@ -594,6 +594,8 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):  # pylint: disable
 
         self.updateMeasures()
 
+        self.playbackPositionChanged.connect(self.__playbackPositionChanged)
+
     def cleanup(self) -> None:
         self.__closing = True
 
@@ -648,7 +650,7 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):  # pylint: disable
         super().setScaleX(scale_x)
         self.updateMeasures()
 
-    def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
+    def __playbackPositionChanged(self, time: audioproc.MusicalTime) -> None:
         if self.__measure_editor_at_playback_pos is not None:
             self.__measure_editor_at_playback_pos.clearPlaybackPos()
             self.__measure_editor_at_playback_pos = None

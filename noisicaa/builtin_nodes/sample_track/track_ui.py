@@ -269,6 +269,8 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
 
         self.__listeners.add(self.track.samples_changed.add(self.onSamplesChanged))
 
+        self.playbackPositionChanged.connect(self.__playbackPositionChanged)
+
         self.setFixedHeight(120)
 
     @property
@@ -305,7 +307,7 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
         item.cleanup()
         self.update()
 
-    def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
+    def __playbackPositionChanged(self, time: audioproc.MusicalTime) -> None:
         if self.__playback_time is not None:
             x = self.timeToX(self.__playback_time)
             self.update(x - self.xOffset(), 0, 2, self.height())
