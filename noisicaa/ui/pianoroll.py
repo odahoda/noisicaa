@@ -628,6 +628,7 @@ class AddIntervalState(State):
 
         self.channel = self.grid.currentChannel()
         self.pitch = self.grid.pitchAt(evt.pos().y() + self.grid.yOffset())
+        self.velocity = self.grid.insertVelocity()
         self.start_time = self.grid.timeAt(evt.pos().x() + self.grid.xOffset())
         if self.grid.shouldSnap(evt):
             self.start_time = self.grid.snapTime(self.start_time)
@@ -646,7 +647,7 @@ class AddIntervalState(State):
             interval = TempInterval(
                 channel=self.channel,
                 pitch=self.pitch,
-                velocity=100,
+                velocity=self.velocity,
                 start_time=start_time,
                 end_time=end_time,
                 selected=True)
@@ -681,7 +682,7 @@ class AddIntervalState(State):
             if start_time != end_time:
                 with self.grid.collect_mutations():
                     interval = self.grid.addInterval(
-                        self.channel, self.pitch, 100,
+                        self.channel, self.pitch, self.velocity,
                         start_time, end_time - start_time)
                 self.grid.clearSelection()
                 self.grid.addToSelection(interval)
@@ -1065,6 +1066,8 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         int, 'currentChannel', default=0)
     overlayColor, setOverlayColor, overlayColorChanged = slots.slot(
         QtGui.QColor, 'overlayColor', default=QtGui.QColor(0, 0, 0, 0))
+    insertVelocity, setInsertVelocity, insertVelocityChanged = slots.slot(
+        int, 'insertVelocity', default=100)
 
     channel_base_colors = [
         QtGui.QColor(100, 100, 255),

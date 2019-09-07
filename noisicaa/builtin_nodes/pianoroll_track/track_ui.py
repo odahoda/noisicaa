@@ -39,6 +39,7 @@ from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import pianoroll
 from noisicaa.ui import slots
+from noisicaa.ui import int_dial
 from noisicaa.ui.track_list import tools
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
@@ -435,6 +436,14 @@ class EditEventsTool(PianoRollToolMixin, tools.ToolBase):
         segment.setReadOnly(False)
         segment.setEditMode(pianoroll.EditMode.AddInterval)
 
+    def activated(self) -> None:
+        self.track.setShowVelocity(True)
+        super().activated()
+
+    def deactivated(self) -> None:
+        self.track.setShowVelocity(False)
+        super().deactivated()
+
 
 class SelectEventsTool(PianoRollToolMixin, tools.ToolBase):
     def __init__(self, **kwargs: Any) -> None:
@@ -490,6 +499,8 @@ class SegmentEditor(
         int, 'currentChannel', default=0)
     playbackPosition, setPlaybackPosition, playbackPositionChanged = slots.slot(
         audioproc.MusicalTime, 'playbackPosition', default=audioproc.MusicalTime(-1, 1))
+    insertVelocity, setInsertVelocity, insertVelocityChanged = slots.slot(
+        int, 'insertVelocity', default=100)
     selected, setSelected, selectedChanged = slots.slot(bool, 'selected', default=False)
 
     def __init__(
@@ -528,6 +539,8 @@ class SegmentEditor(
         self.editModeChanged.connect(self.__grid.setEditMode)
         self.__grid.setCurrentChannel(self.currentChannel())
         self.currentChannelChanged.connect(self.__grid.setCurrentChannel)
+        self.__grid.setInsertVelocity(self.insertVelocity())
+        self.insertVelocityChanged.connect(self.__grid.setInsertVelocity)
         self.__grid.hoverPitchChanged.connect(self.__track_editor.setHoverPitch)
         self.__grid.playNotes.connect(self.playNotes.emit)
         self.playbackPositionChanged.connect(self.__grid.setPlaybackPosition)
@@ -639,6 +652,7 @@ class PianoRollTrackEditor(
     snapToGrid, setSnapToGrid, snapToGridChanged = slots.slot(bool, 'snapToGrid', default=True)
     currentChannel, setCurrentChannel, currentChannelChanged = slots.slot(
         int, 'currentChannel', default=0)
+    showVelocity, setShowVelocity, showVelocityChanged = slots.slot(bool, 'showVelocity', default=False)
 
     MIN_GRID_Y_SIZE = 2
     MAX_GRID_Y_SIZE = 64
@@ -678,9 +692,31 @@ class PianoRollTrackEditor(
         self.__y_scrollbar.setSingleStep(20)
         self.__y_scrollbar.setPageStep(self.height())
         self.__y_scrollbar.setValue(self.yOffset())
-
         self.yOffsetChanged.connect(self.__y_scrollbar.setValue)
         self.__y_scrollbar.valueChanged.connect(self.setYOffset)
+
+        self.__velocity = int_dial.IntDial(self)
+        self.__velocity.setFixedSize(48, 48)
+        self.__velocity.setValue(self.get_session_value(self.__session_prefix + 'new-interval-velocity', 100))
+        self.__velocity.valueChanged.connect(
+            functools.partial(self.set_session_value, self.__session_prefix + 'new-interval-velocity'))
+        self.__velocity.setRange(1, 127)
+
+        label = QtWidgets.QLabel("Velocity")
+        font = QtGui.QFont(label.font())
+        font.setPointSize(font.pointSize() / 1.2)
+        label.setFont(font)
+
+        l = QtWidgets.QVBoxLayout()
+        l.setContentsMargins(2, 0, 0, 0)
+        l.setSpacing(0)
+        l.addWidget(self.__velocity, 0, Qt.AlignHCenter)
+        l.addWidget(label, 0, Qt.AlignHCenter)
+
+        self.__velocity_group = QtWidgets.QWidget(self)
+        self.__velocity_group.setLayout(l)
+        self.__velocity_group.setVisible(self.showVelocity())
+        self.showVelocityChanged.connect(self.__velocity_group.setVisible)
 
         for segment_ref in self.track.segments:
             self.__addSegment(len(self.segments), segment_ref)
@@ -766,12 +802,15 @@ class PianoRollTrackEditor(
         self.gridYSizeChanged.connect(seditor.setGridYSize)
         seditor.setCurrentChannel(self.currentChannel())
         self.currentChannelChanged.connect(seditor.setCurrentChannel)
+        seditor.setInsertVelocity(self.__velocity.value())
+        self.__velocity.valueChanged.connect(seditor.setInsertVelocity)
         seditor.playNotes.connect(self.playNotes)
         self.repositionSegment(seditor, seditor.startTime(), seditor.endTime())
         seditor.setSelected(segment_ref.id in self.__selection)
         down_cast(PianoRollToolMixin, self.currentTool()).activateSegment(seditor)
 
         self.__keys.raise_()
+        self.__velocity_group.raise_()
         self.__y_scrollbar.raise_()
 
         self.update()
@@ -914,6 +953,8 @@ class PianoRollTrackEditor(
 
         self.__keys.move(0, 0)
         self.__keys.resize(self.__keys.width(), self.height())
+
+        self.__velocity_group.move(self.__keys.width(), 0)
 
         self.__y_scrollbar.move(self.width() - self.__y_scrollbar.width(), 0)
         self.__y_scrollbar.resize(self.__y_scrollbar.width(), self.height())
