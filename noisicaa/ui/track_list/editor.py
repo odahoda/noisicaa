@@ -21,6 +21,7 @@
 # @end:license
 
 import fractions
+import functools
 import logging
 from typing import cast, Any, Dict, List
 
@@ -105,16 +106,14 @@ class Editor(
         self.__increase_scale_x_action.setShortcut("ctrl+left")
         self.__increase_scale_x_action.setShortcutContext(Qt.WindowShortcut)
         self.__increase_scale_x_action.triggered.connect(
-            lambda: self.setScaleX(
-                max(fractions.Fraction(5, 1), self.scaleX() * fractions.Fraction(2, 3))))
+            functools.partial(self.__setScaleX, fractions.Fraction(2, 3)))
         self.addAction(self.__increase_scale_x_action)
 
         self.__decrease_scale_x_action = QtWidgets.QAction(self)
         self.__decrease_scale_x_action.setShortcut("ctrl+right")
         self.__decrease_scale_x_action.setShortcutContext(Qt.WindowShortcut)
         self.__decrease_scale_x_action.triggered.connect(
-            lambda: self.setScaleX(
-                min(fractions.Fraction(10000, 1), self.scaleX() * fractions.Fraction(3, 2))))
+            functools.partial(self.__setScaleX, fractions.Fraction(3, 2)))
         self.addAction(self.__decrease_scale_x_action)
 
     def cleanup(self) -> None:
@@ -122,6 +121,18 @@ class Editor(
             self.__removeNode(track_editor.track)
 
         self.__listeners.cleanup()
+
+    def __setScaleX(self, factor: fractions.Fraction) -> None:
+        new_scale_x = self.scaleX() * factor
+        new_scale_x = max(fractions.Fraction(5, 1), new_scale_x)
+        new_scale_x = min(fractions.Fraction(10000, 1), new_scale_x)
+
+        center_time = max(0, self.width() // 2 - self.leftMargin() + self.xOffset()) / self.scaleX()
+
+        self.setScaleX(new_scale_x)
+
+        center_x = self.leftMargin() + int(self.scaleX() * center_time)
+        self.setXOffset(max(0, center_x - self.width() // 2))
 
     def currentTrack(self) -> music.Track:
         return self.__current_track
