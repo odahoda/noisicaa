@@ -38,6 +38,9 @@ class MidiEvent(proto_value.ProtoValue):
             self.__time.to_float(), ' '.join('%02x' % m for m in self.__midi))
     __repr__ = __str__
 
+    def __hash__(self) -> str:
+        return hash((self.__time, self.__midi))
+
     def to_proto(self) -> 'audioproc.MidiEvent':
         return audioproc.MidiEvent(
             time=self.__time.to_proto(),
@@ -58,6 +61,29 @@ class MidiEvent(proto_value.ProtoValue):
     @property
     def midi(self) -> bytes:
         return self.__midi
+
+    @property
+    def is_note_on(self) -> bool:
+        return self.__midi[0] & 0xf0 == 0x90
+
+    @property
+    def is_note_off(self) -> bool:
+        return self.__midi[0] & 0xf0 == 0x80
+
+    @property
+    def channel(self) -> int:
+        return self.__midi[0] & 0x0f
+
+    @property
+    def pitch(self) -> int:
+        return self.__midi[1]
+
+    @property
+    def velocity(self) -> int:
+        return self.__midi[2]
+
+    def relative_to(self, time: 'audioproc.MusicalTime') -> 'MidiEvent':
+        return MidiEvent(self.__time.relative_to(time), bytes(self.__midi))
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, MidiEvent):

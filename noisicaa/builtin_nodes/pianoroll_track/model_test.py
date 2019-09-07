@@ -29,6 +29,12 @@ from noisicaa.music import base_track_test
 from noisicaa.builtin_nodes import processor_message_registry_pb2
 from . import model
 
+MT = audioproc.MusicalTime
+MD = audioproc.MusicalDuration
+MEVT = value_types.MidiEvent
+NOTE_ON = lambda channel, pitch, velocity: bytes([0x90 | channel, pitch, velocity])
+NOTE_OFF = lambda channel, pitch: bytes([0x80 | channel, pitch, 0])
+
 
 class PianoRollTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://pianoroll-track'
@@ -40,11 +46,9 @@ class PianoRollTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase)
         self.assertEqual(len(track.segment_heap), 0)
 
         with self.project.apply_mutations('test'):
-            segment_ref = track.create_segment(
-                audioproc.MusicalTime(3, 4),
-                audioproc.MusicalDuration(4, 4))
-        self.assertEqual(segment_ref.time, audioproc.MusicalTime(3, 4))
-        self.assertEqual(segment_ref.segment.duration, audioproc.MusicalDuration(4, 4))
+            segment_ref = track.create_segment(MT(3, 4), MD(4, 4))
+        self.assertEqual(segment_ref.time, MT(3, 4))
+        self.assertEqual(segment_ref.segment.duration, MD(4, 4))
         self.assertEqual(len(track.segments), 1)
         self.assertIs(track.segments[0], segment_ref)
         self.assertEqual(len(track.segment_heap), 1)
@@ -53,14 +57,51 @@ class PianoRollTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase)
     async def test_remove_segment(self):
         track = await self._add_track()
         with self.project.apply_mutations('test'):
-            segment_ref = track.create_segment(
-                audioproc.MusicalTime(3, 4),
-                audioproc.MusicalDuration(4, 4))
+            segment_ref = track.create_segment(MT(3, 4), MD(4, 4))
 
         with self.project.apply_mutations('test'):
             track.remove_segment(segment_ref)
         self.assertEqual(len(track.segments), 0)
         self.assertEqual(len(track.segment_heap), 0)
+
+    async def test_split_segment(self):
+        track = await self._add_track()
+        with self.project.apply_mutations('test'):
+            segment_ref = track.create_segment(MT(0, 4), MD(4, 4))
+            segment = segment_ref.segment
+            segment.add_event(MEVT(MT(0, 4), NOTE_ON(0, 70, 100)))
+            segment.add_event(MEVT(MT(4, 4), NOTE_OFF(0, 70)))
+            segment.add_event(MEVT(MT(0, 4), NOTE_ON(0, 60, 100)))
+            segment.add_event(MEVT(MT(1, 4), NOTE_OFF(0, 60)))
+            segment.add_event(MEVT(MT(1, 4), NOTE_ON(0, 61, 100)))
+            segment.add_event(MEVT(MT(2, 4), NOTE_OFF(0, 61)))
+            segment.add_event(MEVT(MT(2, 4), NOTE_ON(0, 62, 100)))
+            segment.add_event(MEVT(MT(3, 4), NOTE_OFF(0, 62)))
+            segment.add_event(MEVT(MT(3, 4), NOTE_ON(0, 63, 100)))
+            segment.add_event(MEVT(MT(4, 4), NOTE_OFF(0, 63)))
+
+        with self.project.apply_mutations('test'):
+            track.split_segment(segment_ref, MT(2, 4))
+        self.assertEqual(len(track.segments), 2)
+        self.assertEqual(len(track.segment_heap), 2)
+        self.assertEqual(
+            {e.midi_event for e in track.segments[0].segment.events},
+            {MEVT(MT(0, 4), NOTE_ON(0, 70, 100)),
+             MEVT(MT(2, 4), NOTE_OFF(0, 70)),
+             MEVT(MT(0, 4), NOTE_ON(0, 60, 100)),
+             MEVT(MT(1, 4), NOTE_OFF(0, 60)),
+             MEVT(MT(1, 4), NOTE_ON(0, 61, 100)),
+             MEVT(MT(2, 4), NOTE_OFF(0, 61)),
+            })
+        self.assertEqual(
+            {e.midi_event for e in track.segments[1].segment.events},
+            {MEVT(MT(0, 4), NOTE_ON(0, 70, 100)),
+             MEVT(MT(2, 4), NOTE_OFF(0, 70)),
+             MEVT(MT(0, 4), NOTE_ON(0, 62, 100)),
+             MEVT(MT(1, 4), NOTE_OFF(0, 62)),
+             MEVT(MT(1, 4), NOTE_ON(0, 63, 100)),
+             MEVT(MT(2, 4), NOTE_OFF(0, 63)),
+            })
 
     async def test_connector(self):
         track = await self._add_track()
@@ -81,27 +122,22 @@ class PianoRollTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase)
 
             messages.clear()
             with self.project.apply_mutations('test'):
-                segment_ref = track.create_segment(
-                    audioproc.MusicalTime(1, 4),
-                    audioproc.MusicalDuration(2, 4))
+                segment_ref = track.create_segment(MT(1, 4), MD(2, 4))
             self.assertEqual(messages, ['add_segment', 'add_segment_ref'])
 
             messages.clear()
             with self.project.apply_mutations('test'):
-                segment_ref.time = audioproc.MusicalTime(0, 4)
+                segment_ref.time = MT(0, 4)
             self.assertEqual(messages, ['update_segment_ref'])
 
             messages.clear()
             with self.project.apply_mutations('test'):
-                segment_ref.segment.duration = audioproc.MusicalDuration(3, 4)
+                segment_ref.segment.duration = MD(3, 4)
             self.assertEqual(messages, ['update_segment'])
 
             messages.clear()
             with self.project.apply_mutations('test'):
-                event = segment_ref.segment.add_event(
-                    value_types.MidiEvent(
-                        audioproc.MusicalTime(1, 8),
-                        bytes([0x90, 64, 100])))
+                event = segment_ref.segment.add_event(MEVT(MT(1, 8), NOTE_ON(0, 64, 100)))
             self.assertEqual(messages, ['add_event'])
 
             messages.clear()

@@ -127,7 +127,7 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
         with self._trackItem() as ti:
             t = MT(0, 1)
             while t < MT(8, 4):
-                ti.setPlaybackPos(t)
+                ti.setPlaybackPosition(t)
                 self.processQtEvents()
                 t += MD(1, 32)
 
@@ -209,3 +209,22 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
             action.trigger()
 
             self.assertEqual(len(self.track.segments), 0)
+
+    def test_split_segment(self):
+        with self.project.apply_mutations('test'):
+            self.track.create_segment(MT(0, 4), MD(4, 4))
+
+        with self._trackItem() as ti:
+            ti.setPlaybackPosition(MT(3, 4))
+            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(3, 4)), ti.height() // 2))
+            menu = self.openContextMenu()
+            action = menu.findChild(QtWidgets.QAction, 'split-segment')
+            assert action is not None
+            self.assertTrue(action.isEnabled())
+            action.trigger()
+
+            self.assertEqual(len(self.track.segments), 2)
+            self.assertEqual(self.track.segments[0].time, MT(0, 4))
+            self.assertEqual(self.track.segments[0].segment.duration, MD(3, 4))
+            self.assertEqual(self.track.segments[1].time, MT(3, 4))
+            self.assertEqual(self.track.segments[1].segment.duration, MD(1, 4))

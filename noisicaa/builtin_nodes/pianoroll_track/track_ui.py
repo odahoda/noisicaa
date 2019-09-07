@@ -49,6 +49,8 @@ logger = logging.getLogger(__name__)
 
 
 class PianoRollToolMixin(tools.ToolBase):  # pylint: disable=abstract-method
+    track = None  # type: PianoRollTrackEditor
+
     def activateSegment(self, segment: 'SegmentEditor') -> None:
         pass
 
@@ -86,6 +88,13 @@ class PianoRollToolMixin(tools.ToolBase):  # pylint: disable=abstract-method
         with tr.project.apply_mutations('%s: Remove segment(s)' % tr.track.name):
             for segment in segments:
                 tr.track.remove_segment(segment.segmentRef())
+
+    def __splitSegment(self, segment: 'SegmentEditor', split_time: audioproc.MusicalTime) -> None:
+        assert segment.startTime() < split_time < segment.endTime()
+
+        tr = self.track
+        with tr.project.apply_mutations('%s: Split segment' % tr.track.name):
+            tr.track.split_segment(segment.segmentRef(), split_time)
 
     def buildContextMenu(self, menu: QtWidgets.QMenu, evt: QtGui.QContextMenuEvent) -> None:
         affected_segments = []
@@ -144,19 +153,39 @@ class PianoRollToolMixin(tools.ToolBase):  # pylint: disable=abstract-method
         add_segment_action.setText("Add segment")
         add_segment_action.setIcon(QtGui.QIcon(
             os.path.join(constants.DATA_DIR, 'icons', 'list-add.svg')))
-        add_segment_action.triggered.connect(functools.partial(self.__createSegment, self.track.xToTime(evt.pos().x())))
+        add_segment_action.triggered.connect(
+            functools.partial(self.__createSegment, self.track.xToTime(evt.pos().x())))
         menu.addAction(add_segment_action)
 
         delete_segment_action = QtWidgets.QAction(menu)
         delete_segment_action.setObjectName('delete-segment')
-        delete_segment_action.setText("Delete segment" if len(affected_segments) < 2 else "Delete segments")
+        delete_segment_action.setText(
+            "Delete segment" if len(affected_segments) < 2 else "Delete segments")
         delete_segment_action.setIcon(QtGui.QIcon(
             os.path.join(constants.DATA_DIR, 'icons', 'list-remove.svg')))
         if affected_segments:
-            delete_segment_action.triggered.connect(functools.partial(self.__deleteSegments, affected_segments))
+            delete_segment_action.triggered.connect(
+                functools.partial(self.__deleteSegments, affected_segments))
         else:
             delete_segment_action.setEnabled(False)
         menu.addAction(delete_segment_action)
+
+        playback_position = self.track.playbackPosition()
+        split_segment = self.track.segmentAtTime(playback_position)
+        if (split_segment is not None
+                and not split_segment.startTime() < playback_position < split_segment.endTime()):
+            split_segment = None
+        split_segment_action = QtWidgets.QAction(menu)
+        split_segment_action.setObjectName('split-segment')
+        split_segment_action.setText("Split segment")
+        split_segment_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'pianoroll-split-segment.svg')))
+        if split_segment is not None:
+            split_segment_action.triggered.connect(
+                functools.partial(self.__splitSegment, split_segment, playback_position))
+        else:
+            split_segment_action.setEnabled(False)
+        menu.addAction(split_segment_action)
 
     def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
         menu = QtWidgets.QMenu(self.track)
@@ -167,8 +196,6 @@ class PianoRollToolMixin(tools.ToolBase):  # pylint: disable=abstract-method
 
 
 class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
-    track = None  # type: PianoRollTrackEditor
-
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(
             type=tools.ToolType.PIANOROLL_ARRANGE_SEGMENTS,
@@ -743,7 +770,9 @@ class PianoRollTrackEditor(
             self.repositionSegment(segment, segment.startTime(), segment.endTime())
 
     def segmentAt(self, x: int) -> 'SegmentEditor':
-        time = self.xToTime(x)
+        return self.segmentAtTime(self.xToTime(x))
+
+    def segmentAtTime(self, time: audioproc.MusicalTime) -> 'SegmentEditor':
         for seditor in self.segments:
             if seditor.startTime() <= time < seditor.endTime():
                 return seditor
