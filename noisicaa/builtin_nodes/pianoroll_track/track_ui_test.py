@@ -228,3 +228,77 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
             self.assertEqual(self.track.segments[0].segment.duration, MD(3, 4))
             self.assertEqual(self.track.segments[1].time, MT(3, 4))
             self.assertEqual(self.track.segments[1].segment.duration, MD(1, 4))
+
+    def test_select_segments(self):
+        with self.project.apply_mutations('test'):
+            ref1 = self.track.create_segment(MT(0, 4), MD(4, 4))
+            ref2 = self.track.create_segment(MT(6, 4), MD(4, 4))
+            ref3 = self.track.create_segment(MT(12, 4), MD(4, 4))
+            ref4 = self.track.create_segment(MT(18, 4), MD(4, 4))
+
+        with self._trackItem() as ti:
+            selected = lambda: {segment.segmentRef().id for segment in ti.selection()}
+
+            self.assertEqual(selected(), set())
+            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
+            self.clickMouseButton(Qt.LeftButton)
+            self.assertEqual(selected(), {ref1.id})
+
+            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(8, 4)), ti.height() // 2))
+            self.clickMouseButton(Qt.LeftButton)
+            self.assertEqual(selected(), {ref2.id})
+
+            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(14, 4)), ti.height() // 2))
+            self.pressKey(Qt.Key_Control)
+            self.clickMouseButton(Qt.LeftButton)
+            self.releaseKey(Qt.Key_Control)
+            self.assertEqual(selected(), {ref2.id, ref3.id})
+
+            self.pressKey(Qt.Key_Control)
+            self.clickMouseButton(Qt.LeftButton)
+            self.releaseKey(Qt.Key_Control)
+            self.assertEqual(selected(), {ref2.id})
+
+            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(11, 4)), ti.height() // 2))
+            self.clickMouseButton(Qt.LeftButton)
+            self.assertEqual(selected(), set())
+
+            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(8, 4)), ti.height() // 2))
+            self.clickMouseButton(Qt.LeftButton)
+            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(20, 4)), ti.height() // 2))
+            self.pressKey(Qt.Key_Shift)
+            self.clickMouseButton(Qt.LeftButton)
+            self.releaseKey(Qt.Key_Shift)
+            self.assertEqual(selected(), {ref2.id, ref3.id, ref4.id})
+
+    def test_select_all_segment(self):
+        with self.project.apply_mutations('test'):
+            ref1 = self.track.create_segment(MT(0, 4), MD(4, 4))
+            ref2 = self.track.create_segment(MT(6, 4), MD(4, 4))
+
+        with self._trackItem() as ti:
+            menu = self.openContextMenu()
+            action = menu.findChild(QtWidgets.QAction, 'select-all')
+            assert action is not None
+            self.assertTrue(action.isEnabled())
+            action.trigger()
+
+            self.assertEqual(
+                {segment.segmentRef().id for segment in ti.selection()},
+                {ref1.id, ref2.id})
+
+    def test_clear_selection_segment(self):
+        with self.project.apply_mutations('test'):
+            ref1 = self.track.create_segment(MT(0, 4), MD(4, 4))
+            ref2 = self.track.create_segment(MT(6, 4), MD(4, 4))
+
+        with self._trackItem() as ti:
+            ti.addToSelection(ti.segments[0])
+
+            menu = self.openContextMenu()
+            action = menu.findChild(QtWidgets.QAction, 'clear-selection')
+            assert action is not None
+            self.assertTrue(action.isEnabled())
+            action.trigger()
+
+            self.assertEqual(len(ti.selection()), 0)

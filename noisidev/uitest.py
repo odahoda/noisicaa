@@ -490,6 +490,10 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         ReleaseMouseButton(button).replay(self.hid_state, self.widget_under_test)
         self.processQtEvents()
 
+    def clickMouseButton(self, button):
+        self.pressMouseButton(button)
+        self.releaseMouseButton(button)
+
     def scrollWheel(self, direction):
         MoveWheel(direction).replay(self.hid_state, self.widget_under_test)
         self.processQtEvents()

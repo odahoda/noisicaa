@@ -59,6 +59,10 @@ class PianoRollGridTest(uitest.UITestCase):
     def test_render(self):
         self.fill_grid()
         self.renderWidget()
+        self.grid.setOverlayColor(QtGui.QColor(100, 100, 255, 100))
+        self.renderWidget()
+        self.grid.setPlaybackPosition(MT(3, 4))
+        self.renderWidget()
 
     def test_add_interval(self):
         self.moveMouse(self.grid.pointAt(70, MT(2, 4)))

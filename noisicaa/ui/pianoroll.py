@@ -1063,6 +1063,8 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         EditMode, 'editMode', default=EditMode.AddInterval)
     currentChannel, setCurrentChannel, currentChannelChanged = slots.slot(
         int, 'currentChannel', default=0)
+    overlayColor, setOverlayColor, overlayColorChanged = slots.slot(
+        QtGui.QColor, 'overlayColor', default=QtGui.QColor(0, 0, 0, 0))
 
     channel_base_colors = [
         QtGui.QColor(100, 100, 255),
@@ -1114,7 +1116,6 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
         self.__current_state = None  # type: State
 
-        self.setMinimumSize(100, 50)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setMouseTracking(not self.readOnly())
         self.readOnlyChanged.connect(lambda _: self.setMouseTracking(not self.readOnly()))
@@ -1126,6 +1127,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         self.xOffsetChanged.connect(lambda _: self.update())
         self.yOffsetChanged.connect(lambda _: self.update())
         self.currentChannelChanged.connect(lambda _: self.update())
+        self.overlayColorChanged.connect(lambda _: self.update())
 
         self.durationChanged.connect(lambda _: self.gridWidthChanged.emit(self.gridWidth()))
 
@@ -1387,7 +1389,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
             grid_y_size = self.gridYSize()
             grid_step = self.gridStep()
 
-            painter.translate(QtCore.QPoint(0, -self.yOffset()))
+            painter.translate(0, -self.yOffset())
 
             y = 0
             for n in reversed(range(0, 128)):
@@ -1395,7 +1397,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                     painter.fillRect(0, y, width, grid_y_size, self.__black_key_color)
                 y += grid_y_size
 
-            painter.translate(QtCore.QPoint(-self.xOffset(), 0))
+            painter.translate(-self.xOffset(), 0)
 
             t = audioproc.MusicalTime(0, 1)
             while t <= audioproc.MusicalTime(0, 1) + self.duration():
@@ -1452,9 +1454,9 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
             painter.save()
             painter.setOpacity(0.2)
-            painter.drawPixmap(self.xOffset(), 0, other_channels_pixmap)
+            painter.drawPixmap(self.xOffset(), self.yOffset(), other_channels_pixmap)
             painter.restore()
-            painter.drawPixmap(self.xOffset(), 0, current_channel_pixmap)
+            painter.drawPixmap(self.xOffset(), self.yOffset(), current_channel_pixmap)
 
             font = QtGui.QFont(self.font())
             font.setPixelSize(max(10, min(20, grid_y_size - 2)))
@@ -1476,6 +1478,31 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                 painter.drawText(r.adjusted(3, 0, -3, 0), Qt.AlignRight, '%d' % interval.velocity)
 
             self.__current_state.paintOverlay(painter)
+
+            overlay_color = self.overlayColor()
+            if overlay_color.alpha() > 0:
+                edge_color = overlay_color
+                s_color = QtGui.QColor(255, 255, 255)
+                tl_color = edge_color.fromHsvF(edge_color.hueF(), 0.3 * edge_color.saturationF(), 0.5 + 0.5 * edge_color.valueF())
+                br_color = edge_color.fromHsvF(edge_color.hueF(), 0.3 * edge_color.saturationF(), 0.5 * edge_color.valueF())
+                w = self.width()
+                h = self.height()
+
+                painter.translate(self.xOffset(), self.yOffset())
+                painter.fillRect(0, 0, 7, 1, s_color)
+                painter.fillRect(0, 1, 1, 6, s_color)
+                painter.fillRect(7, 0, w - 7, 1, tl_color)
+                painter.fillRect(0, 7, 1, h - 7, tl_color)
+                painter.fillRect(1, h - 1, w - 1, 1, br_color)
+                painter.fillRect(w - 1, 1, 1, h - 2, br_color)
+                painter.fillRect(1, 1, 3, 1, s_color)
+                painter.fillRect(1, 2, 1, 2, s_color)
+                painter.fillRect(4, 1, w - 5, 1, tl_color)
+                painter.fillRect(1, 4, 1, h - 5, tl_color)
+                painter.fillRect(2, h - 2, w - 3, 1, br_color)
+                painter.fillRect(w - 2, 2, 1, h - 4, br_color)
+                painter.fillRect(2, 2, w - 4, h - 4, overlay_color)
+                painter.translate(-self.xOffset(), -self.yOffset())
 
             playback_position = self.playbackPosition()
             if playback_position.numerator >= 0:
@@ -1632,6 +1659,7 @@ class PianoRoll(slots.SlotContainer, QtWidgets.QWidget):
         self.__keys = PianoKeys()
 
         self.__grid = PianoRollGrid()
+        self.__grid.setMinimumSize(100, 50)
         self.durationChanged.connect(self.__grid.setDuration)
         self.playbackPositionChanged.connect(self.__grid.setPlaybackPosition)
         self.unfinishedNoteModeChanged.connect(self.__grid.setUnfinishedNoteMode)
