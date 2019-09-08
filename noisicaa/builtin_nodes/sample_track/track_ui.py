@@ -45,6 +45,8 @@ logger = logging.getLogger(__name__)
 
 
 class EditSamplesTool(tools.ToolBase):
+    track = None  # type: SampleTrackEditor
+
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(
             type=tools.ToolType.EDIT_SAMPLES,
@@ -58,13 +60,41 @@ class EditSamplesTool(tools.ToolBase):
     def iconName(self) -> str:
         return 'edit-samples'
 
-    def mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, SampleTrackEditor), type(target).__name__
+    def onAddSample(self, time: audioproc.MusicalTime) -> None:
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            parent=self.project_view,
+            caption="Add Sample to track \"%s\"" % self.track.track.name,
+            #directory=self.ui_state.get(
+            #'instruments_add_dialog_path', ''),
+            filter="All Files (*);;Wav files (*.wav)",
+            #initialFilter=self.ui_state.get(
+            #    'instruments_add_dialog_path', ''),
+        )
+        if not path:
+            return
 
+        with self.project.apply_mutations('%s: Create sample' % self.track.track.name):
+            self.track.track.create_sample(time, path)
+
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        time = self.track.xToTime(evt.pos().x())
+
+        menu = QtWidgets.QMenu(self.track)
+        menu.setObjectName('context-menu')
+
+        add_sample_action = QtWidgets.QAction("Add sample...", menu)
+        add_sample_action.setStatusTip("Add a sample to the track.")
+        add_sample_action.triggered.connect(functools.partial(self.onAddSample, time))
+        menu.addAction(add_sample_action)
+
+        menu.popup(evt.globalPos())
+        evt.accept()
+
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.NoModifier
-                and target.highlightedSample() is not None):
-            self.__moving_sample = target.highlightedSample()
+                and self.track.highlightedSample() is not None):
+            self.__moving_sample = self.track.highlightedSample()
             self.__moving_sample_original_pos = self.__moving_sample.pos()
             self.__moving_sample_offset = evt.pos() - self.__moving_sample.pos()
 
@@ -73,24 +103,22 @@ class EditSamplesTool(tools.ToolBase):
 
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.ShiftModifier
-                and target.highlightedSample() is not None):
-            with self.project.apply_mutations('%s: Remove sample' % target.track.name):
-                target.track.delete_sample(target.highlightedSample().sample)
+                and self.track.highlightedSample() is not None):
+            with self.project.apply_mutations('%s: Remove sample' % self.track.track.name):
+                self.track.track.delete_sample(self.track.highlightedSample().sample)
 
             evt.accept()
             return
 
         if evt.button() == Qt.RightButton and self.__moving_sample is not None:
-            target.setSamplePos(self.__moving_sample, self.__moving_sample_original_pos)
+            self.track.setSamplePos(self.__moving_sample, self.__moving_sample_original_pos)
             self.__moving_sample = None
             evt.accept()
             return
 
-        super().mousePressEvent(target, evt)
+        super().mousePressEvent(evt)
 
-    def mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, SampleTrackEditor), type(target).__name__
-
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         if self.__moving_sample is not None:
             new_pos = QtCore.QPoint(
                 evt.pos().x() - self.__moving_sample_offset.x(),
@@ -98,39 +126,37 @@ class EditSamplesTool(tools.ToolBase):
 
             if new_pos.x() < 10:
                 new_pos.setX(10)
-            elif new_pos.x() > target.width() - 10 - self.__moving_sample.width():
-                new_pos.setX(target.width() - 10 - self.__moving_sample.width())
+            elif new_pos.x() > self.track.width() - 10 - self.__moving_sample.width():
+                new_pos.setX(self.track.width() - 10 - self.__moving_sample.width())
 
-            target.setSamplePos(self.__moving_sample, new_pos)
+            self.track.setSamplePos(self.__moving_sample, new_pos)
 
             evt.accept()
             return
 
-        target.updateHighlightedSample()
+        self.track.updateHighlightedSample()
 
-        super().mouseMoveEvent(target, evt)
+        super().mouseMoveEvent(evt)
 
-    def mouseReleaseEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, SampleTrackEditor), type(target).__name__
-
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and self.__moving_sample is not None:
             pos = self.__moving_sample.pos()
             self.__moving_sample = None
 
-            with self.project.apply_mutations('%s: Move sample' % target.track.name):
-                target.highlightedSample().sample.time = target.xToTime(pos.x())
+            with self.project.apply_mutations('%s: Move sample' % self.track.track.name):
+                self.track.highlightedSample().sample.time = self.track.xToTime(pos.x())
 
             evt.accept()
             return
 
-        super().mouseReleaseEvent(target, evt)
+        super().mouseReleaseEvent(evt)
 
 
 class SampleTrackToolBox(tools.ToolBox):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.addTool(EditSamplesTool(context=self.context))
+        self.addTool(EditSamplesTool)
 
 
 class SampleItem(core.AutoCleanupMixin, object):
@@ -183,13 +209,12 @@ class SampleItem(core.AutoCleanupMixin, object):
     def onTimeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
         self.__pos = QtCore.QPoint(
             self.__track_editor.timeToX(change.new_value), 0)
-        self.__track_editor.rectChanged.emit(self.__track_editor.viewRect())
+        self.__track_editor.update()
 
     def setHighlighted(self, highlighted: bool) -> None:
         if highlighted != self.__highlighted:
             self.__highlighted = highlighted
-            self.__track_editor.rectChanged.emit(
-                self.rect().translated(self.__track_editor.viewTopLeft()))
+            self.__track_editor.update()
 
     def renderSample(self, task: asyncio.Task) -> None:
         response = down_cast(ipc_pb2.RenderSampleResponse, task.result())
@@ -202,7 +227,7 @@ class SampleItem(core.AutoCleanupMixin, object):
             self.__width = len(response.rms)
             self.__render_result = ('rms', list(response.rms))
 
-        self.__track_editor.rectChanged.emit(self.__track_editor.viewRect())
+        self.__track_editor.update()
 
     def purgePaintCaches(self) -> None:
         self.__render_result = ('init', )
@@ -257,12 +282,11 @@ class SampleItem(core.AutoCleanupMixin, object):
 
 
 class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.BaseTrackEditor):
-    toolBoxClass = SampleTrackToolBox
-
     def __init__(self, **kwargs: Any) -> None:
+        self.__samples = []  # type: List[SampleItem]
+
         super().__init__(**kwargs)
 
-        self.__samples = []  # type: List[SampleItem]
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
 
@@ -275,7 +299,9 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
 
         self.__listeners.add(self.track.samples_changed.add(self.onSamplesChanged))
 
-        self.setHeight(120)
+        self.playbackPositionChanged.connect(self.__playbackPositionChanged)
+
+        self.setFixedHeight(120)
 
     @property
     def track(self) -> model.SampleTrack:
@@ -287,6 +313,9 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
         self.__samples.clear()
 
         super().cleanup()
+
+    def createToolBox(self) -> SampleTrackToolBox:
+        return SampleTrackToolBox(track=self, context=self.context)
 
     def onSamplesChanged(self, change: music.PropertyListChange[model.SampleRef]) -> None:
         if isinstance(change, music.PropertyListInsert):
@@ -301,25 +330,23 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
     def addSample(self, insert_index: int, sample: model.SampleRef) -> None:
         item = SampleItem(track_editor=self, sample=sample)
         self.__samples.insert(insert_index, item)
-        self.rectChanged.emit(self.viewRect())
+        self.update()
 
     def removeSample(self, remove_index: int, sample: model.SampleRef) -> None:
         item = self.__samples.pop(remove_index)
         item.cleanup()
-        self.rectChanged.emit(self.viewRect())
+        self.update()
 
-    def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
+    def __playbackPositionChanged(self, time: audioproc.MusicalTime) -> None:
         if self.__playback_time is not None:
             x = self.timeToX(self.__playback_time)
-            self.rectChanged.emit(
-                QtCore.QRect(self.viewLeft() + x, self.viewTop(), 2, self.height()))
+            self.update(x - self.xOffset(), 0, 2, self.height())
 
         self.__playback_time = time
 
         if self.__playback_time is not None:
             x = self.timeToX(self.__playback_time)
-            self.rectChanged.emit(
-                QtCore.QRect(self.viewLeft() + x, self.viewTop(), 2, self.height()))
+            self.update(x - self.xOffset(), 0, 2, self.height())
 
     def setHighlightedSample(self, sample: SampleItem) -> None:
         if sample is self.__highlighted_sample:
@@ -359,33 +386,7 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
 
     def setSamplePos(self, sample: SampleItem, pos: QtCore.QPoint) -> None:
         sample.setPos(pos)
-        self.rectChanged.emit(self.viewRect())
-
-    def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
-        super().buildContextMenu(menu, pos)
-
-        time = self.xToTime(pos.x())
-
-        add_sample_action = QtWidgets.QAction("Add sample...", menu)
-        add_sample_action.setStatusTip("Add a sample to the track.")
-        add_sample_action.triggered.connect(functools.partial(self.onAddSample, time))
-        menu.addAction(add_sample_action)
-
-    def onAddSample(self, time: audioproc.MusicalTime) -> None:
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            parent=self.project_view,
-            caption="Add Sample to track \"%s\"" % self.track.name,
-            #directory=self.ui_state.get(
-            #'instruments_add_dialog_path', ''),
-            filter="All Files (*);;Wav files (*.wav)",
-            #initialFilter=self.ui_state.get(
-            #    'instruments_add_dialog_path', ''),
-        )
-        if not path:
-            return
-
-        with self.project.apply_mutations('%s: Create sample' % self.track.name):
-            self.track.create_sample(time, path)
+        self.update()
 
     def leaveEvent(self, evt: QtCore.QEvent) -> None:
         self.__mouse_pos = None
@@ -409,9 +410,7 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
         for item in self.__samples:
             item.purgePaintCaches()
 
-    def paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
-        super().paint(painter, paint_rect)
-
+    def _paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
         painter.setPen(QtGui.QColor(160, 160, 160))
         painter.drawLine(
             self.timeToX(audioproc.MusicalTime(0, 1)), self.height() // 2,

@@ -65,16 +65,21 @@ string PianoRollEvent::to_string() const {
   case NOTE_OFF: type_str = "noteoff"; break;
   }
 
-  return sprintf("<id=%016x time=%.2f type=%s pitch=%d velocity=%d>",
+  return sprintf("<event id=%016x time=%.2f type=%s pitch=%d velocity=%d>",
                  id, time.to_float(), type_str, pitch, velocity);
 }
 
-void PianoRoll::add_event(const PianoRollEvent& event) {
+string PianoRollSegment::to_string() const {
+  return sprintf("<segment id=%016x duration=%.2f>",
+                 id, duration.to_float());
+}
+
+void PianoRollSegment::add_event(const PianoRollEvent& event) {
   auto it = lower_bound(events.begin(), events.end(), event, event_comp);
   events.insert(it, event);
 }
 
-void PianoRoll::remove_events(uint64_t id) {
+void PianoRollSegment::remove_events(uint64_t id) {
   for (auto it = events.begin() ; it != events.end() ; ) {
     if (it->id == id) {
       it = events.erase(it);
@@ -84,17 +89,58 @@ void PianoRoll::remove_events(uint64_t id) {
   }
 }
 
-void PianoRoll::apply_mutation(pb::ProcessorMessage* msg) {
+string PianoRollSegmentRef::to_string() const {
+  return sprintf("<ref id=%016x time=%.2f segment=%016x>",
+                 id, time.to_float(), segment->id);
+}
+
+PianoRoll::PianoRoll() {
+  legacy_segment.reset(new PianoRollSegment());
+}
+
+void PianoRoll::apply_mutation(Logger* logger, pb::ProcessorMessage* msg) {
   if (msg->HasExtension(pb::pianoroll_add_interval)) {
     apply_add_interval(msg->GetExtension(pb::pianoroll_add_interval));
   } else if (msg->HasExtension(pb::pianoroll_remove_interval)) {
     apply_remove_interval(msg->GetExtension(pb::pianoroll_remove_interval));
   } else {
-    assert(false);
+    assert(msg->HasExtension(pb::pianoroll_mutation));
+
+    const pb::PianoRollMutation& mutation = msg->GetExtension(pb::pianoroll_mutation);
+    switch (mutation.mutation_case()) {
+    case pb::PianoRollMutation::kAddSegment:
+      apply_add_segment(logger, mutation.add_segment());
+      break;
+    case pb::PianoRollMutation::kRemoveSegment:
+      apply_remove_segment(logger, mutation.remove_segment());
+      break;
+    case pb::PianoRollMutation::kUpdateSegment:
+      apply_update_segment(logger, mutation.update_segment());
+      break;
+    case pb::PianoRollMutation::kAddSegmentRef:
+      apply_add_segment_ref(logger, mutation.add_segment_ref());
+      break;
+    case pb::PianoRollMutation::kRemoveSegmentRef:
+      apply_remove_segment_ref(logger, mutation.remove_segment_ref());
+      break;
+    case pb::PianoRollMutation::kUpdateSegmentRef:
+      apply_update_segment_ref(logger, mutation.update_segment_ref());
+      break;
+    case pb::PianoRollMutation::kAddEvent:
+      apply_add_event(logger, mutation.add_event());
+      break;
+    case pb::PianoRollMutation::kRemoveEvent:
+      apply_remove_event(logger, mutation.remove_event());
+      break;
+    case pb::PianoRollMutation::MUTATION_NOT_SET:
+      logger->error("PianoRollMutation message without mutation.");
+      break;
+    }
   }
 
   // Invalidate pianoroll's cursor (so ProcessorPianoRoll::process_block() is forced to do a seek
   // first).
+  current_ref = nullptr;
   offset = -1;
 }
 
@@ -103,23 +149,109 @@ void PianoRoll::apply_add_interval(const pb::PianoRollAddInterval& msg) {
   event.id = msg.id();
   event.time = msg.start_time();
   event.type = PianoRollEvent::NOTE_ON;
+  event.channel = 0;
   assert(msg.pitch() < 128);
   event.pitch = msg.pitch();
   assert(msg.velocity() < 128);
   event.velocity = msg.velocity();
-  add_event(event);
+  legacy_segment->add_event(event);
 
   event.id = msg.id();
   event.time = msg.end_time();
   event.type = PianoRollEvent::NOTE_OFF;
+  event.channel = 0;
   assert(msg.pitch() < 128);
   event.pitch = msg.pitch();
   event.velocity = 0;
-  add_event(event);
+  legacy_segment->add_event(event);
 }
 
 void PianoRoll::apply_remove_interval(const pb::PianoRollRemoveInterval& msg) {
-  remove_events(msg.id());
+  legacy_segment->remove_events(msg.id());
+}
+
+void PianoRoll::apply_add_segment(Logger* logger, const pb::PianoRollMutation::AddSegment& msg) {
+  assert(segment_map.count(msg.id()) == 0);
+  PianoRollSegment* segment = new PianoRollSegment();
+  segment->id = msg.id();
+  segment->duration = msg.duration();
+  segment_map[segment->id].reset(segment);
+}
+
+void PianoRoll::apply_remove_segment(Logger* logger, const pb::PianoRollMutation::RemoveSegment& msg) {
+  assert(segment_map.count(msg.id()) > 0);
+  segment_map.erase(msg.id());
+}
+
+void PianoRoll::apply_update_segment(Logger* logger, const pb::PianoRollMutation::UpdateSegment& msg) {
+  assert(segment_map.count(msg.id()) > 0);
+  PianoRollSegment* segment = segment_map[msg.id()].get();
+
+  if (msg.has_duration()) {
+    segment->duration = msg.duration();
+  }
+}
+
+void PianoRoll::apply_add_segment_ref(Logger* logger, const pb::PianoRollMutation::AddSegmentRef& msg) {
+  assert(ref_map.count(msg.id()) == 0);
+  assert(segment_map.count(msg.segment_id()) > 0);
+
+  PianoRollSegmentRef* ref = new PianoRollSegmentRef();
+  ref->id = msg.id();
+  ref->time = msg.time();
+  ref->segment = segment_map[msg.segment_id()].get();
+  ref_map[ref->id].reset(ref);
+  refs.push_back(ref);
+}
+
+void PianoRoll::apply_remove_segment_ref(Logger* logger, const pb::PianoRollMutation::RemoveSegmentRef& msg) {
+  assert(ref_map.count(msg.id()) > 0);
+  for (auto it = refs.begin(); it < refs.end(); ++it) {
+    if ((*it)->id == msg.id()) {
+      refs.erase(it);
+      break;
+    }
+  }
+  ref_map.erase(msg.id());
+}
+
+void PianoRoll::apply_update_segment_ref(Logger* logger, const pb::PianoRollMutation::UpdateSegmentRef& msg) {
+  assert(ref_map.count(msg.id()) > 0);
+  PianoRollSegmentRef* segment_ref = ref_map[msg.id()].get();
+
+  if (msg.has_time()) {
+    segment_ref->time = msg.time();
+  }
+}
+
+void PianoRoll::apply_add_event(Logger* logger, const pb::PianoRollMutation::AddEvent& msg) {
+  assert(segment_map.count(msg.segment_id()) > 0);
+  PianoRollSegment* segment = segment_map[msg.segment_id()].get();
+
+  PianoRollEvent event;
+  event.id = msg.id();
+  event.time = msg.time();
+  switch (msg.type()) {
+  case pb::PianoRollMutation::AddEvent::NOTE_ON:
+    event.type = PianoRollEvent::NOTE_ON;
+    break;
+  case pb::PianoRollMutation::AddEvent::NOTE_OFF:
+    event.type = PianoRollEvent::NOTE_OFF;
+    break;
+  }
+  assert(msg.channel() < 16);
+  event.channel = msg.channel();
+  assert(msg.pitch() < 128);
+  event.pitch = msg.pitch();
+  assert(msg.velocity() < 128);
+  event.velocity = msg.velocity();
+  segment->add_event(event);
+}
+
+void PianoRoll::apply_remove_event(Logger* logger, const pb::PianoRollMutation::RemoveEvent& msg) {
+  assert(segment_map.count(msg.segment_id()) > 0);
+  PianoRollSegment* segment = segment_map[msg.segment_id()].get();
+  segment->remove_events(msg.id());
 }
 
 ProcessorPianoRoll::ProcessorPianoRoll(
@@ -134,8 +266,10 @@ ProcessorPianoRoll::~ProcessorPianoRoll() {}
 Status ProcessorPianoRoll::setup_internal() {
   RETURN_IF_ERROR(Processor::setup_internal());
 
-  for (int i = 0 ; i < 128 ; ++i) {
-    _active_notes[i] = 0;
+  for (int ch = 0 ; ch < 16 ; ++ch) {
+    for (int p = 0 ; p < 128 ; ++p) {
+      _active_notes[ch][p] = 0;
+    }
   }
 
   return Status::Ok();
@@ -147,8 +281,22 @@ void ProcessorPianoRoll::cleanup_internal() {
 
 Status ProcessorPianoRoll::handle_message_internal(pb::ProcessorMessage* msg) {
   if (msg->HasExtension(pb::pianoroll_add_interval)
-      || msg->HasExtension(pb::pianoroll_remove_interval)) {
+      || msg->HasExtension(pb::pianoroll_remove_interval)
+      || msg->HasExtension(pb::pianoroll_mutation)) {
     _pianoroll_manager.handle_mutation(msg);
+    return Status::Ok();
+  } else if (msg->HasExtension(pb::pianoroll_emit_events)) {
+    const pb::PianoRollEmitEvents& m = msg->GetExtension(pb::pianoroll_emit_events);
+
+    for (const auto& midi : m.midi()) {
+      ClientMessage cm;
+      memmove(cm.midi, midi.c_str(), 3);
+      if (!_client_messages.push(cm)) {
+        _logger->error("Failed to push MIDI event to queue.");
+        break;
+      }
+    }
+
     return Status::Ok();
   }
 
@@ -156,20 +304,34 @@ Status ProcessorPianoRoll::handle_message_internal(pb::ProcessorMessage* msg) {
 }
 
 void ProcessorPianoRoll::note_on(
-    LV2_Atom_Forge* forge, uint32_t sample, uint8_t pitch, uint8_t velocity) {
+    LV2_Atom_Forge* forge, uint32_t sample, uint8_t channel, uint8_t pitch, uint8_t velocity) {
+  assert(channel < 16);
+  assert(pitch < 128);
+  assert(velocity < 128);
+
   lv2_atom_forge_frame_time(forge, sample);
   lv2_atom_forge_atom(forge, 3, _host_system->lv2->urid.midi_event);
-  uint8_t midi_data[3] = { 0x90, pitch, velocity };
+  uint8_t midi_data[3];
+  midi_data[0] = 0x90 | channel;
+  midi_data[1] = pitch;
+  midi_data[2] = velocity;
   lv2_atom_forge_write(forge, midi_data, 3);
-  _active_notes[pitch] = 1;
+  _active_notes[channel][pitch] = 1;
 }
 
-void ProcessorPianoRoll::note_off(LV2_Atom_Forge* forge, uint32_t sample, uint8_t pitch) {
+void ProcessorPianoRoll::note_off(
+    LV2_Atom_Forge* forge, uint32_t sample, uint8_t channel, uint8_t pitch) {
+  assert(channel < 16);
+  assert(pitch < 128);
+
   lv2_atom_forge_frame_time(forge, sample);
   lv2_atom_forge_atom(forge, 3, _host_system->lv2->urid.midi_event);
-  uint8_t midi_data[3] = { 0x80, pitch, 0 };
+  uint8_t midi_data[3];
+  midi_data[0] = 0x80 | channel;
+  midi_data[1] = pitch;
+  midi_data[2] = 0;
   lv2_atom_forge_write(forge, midi_data, 3);
-  _active_notes[pitch] = 0;
+  _active_notes[channel][pitch] = 0;
 }
 
 Status ProcessorPianoRoll::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
@@ -187,21 +349,76 @@ Status ProcessorPianoRoll::process_block_internal(BlockContext* ctxt, TimeMapper
 
   lv2_atom_forge_sequence_head(&forge, &frame, _host_system->lv2->urid.atom_frame_time);
 
+  ClientMessage cm;
+  while (_client_messages.pop(cm)) {
+    lv2_atom_forge_frame_time(&forge, 0);
+    lv2_atom_forge_atom(&forge, 3, _host_system->lv2->urid.midi_event);
+    lv2_atom_forge_write(&forge, cm.midi, 3);
+  }
+
   SampleTime* stime = ctxt->time_map.get();
   for (uint32_t sample = 0 ; sample < _host_system->block_size() ; ++sample, ++stime) {
     if (stime->start_time.numerator() < 0) {
       // playback turned off
 
+      pianoroll->current_ref = nullptr;
       pianoroll->offset = -1;
 
-      for (int i = 0 ; i < 128 ; ++i) {
-        if (_active_notes[i]) {
-          note_off(&forge, sample, i);
+      for (int ch = 0 ; ch < 16 ; ++ch) {
+        for (int p = 0 ; p < 128 ; ++p) {
+          if (_active_notes[ch][p]) {
+            note_off(&forge, sample, ch, p);
+          }
         }
       }
 
       continue;
     }
+
+    PianoRollSegment* segment;
+    MusicalTime segment_start_time;
+
+    if (pianoroll->refs.size() > 0) {
+      if (pianoroll->current_ref != nullptr && stime->start_time >= pianoroll->current_ref->time + pianoroll->current_ref->segment->duration) {
+        pianoroll->current_ref = nullptr;
+        pianoroll->offset = -1;
+      }
+
+      if (pianoroll->current_ref == nullptr || pianoroll->current_time != stime->start_time) {
+        // Find segment at current time
+
+        // TODO: do better than linear search.
+        for (PianoRollSegmentRef* ref : pianoroll->refs) {
+          if (stime->start_time >= ref->time
+              && stime->start_time <= ref->time + ref->segment->duration) {
+            pianoroll->current_ref = ref;
+            break;
+          }
+        }
+      }
+
+      if (pianoroll->current_ref == nullptr) {
+        // No segment at this point
+        for (int ch = 0 ; ch < 16 ; ++ch) {
+          for (int p = 0 ; p < 128 ; ++p) {
+            if (_active_notes[ch][p]) {
+              note_off(&forge, sample, ch, p);
+            }
+          }
+        }
+        continue;
+      }
+
+      segment = pianoroll->current_ref->segment;
+      segment_start_time = pianoroll->current_ref->time;
+    } else {
+      segment = pianoroll->legacy_segment.get();
+      segment_start_time = MusicalTime(0, 1);
+    }
+
+    // Current sample start/end time relative to segment
+    MusicalTime start_time = stime->start_time - MusicalDuration(segment_start_time.numerator(), segment_start_time.denominator());
+    MusicalTime end_time = stime->end_time - MusicalDuration(segment_start_time.numerator(), segment_start_time.denominator());
 
     if (pianoroll->offset < 0 || pianoroll->current_time != stime->start_time) {
       // Seek to new time.
@@ -211,49 +428,56 @@ Status ProcessorPianoRoll::process_block_internal(BlockContext* ctxt, TimeMapper
       // - Use an interval tree to find out which intervals are notes are active
       //   at that offset.
 
-      uint8_t notes[128];
-      for (int i = 0 ; i < 128 ; ++i) {
-        notes[i] = 0;
+      uint8_t notes[16][128];
+      for (int ch = 0 ; ch < 16 ; ++ch) {
+        for (int p = 0 ; p < 128 ; ++p) {
+          notes[ch][p] = 0;
+        }
       }
 
       pianoroll->offset = 0;
-      while ((size_t)pianoroll->offset < pianoroll->events.size()) {
-        const PianoRollEvent& event = pianoroll->events[pianoroll->offset];
+      while ((size_t)pianoroll->offset < segment->events.size()) {
+        const PianoRollEvent& event = segment->events[pianoroll->offset];
 
-        if (event.time >= stime->start_time) {
+        if (event.time >= start_time) {
           break;
         }
 
-        if (event.type == PianoRollEvent::NOTE_ON) {
-          notes[event.pitch] = 1;
-        } else if (event.type == PianoRollEvent::NOTE_OFF) {
-          notes[event.pitch] = 0;
+        switch (event.type) {
+        case PianoRollEvent::NOTE_ON:
+          notes[event.channel][event.pitch] = 1;
+          break;
+        case PianoRollEvent::NOTE_OFF:
+          notes[event.channel][event.pitch] = 0;
+          break;
         }
 
         ++pianoroll->offset;
       }
 
-      for (int i = 0 ; i < 128 ; ++i) {
-        if (_active_notes[i] && !notes[i]) {
-          note_off(&forge, sample, i);
+      for (int ch = 0 ; ch < 16 ; ++ch) {
+        for (int p = 0 ; p < 128 ; ++p) {
+          if (_active_notes[ch][p] && !notes[ch][p]) {
+            note_off(&forge, sample, ch, p);
+          }
         }
       }
     }
 
-    while ((size_t)pianoroll->offset < pianoroll->events.size()) {
-      const PianoRollEvent& event = pianoroll->events[pianoroll->offset];
-      assert(event.time >= stime->start_time);
-      if (event.time >= stime->end_time) {
+    while ((size_t)pianoroll->offset < segment->events.size()) {
+      const PianoRollEvent& event = segment->events[pianoroll->offset];
+      assert(event.time >= start_time);
+      if (event.time >= end_time) {
         // no more events at this sample.
         break;
       }
 
       switch (event.type) {
       case PianoRollEvent::NOTE_ON:
-        note_on(&forge, sample, event.pitch, event.velocity);
+        note_on(&forge, sample, event.channel, event.pitch, event.velocity);
         break;
       case PianoRollEvent::NOTE_OFF:
-        note_off(&forge, sample, event.pitch);
+        note_off(&forge, sample, event.channel, event.pitch);
         break;
       }
 

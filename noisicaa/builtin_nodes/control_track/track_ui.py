@@ -41,6 +41,8 @@ logger = logging.getLogger(__name__)
 
 
 class EditControlPointsTool(tools.ToolBase):
+    track = None  # type: ControlTrackEditor
+
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(
             type=tools.ToolType.EDIT_CONTROL_POINTS,
@@ -56,15 +58,13 @@ class EditControlPointsTool(tools.ToolBase):
     def iconName(self) -> str:
         return 'edit-control-points'
 
-    def mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, ControlTrackEditor), type(target).__name__
-
-        target.updateHighlightedPoint()
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
+        self.track.updateHighlightedPoint()
 
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.NoModifier
-                and target.highlightedPoint() is not None):
-            self.__moving_point = target.highlightedPoint()
+                and self.track.highlightedPoint() is not None):
+            self.__moving_point = self.track.highlightedPoint()
             self.__moving_point_original_pos = self.__moving_point.pos()
             self.__moving_point_offset = evt.pos() - self.__moving_point.pos()
             self.__move_mode = 'any'
@@ -72,14 +72,14 @@ class EditControlPointsTool(tools.ToolBase):
             point_index = self.__moving_point.index
 
             if point_index > 0:
-                range_left = target.points[point_index - 1].pos().x() + 1
+                range_left = self.track.points[point_index - 1].pos().x() + 1
             else:
-                range_left = target.timeToX(audioproc.MusicalTime(0, 1))
+                range_left = self.track.timeToX(audioproc.MusicalTime(0, 1))
 
-            if point_index < len(target.points) - 1:
-                range_right = target.points[point_index + 1].pos().x() - 1
+            if point_index < len(self.track.points) - 1:
+                range_right = self.track.points[point_index + 1].pos().x() - 1
             else:
-                range_right = target.timeToX(target.projectEndTime())
+                range_right = self.track.timeToX(self.track.projectEndTime())
 
             self.__move_range = (range_left, range_right)
 
@@ -88,24 +88,22 @@ class EditControlPointsTool(tools.ToolBase):
 
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.ShiftModifier
-                and target.highlightedPoint() is not None):
-            with self.project.apply_mutations('%s: Remove control point' % target.track.name):
-                target.track.delete_control_point(target.highlightedPoint().point)
+                and self.track.highlightedPoint() is not None):
+            with self.project.apply_mutations('%s: Remove control point' % self.track.track.name):
+                self.track.track.delete_control_point(self.track.highlightedPoint().point)
 
             evt.accept()
             return
 
         if evt.button() == Qt.RightButton and self.__moving_point is not None:
-            target.setPointPos(self.__moving_point, self.__moving_point_original_pos)
+            self.track.setPointPos(self.__moving_point, self.__moving_point_original_pos)
             self.__moving_point = None
             evt.accept()
             return
 
-        super().mousePressEvent(target, evt)
+        super().mousePressEvent(evt)
 
-    def mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, ControlTrackEditor), type(target).__name__
-
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         if self.__moving_point is not None:
             new_pos = evt.pos() - self.__moving_point_offset
 
@@ -132,78 +130,75 @@ class EditControlPointsTool(tools.ToolBase):
 
             if new_pos.y() < 0:
                 new_pos.setY(0)
-            elif new_pos.y() > target.height() - 1:
-                new_pos.setY(target.height() - 1)
+            elif new_pos.y() > self.track.height() - 1:
+                new_pos.setY(self.track.height() - 1)
 
-            target.setPointPos(self.__moving_point, new_pos)
+            self.track.setPointPos(self.__moving_point, new_pos)
 
             evt.accept()
             return
 
-        target.updateHighlightedPoint()
+        self.track.updateHighlightedPoint()
 
-        super().mouseMoveEvent(target, evt)
+        super().mouseMoveEvent(evt)
 
-    def mouseReleaseEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, ControlTrackEditor), type(target).__name__
-
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and self.__moving_point is not None:
             pos = self.__moving_point.pos()
             self.__moving_point = None
 
             if self.__move_mode != 'vertical':
-                new_time = target.xToTime(pos.x())
+                new_time = self.track.xToTime(pos.x())
             else:
                 new_time = None
 
             if self.__move_mode != 'horizontal':
-                new_value = target.yToValue(pos.y())
+                new_value = self.track.yToValue(pos.y())
             else:
                 new_value = None
 
-            with self.project.apply_mutations('%s: Change control point' % target.track.name):
-                target.highlightedPoint().point.time = new_time
-                target.highlightedPoint().point.value = new_value
+            with self.project.apply_mutations('%s: Change control point' % self.track.track.name):
+                self.track.highlightedPoint().point.time = new_time
+                self.track.highlightedPoint().point.value = new_value
 
             evt.accept()
             return
 
-        super().mouseReleaseEvent(target, evt)
+        super().mouseReleaseEvent(evt)
 
-    def mouseDoubleClickEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, ControlTrackEditor), type(target).__name__
-
+    def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
             # If the first half of the double click initiated a move,
             # cancel that move now.
             if self.__moving_point is not None:
-                target.setPointPos(self.__moving_point, self.__moving_point_original_pos)
+                self.track.setPointPos(self.__moving_point, self.__moving_point_original_pos)
                 self.__moving_point = None
 
-            time = target.xToTime(evt.pos().x())
-            for point in target.track.points:
+            time = self.track.xToTime(evt.pos().x())
+            for point in self.track.track.points:
                 if point.time == time:
                     with self.project.apply_mutations(
-                            '%s: Change control point' % target.track.name):
-                        point.value = target.yToValue(evt.pos().y())
+                            '%s: Change control point' % self.track.track.name):
+                        point.value = self.track.yToValue(evt.pos().y())
                     break
             else:
-                with self.project.apply_mutations('%s: Insert control point' % target.track.name):
-                    target.track.create_control_point(
-                        target.xToTime(evt.pos().x()),
-                        target.yToValue(evt.pos().y()))
+                with self.project.apply_mutations(
+                        '%s: Insert control point' % self.track.track.name):
+                    self.track.track.create_control_point(
+                        self.track.xToTime(evt.pos().x()),
+                        self.track.yToValue(evt.pos().y()))
 
             evt.accept()
             return
 
-        super().mouseDoubleClickEvent(target, evt)
+        super().mouseDoubleClickEvent(evt)
 
 
 class ControlTrackToolBox(tools.ToolBox):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.addTool(EditControlPointsTool(context=self.context))
+        self.addTool(EditControlPointsTool)
 
 
 class ControlPoint(core.AutoCleanupMixin, object):
@@ -226,13 +221,13 @@ class ControlPoint(core.AutoCleanupMixin, object):
         self.__pos = QtCore.QPoint(
             self.__track_editor.timeToX(change.new_value),
             self.__pos.y())
-        self.__track_editor.rectChanged.emit(self.__track_editor.viewRect())
+        self.__track_editor.update()
 
     def onValueChanged(self, change: music.PropertyValueChange[float]) -> None:
         self.__pos = QtCore.QPoint(
             self.__pos.x(),
             self.__track_editor.valueToY(change.new_value))
-        self.__track_editor.rectChanged.emit(self.__track_editor.viewRect())
+        self.__track_editor.update()
 
     @property
     def index(self) -> int:
@@ -268,8 +263,6 @@ class ControlPoint(core.AutoCleanupMixin, object):
 
 
 class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.BaseTrackEditor):
-    toolBoxClass = ControlTrackToolBox
-
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
@@ -285,9 +278,10 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
 
         self.__listeners.add(self.track.points_changed.add(self.onPointsChanged))
 
-        self.setHeight(120)
+        self.setFixedHeight(120)
 
         self.scaleXChanged.connect(self.__onScaleXChanged)
+        self.playbackPositionChanged.connect(self.__playbackPositionChanged)
 
     def cleanup(self) -> None:
         for points in self.points:
@@ -295,10 +289,13 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
         self.points.clear()
         super().cleanup()
 
+    def createToolBox(self) -> ControlTrackToolBox:
+        return ControlTrackToolBox(track=self, context=self.context)
+
     def __onScaleXChanged(self, scale_x: fractions.Fraction) -> None:
         for cpoint in self.points:
             cpoint.recomputePos()
-        self.rectChanged.emit(self.viewRect())
+        self.update()
 
     @property
     def track(self) -> model.ControlTrack:
@@ -307,7 +304,7 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
     def setHighlightedPoint(self, cpoint: ControlPoint) -> None:
         if cpoint is not self.__highlighted_point:
             self.__highlighted_point = cpoint
-            self.rectChanged.emit(self.viewRect())
+            self.update()
 
     def highlightedPoint(self) -> ControlPoint:
         return self.__highlighted_point
@@ -330,17 +327,17 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
 
     def setPointPos(self, cpoint: ControlPoint, pos: QtCore.QPoint) -> None:
         cpoint.setPos(pos)
-        self.rectChanged.emit(self.viewRect())
+        self.update()
 
     def addPoint(self, insert_index: int, point: model.ControlPoint) -> None:
         cpoint = ControlPoint(track_editor=self, point=point)
         self.points.insert(insert_index, cpoint)
-        self.rectChanged.emit(self.viewRect())
+        self.update()
 
     def removePoint(self, remove_index: int, point: QtCore.QPoint) -> None:
         cpoint = self.points.pop(remove_index)
         cpoint.cleanup()
-        self.rectChanged.emit(self.viewRect())
+        self.update()
 
     def onPointsChanged(self, change: music.PropertyListChange[model.ControlPoint]) -> None:
         if isinstance(change, music.PropertyListInsert):
@@ -354,18 +351,16 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
         else:
             raise TypeError(type(change))
 
-    def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
+    def __playbackPositionChanged(self, time: audioproc.MusicalTime) -> None:
         if self.__playback_time is not None:
             x = self.timeToX(self.__playback_time)
-            self.rectChanged.emit(
-                QtCore.QRect(self.viewLeft() + x, self.viewTop(), 2, self.height()))
+            self.update(x - self.xOffset(), 0, 2, self.height())
 
         self.__playback_time = time
 
         if self.__playback_time is not None:
             x = self.timeToX(self.__playback_time)
-            self.rectChanged.emit(
-                QtCore.QRect(self.viewLeft() + x, self.viewTop(), 2, self.height()))
+            self.update(x - self.xOffset(), 0, 2, self.height())
 
     def valueToY(self, value: float) -> int:
         return int(self.height() - int(self.height() * value))
@@ -379,24 +374,22 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
         super().leaveEvent(evt)
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
-        self.__mouse_pos = evt.pos()
+        self.__mouse_pos = evt.pos() + self.offset()
         super().mousePressEvent(evt)
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
-        self.__mouse_pos = evt.pos()
+        self.__mouse_pos = evt.pos() + self.offset()
         super().mouseMoveEvent(evt)
 
     def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
-        self.__mouse_pos = evt.pos()
+        self.__mouse_pos = evt.pos() + self.offset()
         super().mouseReleaseEvent(evt)
 
     def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
-        self.__mouse_pos = evt.pos()
+        self.__mouse_pos = evt.pos() + self.offset()
         super().mouseDoubleClickEvent(evt)
 
-    def paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
-        super().paint(painter, paint_rect)
-
+    def _paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
         painter.setPen(Qt.black)
 
         beat_time = audioproc.MusicalTime()

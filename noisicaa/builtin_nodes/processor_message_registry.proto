@@ -48,6 +48,8 @@ extend ProcessorMessage {
   // Pianoroll (406xxx)
   optional PianoRollAddInterval pianoroll_add_interval = 406000;
   optional PianoRollRemoveInterval pianoroll_remove_interval = 406001;
+  optional PianoRollMutation pianoroll_mutation = 406002;
+  optional PianoRollEmitEvents pianoroll_emit_events = 406003;
 
   // Midi Source (408xxx)
   optional MidiSourceUpdate midi_source_update = 408000;

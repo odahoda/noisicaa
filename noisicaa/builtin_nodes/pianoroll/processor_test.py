@@ -22,6 +22,7 @@ from noisidev import unittest
 from noisidev import unittest_processor_mixins
 from noisicaa.audioproc.public import musical_time
 from . import processor_messages
+from . import processor_messages_pb2
 
 
 class ProcessorPianoRollTest(
@@ -103,3 +104,101 @@ class ProcessorPianoRollTest(
              (22050, [144, 80, 103]),
              (33075, [128, 64, 0]),
              (33075, [128, 80, 0])])
+
+    def test_segments(self):
+        self.processor.handle_message(processor_messages.add_segment(
+            node_id='123',
+            segment_id=0x0001,
+            duration=musical_time.PyMusicalDuration(1, 4)))
+        self.processor.handle_message(processor_messages.add_segment_ref(
+            node_id='123',
+            segment_ref_id=0x0002,
+            time=musical_time.PyMusicalTime(0, 4),
+            segment_id=0x0001))
+        self.processor.handle_message(processor_messages.add_event(
+            node_id='123',
+            segment_id=0x0001,
+            event_id=0x0003,
+            time=musical_time.PyMusicalTime(2, 16),
+            type=processor_messages_pb2.PianoRollMutation.AddEvent.NOTE_ON,
+            channel=0,
+            pitch=64,
+            velocity=100))
+        self.processor.handle_message(processor_messages.add_event(
+            node_id='123',
+            segment_id=0x0001,
+            event_id=0x0004,
+            time=musical_time.PyMusicalTime(3, 16),
+            type=processor_messages_pb2.PianoRollMutation.AddEvent.NOTE_OFF,
+            channel=0,
+            pitch=64,
+            velocity=0))
+
+        self.processor.handle_message(processor_messages.add_segment(
+            node_id='123',
+            segment_id=0x0005,
+            duration=musical_time.PyMusicalDuration(1, 4)))
+        self.processor.handle_message(processor_messages.add_segment_ref(
+            node_id='123',
+            segment_ref_id=0x0006,
+            time=musical_time.PyMusicalTime(2, 4),
+            segment_id=0x0005))
+        self.processor.handle_message(processor_messages.add_event(
+            node_id='123',
+            segment_id=0x0005,
+            event_id=0x0007,
+            time=musical_time.PyMusicalTime(2, 16),
+            type=processor_messages_pb2.PianoRollMutation.AddEvent.NOTE_ON,
+            channel=0,
+            pitch=63,
+            velocity=110))
+        self.processor.handle_message(processor_messages.add_event(
+            node_id='123',
+            segment_id=0x0005,
+            event_id=0x0007,
+            time=musical_time.PyMusicalTime(3, 16),
+            type=processor_messages_pb2.PianoRollMutation.AddEvent.NOTE_OFF,
+            channel=0,
+            pitch=63,
+            velocity=0))
+
+        self.process_block()
+        self.assertMidiBufferEqual(
+            'out',
+            [(5512, [0x90, 64, 100]),
+             (8268, [0x80, 64, 0]),
+             (27562, [0x90, 63, 110]),
+             (30318, [0x80, 63, 0]),
+            ])
+
+        self.processor.handle_message(processor_messages.remove_event(
+            node_id='123',
+            segment_id=0x0005,
+            event_id=0x0007))
+        self.processor.handle_message(processor_messages.remove_event(
+            node_id='123',
+            segment_id=0x0005,
+            event_id=0x0008))
+
+        self.ctxt.sample_pos = 0
+        self.process_block()
+        self.assertMidiBufferEqual(
+            'out',
+            [(5512, [0x90, 64, 100]),
+             (8268, [0x80, 64, 0]),
+            ])
+
+        self.processor.handle_message(processor_messages.remove_segment_ref(
+            node_id='123',
+            segment_ref_id=0x0006))
+        self.processor.handle_message(processor_messages.remove_segment(
+            node_id='123',
+            segment_id=0x0005))
+
+        self.ctxt.sample_pos = 0
+        self.process_block()
+        self.assertMidiBufferEqual(
+            'out',
+            [(5512, [0x90, 64, 100]),
+             (8268, [0x80, 64, 0]),
+            ])

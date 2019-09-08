@@ -57,6 +57,9 @@ class ScaledTimeMixin(ui_base.ProjectMixin):
         width = int(self.project.duration.fraction * self.__scale_x) + 120
         self.setContentWidth(width)
 
+    def leftMargin(self) -> int:
+        return 100
+
     def projectEndTime(self) -> audioproc.MusicalTime:
         return audioproc.MusicalTime() + self.project.duration
 
@@ -86,10 +89,10 @@ class ScaledTimeMixin(ui_base.ProjectMixin):
 
 class ContinuousTimeMixin(ScaledTimeMixin):
     def timeToX(self, time: audioproc.MusicalTime) -> int:
-        return 10 + int(self.scaleX() * time.fraction)
+        return self.leftMargin() + int(self.scaleX() * time.fraction)
 
     def xToTime(self, x: int) -> audioproc.MusicalTime:
-        x -= 10
+        x -= self.leftMargin()
         if x <= 0:
             return audioproc.MusicalTime(0, 1)
 
@@ -111,6 +114,7 @@ class TimeViewMixin(ScaledTimeMixin):
         self.setMinimumWidth(100)
 
         self.contentWidthChanged.connect(self.__contentWidthChanged)
+        self.__contentWidthChanged(self.contentWidth())
 
     def __contentWidthChanged(self, width: int) -> None:
         assert isinstance(self, QtCore.QObject)
@@ -128,17 +132,16 @@ class TimeViewMixin(ScaledTimeMixin):
     def xOffset(self) -> int:
         return self.__x_offset  # type: ignore
 
-    def setXOffset(self, offset: int) -> None:
+    def setXOffset(self, offset: int) -> int:
         assert isinstance(self, QtCore.QObject)
         offset = max(0, min(offset, self.maximumXOffset()))
         if offset == self.__x_offset:
-            return
+            return 0
 
         dx = self.__x_offset - offset
         self.__x_offset = offset
         self.xOffsetChanged.emit(self.__x_offset)
-
-        self.scroll(dx, 0)
+        return dx
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         assert isinstance(self, QtCore.QObject)

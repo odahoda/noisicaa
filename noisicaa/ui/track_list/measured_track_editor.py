@@ -105,8 +105,7 @@ class BaseMeasureEditor(ui_base.ProjectMixin, QtCore.QObject):
         return QtCore.QRect(0, 0, self.width(), self.height())
 
     def viewRect(self) -> QtCore.QRect:
-        return QtCore.QRect(
-            self.track_editor.viewTopLeft() + self.topLeft(), self.size())
+        return QtCore.QRect(self.topLeft(), self.size())
 
     def playbackPos(self) -> audioproc.MusicalTime:
         return self.__playback_time
@@ -345,17 +344,69 @@ class Appendix(BaseMeasureEditor):
         super().leaveEvent(evt)
 
 
-class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
+class MeasuredTrackToolBase(tools.ToolBase):  # pylint: disable=abstract-method
+    track = None  # type: MeasuredTrackEditor
+
+    def onSetTimeSignature(
+            self,
+            affected_measure_editors: List[MeasureEditor],
+            time_signature: value_types.TimeSignature
+    ) -> None:
+        with self.project.apply_mutations('%s: Change time signature' % self.track.track.name):
+            for meditor in affected_measure_editors:
+                meditor.measure.time_signature = time_signature
+
+    def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
+        affected_measure_editors = []  # type: List[Editor]
+        if not self.track.selection_set.empty():
+            affected_measure_editors.extend(
+                down_cast(MeasureEditor, seditor) for seditor in self.track.selection_set)
+        else:
+            meditor = self.track.measureEditorAt(pos)
+            if isinstance(meditor, MeasureEditor):
+                affected_measure_editors.append(meditor)
+
+        enable_measure_actions = bool(affected_measure_editors)
+
+        time_signature_menu = menu.addMenu("Set time signature")
+        time_signatures = [
+            value_types.TimeSignature(4, 4),
+            value_types.TimeSignature(3, 4),
+        ]
+        for time_signature in time_signatures:
+            time_signature_action = QtWidgets.QAction(
+                "%d/%d" % (time_signature.upper, time_signature.lower),
+                menu)
+            time_signature_action.setEnabled(enable_measure_actions)
+            time_signature_action.triggered.connect(
+                lambda _, time_signature=time_signature: (
+                    self.onSetTimeSignature(affected_measure_editors, time_signature)))
+            time_signature_menu.addAction(time_signature_action)
+
+        measure_editor = self.track.measureEditorAt(pos)
+        if measure_editor is not None:
+            measure_editor.buildContextMenu(
+                menu, pos - measure_editor.topLeft())
+
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        menu = QtWidgets.QMenu(self.track)
+        menu.setObjectName('context-menu')
+        self.buildContextMenu(menu, evt.pos())
+        menu.popup(evt.globalPos())
+        evt.accept()
+
+
+class MeasuredToolBase(MeasuredTrackToolBase):  # pylint: disable=abstract-method
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__mouse_grabber = None  # type: BaseMeasureEditor
         self.__mouse_pos = None  # type: QtCore.QPoint
 
-    def _measureEditorUnderMouse(self, target: Any) -> BaseMeasureEditor:
+    def _measureEditorUnderMouse(self) -> BaseMeasureEditor:
         if self.__mouse_pos is None:
             return None
-        return target.measureEditorAt(self.__mouse_pos)
+        return self.track.measureEditorAt(self.__mouse_pos)
 
     def __makeMouseEvent(
             self, measure_editor: BaseMeasureEditor, evt: QtGui.QMouseEvent
@@ -371,75 +422,81 @@ class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
         measure_evt.setAccepted(False)
         return measure_evt
 
-    def _mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
+    def mousePressMeasureEvent(self, measure: BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
+        pass
 
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         self.__mouse_pos = evt.pos()
 
-        measure_editor = target.measureEditorAt(evt.pos())
+        measure_editor = self.track.measureEditorAt(evt.pos())
         if isinstance(measure_editor, MeasureEditor):
             measure_evt = self.__makeMouseEvent(measure_editor, evt)
-            self.mousePressEvent(measure_editor, measure_evt)
+            self.mousePressMeasureEvent(measure_editor, measure_evt)
             if measure_evt.isAccepted():
                 self.__mouse_grabber = measure_editor
             evt.setAccepted(measure_evt.isAccepted())
 
         elif isinstance(measure_editor, Appendix):
             if measure_editor.clickRect().contains(evt.pos() - measure_editor.topLeft()):
-                with self.project.apply_mutations('%s: Insert measure' % self.track.name):
-                    target.track.insert_measure(-1)
+                with self.project.apply_mutations('%s: Insert measure' % self.track.track.name):
+                    self.track.track.insert_measure(-1)
                 evt.accept()
                 return
 
-    def _mouseReleaseEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
+    def mouseReleaseMeasureEvent(self, measure: BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
+        pass
 
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
         self.__mouse_pos = evt.pos()
 
         if isinstance(self.__mouse_grabber, MeasureEditor):
             measure_evt = self.__makeMouseEvent(self.__mouse_grabber, evt)
-            self.mouseReleaseEvent(self.__mouse_grabber, measure_evt)
+            self.mouseReleaseMeasureEvent(self.__mouse_grabber, measure_evt)
             self.__mouse_grabber = None
             evt.setAccepted(measure_evt.isAccepted())
-            target.setHoverMeasureEditor(target.measureEditorAt(evt.pos()), evt)
+            self.track.setHoverMeasureEditor(self.track.measureEditorAt(evt.pos()), evt)
 
-    def _mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
+    def mouseMoveMeasureEvent(self, measure: BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
+        pass
 
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         self.__mouse_pos = evt.pos()
 
         if self.__mouse_grabber is not None:
             measure_editor = self.__mouse_grabber
         else:
-            measure_editor = target.measureEditorAt(evt.pos())
-            target.setHoverMeasureEditor(measure_editor, evt)
+            measure_editor = self.track.measureEditorAt(evt.pos())
+            self.track.setHoverMeasureEditor(measure_editor, evt)
 
         if isinstance(measure_editor, MeasureEditor):
             measure_evt = self.__makeMouseEvent(measure_editor, evt)
-            self.mouseMoveEvent(measure_editor, measure_evt)
+            self.mouseMoveMeasureEvent(measure_editor, measure_evt)
             evt.setAccepted(measure_evt.isAccepted())
 
         elif isinstance(measure_editor, Appendix):
             measure_editor.setHover(
                 measure_editor.clickRect().contains(evt.pos() - measure_editor.topLeft()))
 
-    def _mouseDoubleClickEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
+    def mouseDoubleClickMeasureEvent(
+            self, measure: BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
+        pass
 
+    def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
         self.__mouse_pos = evt.pos()
 
-        measure_editor = target.measureEditorAt(evt.pos())
+        measure_editor = self.track.measureEditorAt(evt.pos())
         if isinstance(measure_editor, MeasureEditor):
             measure_evt = self.__makeMouseEvent(measure_editor, evt)
-            self.mouseDoubleClickEvent(measure_editor, measure_evt)
+            self.mouseDoubleClickMeasureEvent(measure_editor, measure_evt)
             evt.setAccepted(measure_evt.isAccepted())
 
-    def _wheelEvent(self, target: Any, evt: QtGui.QWheelEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
+    def wheelMeasureEvent(self, measure: BaseMeasureEditor, evt: QtGui.QWheelEvent) -> None:
+        pass
 
+    def wheelEvent(self, evt: QtGui.QWheelEvent) -> None:
         self.__mouse_pos = evt.pos()
 
-        measure_editor = target.measureEditorAt(evt.pos())
+        measure_editor = self.track.measureEditorAt(evt.pos())
         if isinstance(measure_editor, MeasureEditor):
             measure_evt = QtGui.QWheelEvent(
                 evt.pos() - measure_editor.topLeft(),
@@ -453,7 +510,7 @@ class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
                 evt.phase(),
                 evt.source())
             measure_evt.setAccepted(False)
-            self.wheelEvent(measure_editor, measure_evt)
+            self.wheelMeasureEvent(measure_editor, measure_evt)
             evt.setAccepted(measure_evt.isAccepted())
 
     def __makeKeyEvent(
@@ -471,22 +528,28 @@ class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
         measure_evt.setAccepted(False)
         return measure_evt
 
-    def _keyPressEvent(self, target: Any, evt: QtGui.QKeyEvent) -> None:
-        measure_editor = self._measureEditorUnderMouse(target)
+    def keyPressMeasureEvent(self, measure: BaseMeasureEditor, evt: QtGui.QKeyEvent) -> None:
+        pass
+
+    def keyPressEvent(self, evt: QtGui.QKeyEvent) -> None:
+        measure_editor = self._measureEditorUnderMouse()
         if isinstance(measure_editor, MeasureEditor):
             measure_evt = self.__makeKeyEvent(measure_editor, evt)
-            self.keyPressEvent(measure_editor, measure_evt)
+            self.keyPressMeasureEvent(measure_editor, measure_evt)
             evt.setAccepted(measure_evt.isAccepted())
 
-    def _keyReleaseEvent(self, target: Any, evt: QtGui.QKeyEvent) -> None:
-        measure_editor = self._measureEditorUnderMouse(target)
+    def keyReleaseMeasureEvent(self, measure: BaseMeasureEditor, evt: QtGui.QKeyEvent) -> None:
+        pass
+
+    def _keyReleaseEvent(self, evt: QtGui.QKeyEvent) -> None:
+        measure_editor = self._measureEditorUnderMouse()
         if isinstance(measure_editor, MeasureEditor):
             measure_evt = self.__makeKeyEvent(measure_editor, evt)
-            self.keyReleaseEvent(measure_editor, measure_evt)
+            self.keyReleaseMeasureEvent(measure_editor, measure_evt)
             evt.setAccepted(measure_evt.isAccepted())
 
 
-class ArrangeMeasuresTool(tools.ToolBase):
+class ArrangeMeasuresTool(MeasuredTrackToolBase):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(
             type=tools.ToolType.ARRANGE_MEASURES,
@@ -499,11 +562,9 @@ class ArrangeMeasuresTool(tools.ToolBase):
     def iconName(self) -> str:
         return 'pointer'
 
-    def mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
-
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
-            measure_editor = target.measureEditorAt(evt.pos())
+            measure_editor = self.track.measureEditorAt(evt.pos())
 
             if isinstance(measure_editor, MeasureEditor):
                 self.selection_set.clear()
@@ -515,23 +576,20 @@ class ArrangeMeasuresTool(tools.ToolBase):
                 return
 
         # TODO: handle click on appendix
-        super().mousePressEvent(target, evt)
+        super().mousePressEvent(evt)
 
-    def mouseReleaseEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
-
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton:
             self.__selection_first = None
             self.__selection_last = None
             evt.accept()
             return
 
-        super().mouseReleaseEvent(target, evt)
+        super().mouseReleaseEvent(evt)
 
-    def mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, MeasuredTrackEditor), type(target).__name__
-        measure_editor = target.measureEditorAt(evt.pos())
-        target.setHoverMeasureEditor(measure_editor, evt)
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
+        measure_editor = self.track.measureEditorAt(evt.pos())
+        self.track.setHoverMeasureEditor(measure_editor, evt)
 
         if self.__selection_first is not None and isinstance(measure_editor, MeasureEditor):
             start_idx = self.__selection_first.measure_reference.index
@@ -540,7 +598,7 @@ class ArrangeMeasuresTool(tools.ToolBase):
             if start_idx > last_idx:
                 start_idx, last_idx = last_idx, start_idx
 
-            for meditor in itertools.islice(target.measure_editors(), start_idx, last_idx + 1):
+            for meditor in itertools.islice(self.track.measure_editors(), start_idx, last_idx + 1):
                 if isinstance(meditor, MeasureEditor) and not meditor.selected():
                     self.selection_set.add(meditor)
 
@@ -555,15 +613,17 @@ class ArrangeMeasuresTool(tools.ToolBase):
             evt.accept()
             return
 
-        super().mouseMoveEvent(target, evt)
+        super().mouseMoveEvent(evt)
 
 
-class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
+class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):  # pylint: disable=abstract-method
     hoveredMeasureChanged = QtCore.pyqtSignal(int)
 
     measure_editor_cls = None  # type: Type[MeasureEditor]
 
     def __init__(self, **kwargs: Any) -> None:
+        self.__measure_editors = []  # type: List[BaseMeasureEditor]
+
         super().__init__(**kwargs)
 
         self.__closing = False
@@ -573,17 +633,18 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
         self.__measure_editor_at_playback_pos = None  # type: BaseMeasureEditor
         self.__hover_measure_editor = None  # type: BaseMeasureEditor
 
-        self.__measure_editors = []  # type: List[BaseMeasureEditor]
         for idx, mref in enumerate(self.track.measure_list):
             self.addMeasure(idx, mref)
 
         appendix_editor = Appendix(track_editor=self, context=self.context)
-        appendix_editor.rectChanged.connect(self.rectChanged)
+        appendix_editor.rectChanged.connect(self.update)
         self.__measure_editors.append(appendix_editor)
 
         self.__listeners.add(self.track.measure_list_changed.add(self.onMeasureListChanged))
 
         self.updateMeasures()
+
+        self.playbackPositionChanged.connect(self.__playbackPositionChanged)
 
     def cleanup(self) -> None:
         self.__closing = True
@@ -614,34 +675,32 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
     def addMeasure(self, idx: int, mref: music.MeasureReference) -> None:
         measure_editor = self.measure_editor_cls(  # pylint: disable=not-callable
             track_editor=self, measure_reference=mref, context=self.context)
-        measure_editor.rectChanged.connect(self.rectChanged)
+        measure_editor.rectChanged.connect(self.update)
         self.__measure_editors.insert(idx, measure_editor)
         self.updateMeasures()
-        self.rectChanged.emit(self.viewRect())
+        self.update()
 
     def removeMeasure(self, idx: int) -> None:
         measure_editor = self.__measure_editors.pop(idx)
         measure_editor.cleanup()
-        measure_editor.rectChanged.disconnect(self.rectChanged)
+        measure_editor.rectChanged.disconnect(self.update)
         self.updateMeasures()
-        self.rectChanged.emit(self.viewRect())
+        self.update()
 
     def updateMeasures(self) -> None:
         if self.__closing:
             return
 
-        p = QtCore.QPoint(10, 0)
+        p = QtCore.QPoint(self.leftMargin(), 0)
         for measure_editor in self.measure_editors():
             measure_editor.setTopLeft(p)
             p += QtCore.QPoint(measure_editor.width(), 0)
-
-        self.setWidth(p.x() + 10)
 
     def setScaleX(self, scale_x: fractions.Fraction) -> None:
         super().setScaleX(scale_x)
         self.updateMeasures()
 
-    def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
+    def __playbackPositionChanged(self, time: audioproc.MusicalTime) -> None:
         if self.__measure_editor_at_playback_pos is not None:
             self.__measure_editor_at_playback_pos.clearPlaybackPos()
             self.__measure_editor_at_playback_pos = None
@@ -656,7 +715,7 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
             measure_time += measure_editor.duration
 
     def measureEditorAt(self, pos: QtCore.QPoint) -> BaseMeasureEditor:
-        p = QtCore.QPoint(10, 0)
+        p = QtCore.QPoint(self.leftMargin(), 0)
         for measure_editor in self.measure_editors():
             if p.x() <= pos.x() < p.x() + measure_editor.width():
                 return measure_editor
@@ -664,49 +723,6 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
             p += QtCore.QPoint(measure_editor.width(), 0)
 
         return None
-
-    def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
-        super().buildContextMenu(menu, pos)
-
-        affected_measure_editors = []  # type: List[Editor]
-        if not self.selection_set.empty():
-            affected_measure_editors.extend(
-                down_cast(MeasureEditor, seditor) for seditor in self.selection_set)
-        else:
-            meditor = self.measureEditorAt(pos)
-            if isinstance(meditor, MeasureEditor):
-                affected_measure_editors.append(meditor)
-
-        enable_measure_actions = bool(affected_measure_editors)
-
-        time_signature_menu = menu.addMenu("Set time signature")
-        time_signatures = [
-            value_types.TimeSignature(4, 4),
-            value_types.TimeSignature(3, 4),
-        ]
-        for time_signature in time_signatures:
-            time_signature_action = QtWidgets.QAction(
-                "%d/%d" % (time_signature.upper, time_signature.lower),
-                menu)
-            time_signature_action.setEnabled(enable_measure_actions)
-            time_signature_action.triggered.connect(
-                lambda _, time_signature=time_signature: (
-                    self.onSetTimeSignature(affected_measure_editors, time_signature)))
-            time_signature_menu.addAction(time_signature_action)
-
-        measure_editor = self.measureEditorAt(pos)
-        if measure_editor is not None:
-            measure_editor.buildContextMenu(
-                menu, pos - measure_editor.topLeft())
-
-    def onSetTimeSignature(
-            self,
-            affected_measure_editors: List[MeasureEditor],
-            time_signature: value_types.TimeSignature
-    ) -> None:
-        with self.project.apply_mutations('%s: Change time signature' % self.track.name):
-            for meditor in affected_measure_editors:
-                meditor.measure.time_signature = time_signature
 
     def onInsertMeasure(self) -> None:
         with self.project.apply_mutations('%s: Insert measure' % self.track.name):
@@ -752,10 +768,8 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
         for measure_editor in self.measure_editors():
             measure_editor.purgePaintCaches()
 
-    def paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
-        super().paint(painter, paint_rect)
-
-        p = QtCore.QPoint(10, 0)
+    def _paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
+        p = QtCore.QPoint(self.leftMargin(), 0)
         for measure_editor in self.measure_editors():
             measure_rect = QtCore.QRect(p.x(), 0, measure_editor.width(), self.height())
             measure_rect = measure_rect.intersected(paint_rect)

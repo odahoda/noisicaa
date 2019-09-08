@@ -43,7 +43,7 @@ public:
 
   uint64_t sequence_number = 0;
 
-  virtual void apply_mutation(Mutation* mutation) = 0;
+  virtual void apply_mutation(Logger* logger, Mutation* mutation) = 0;
 };
 
 template <class State, class Mutation>

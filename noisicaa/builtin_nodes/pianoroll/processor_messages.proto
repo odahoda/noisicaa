@@ -26,6 +26,10 @@ import "noisicaa/audioproc/public/musical_time.proto";
 
 package noisicaa.pb;
 
+message PianoRollEmitEvents {
+  repeated bytes midi = 1;
+}
+
 message PianoRollAddInterval {
   required uint64 id = 1;
   required MusicalTime start_time = 2;
@@ -38,3 +42,64 @@ message PianoRollRemoveInterval {
   required uint64 id = 1;
 }
 
+message PianoRollMutation {
+  message AddSegment {
+    required uint64 id = 1;
+    required MusicalDuration duration = 2;
+  }
+
+  message RemoveSegment {
+    required uint64 id = 1;
+  }
+
+  message UpdateSegment {
+    required uint64 id = 1;
+    optional MusicalDuration duration = 2;
+  }
+
+  message AddSegmentRef {
+    required uint64 id = 1;
+    required MusicalTime time = 2;
+    required uint64 segment_id = 3;
+  }
+
+  message RemoveSegmentRef {
+    required uint64 id = 1;
+  }
+
+  message UpdateSegmentRef {
+    required uint64 id = 1;
+    optional MusicalTime time = 2;
+    optional uint64 segment_id = 3;
+  }
+
+  message AddEvent {
+    required uint64 segment_id = 1;
+    required uint64 id = 2;
+    required MusicalTime time = 3;
+    required uint32 channel = 4;
+    enum Type {
+      NOTE_ON = 1;
+      NOTE_OFF = 2;
+    }
+    required Type type = 5;
+    required uint32 pitch = 6;
+    required uint32 velocity = 7;
+  }
+
+  message RemoveEvent {
+    required uint64 segment_id = 1;
+    required uint64 id = 2;
+  }
+
+  oneof mutation {
+    AddSegment add_segment = 1;
+    RemoveSegment remove_segment = 2;
+    UpdateSegment update_segment = 3;
+    AddSegmentRef add_segment_ref = 4;
+    RemoveSegmentRef remove_segment_ref = 5;
+    UpdateSegmentRef update_segment_ref = 6;
+    AddEvent add_event = 7;
+    RemoveEvent remove_event = 8;
+  }
+}

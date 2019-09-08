@@ -80,14 +80,14 @@ void DoubleBufferedStateManager<State, Mutation>::handle_mutation(Mutation* muta
     assert(_latest_sequence_number - state->sequence_number == _buffered_mutations.size());
     for (const auto& it : _buffered_mutations) {
       //_logger->info("Replay %s", it->to_string().c_str());
-      state->apply_mutation(it.get());
+      state->apply_mutation(_logger, it.get());
       ++state->sequence_number;
     }
     _buffered_mutations.clear();
   }
 
   //_logger->info("Apply %s", mutation->to_string().c_str());
-  state->apply_mutation(mutation);
+  state->apply_mutation(_logger, mutation);
   ++state->sequence_number;
 
   // Buffer this mutation, so it can be replayed on the other state (which is now at least

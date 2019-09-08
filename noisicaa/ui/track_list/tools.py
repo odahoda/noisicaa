@@ -22,16 +22,21 @@
 
 import logging
 import enum
+import functools
 import os.path
-from typing import Any, List, Dict, Iterator
+import typing
+from typing import Any, List, Dict, Iterator, Type
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 from noisicaa import constants
 from noisicaa.ui import ui_base
 
+if typing.TYPE_CHECKING:
+    from . import base_track_editor
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +79,10 @@ class ToolType(enum.IntEnum):
     EDIT_BEATS = 501
     EDIT_CONTROL_POINTS = 502
     EDIT_SAMPLES = 503
+    PIANOROLL_ARRANGE_SEGMENTS = 504
+    PIANOROLL_EDIT_EVENTS = 505
+    PIANOROLL_SELECT_EVENTS = 506
+    PIANOROLL_EDIT_VELOCITY = 507
 
     @property
     def is_note(self) -> bool:
@@ -95,8 +104,15 @@ class ToolType(enum.IntEnum):
 class ToolBase(ui_base.ProjectMixin, QtCore.QObject):
     cursorChanged = QtCore.pyqtSignal(QtGui.QCursor)
 
-    def __init__(self, *, type: ToolType, group: ToolGroup, **kwargs: Any) -> None:  # pylint: disable=redefined-builtin
+    def __init__(
+            self, *,
+            track: 'base_track_editor.BaseTrackEditor',
+            type: ToolType,  # pylint: disable=redefined-builtin
+            group: ToolGroup,
+            **kwargs: Any
+    ) -> None:
         super().__init__(**kwargs)
+        self.track = track
         self.type = type
         self.group = group
 
@@ -104,60 +120,57 @@ class ToolBase(ui_base.ProjectMixin, QtCore.QObject):
         raise NotImplementedError
 
     def iconPath(self) -> str:
-        return os.path.join(constants.DATA_DIR, 'icons', '%s.svg' % self.iconName())
+        path = os.path.join(constants.DATA_DIR, 'icons', '%s.svg' % self.iconName())
+        if os.path.isfile(path):
+            return path
+        logger.error("Icon %s not found", path)
+        return os.path.join(constants.DATA_DIR, 'icons', 'error.svg')
 
     def cursor(self) -> QtGui.QCursor:
         return QtGui.QCursor(Qt.ArrowCursor)
 
-    def _mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> Any:
-        self.mouseMoveEvent(target, evt)
-
-    def mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> Any:
+    def keySequence(self) -> QtGui.QKeySequence:
         return None
 
-    def _mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> Any:
-        self.mousePressEvent(target, evt)
+    def activated(self) -> None:
+        pass
 
-    def mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> Any:
-        return None
+    def deactivated(self) -> None:
+        pass
 
-    def _mouseReleaseEvent(self, target: Any, evt: QtGui.QMouseEvent) -> Any:
-        self.mouseReleaseEvent(target, evt)
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        pass
 
-    def mouseReleaseEvent(self, target: Any, evt: QtGui.QMouseEvent) -> Any:
-        return None
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
+        pass
 
-    def _mouseDoubleClickEvent(self, target: Any, evt: QtGui.QMouseEvent) -> Any:
-        self.mouseDoubleClickEvent(target, evt)
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
+        pass
 
-    def mouseDoubleClickEvent(self, target: Any, evt: QtGui.QMouseEvent) -> Any:
-        self.mousePressEvent(target, evt)
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
+        pass
 
-    def _wheelEvent(self, target: Any, evt: QtGui.QWheelEvent) -> Any:
-        self.wheelEvent(target, evt)
+    def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
+        self.mousePressEvent(evt)
 
-    def wheelEvent(self, target: Any, evt: QtGui.QWheelEvent) -> Any:
-        return None
+    def wheelEvent(self, evt: QtGui.QWheelEvent) -> None:
+        pass
 
-    def _keyPressEvent(self, target: Any, evt: QtGui.QKeyEvent) -> Any:
-        self.keyPressEvent(target, evt)
+    def keyPressEvent(self, evt: QtGui.QKeyEvent) -> None:
+        pass
 
-    def keyPressEvent(self, target: Any, evt: QtGui.QKeyEvent) -> Any:
-        return None
-
-    def _keyReleaseEvent(self, target: Any, evt: QtGui.QKeyEvent) -> Any:
-        self.keyReleaseEvent(target, evt)
-
-    def keyReleaseEvent(self, target: Any, evt: QtGui.QKeyEvent) -> Any:
-        return None
+    def keyReleaseEvent(self, evt: QtGui.QKeyEvent) -> None:
+        pass
 
 
 class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
     toolTypeChanged = QtCore.pyqtSignal(ToolType)
     currentToolChanged = QtCore.pyqtSignal(ToolBase)
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, track: 'base_track_editor.BaseTrackEditor', **kwargs: Any) -> None:
         super().__init__(**kwargs)
+
+        self.track = track
 
         self.__tools = []  # type: List[ToolBase]
         self.__groups = []  # type: List[ToolGroup]
@@ -169,8 +182,17 @@ class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
     def tools(self) -> Iterator[ToolBase]:
         return iter(self.__tools)
 
-    def addTool(self, tool: ToolBase) -> None:
+    def addTool(self, cls: Type[ToolBase], **kwargs: Any) -> None:
+        tool = cls(track=self.track, context=self.context, **kwargs)
         assert tool.type not in self.__tool_map
+
+        if tool.keySequence() is not None:
+            action = QtWidgets.QAction(self.track)
+            action.setShortcut(tool.keySequence())
+            action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+            action.triggered.connect(
+                functools.partial(self.setCurrentToolType, tool.type))
+            self.track.addAction(action)
 
         self.__tools.append(tool)
         if tool.group not in self.__groups:
@@ -178,6 +200,7 @@ class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
         self.__tool_map[tool.type] = tool
         if self.__current_tool is None:
             self.__current_tool = tool
+            self.__current_tool.activated()
         if tool.group not in self.__current_tool_in_group:
             self.__current_tool_in_group[tool.group] = tool.type
 
@@ -190,7 +213,9 @@ class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
     def setCurrentToolType(self, type: ToolType) -> None:  # pylint: disable=redefined-builtin
         if type != self.__current_tool.type:
             self.__previous_tool = self.__current_tool
+            self.__current_tool.deactivated()
             self.__current_tool = self.__tool_map[type]
+            self.__current_tool.activated()
             self.__current_tool_in_group[self.__current_tool.group] = type
             self.toolTypeChanged.emit(self.__current_tool.type)
             self.currentToolChanged.emit(self.__current_tool)
@@ -198,47 +223,52 @@ class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
     def setPreviousTool(self) -> None:
         if self.__previous_tool is not None:
             if self.__previous_tool is not self.__current_tool:
+                self.__current_tool.deactivated()
                 self.__current_tool = self.__previous_tool
+                self.__current_tool.activated()
                 self.toolTypeChanged.emit(self.__current_tool.type)
                 self.currentToolChanged.emit(self.__current_tool)
             self.__previous_tool = None
 
-    def mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> Any:
-        assert self.__current_tool is not None
-        return self.__current_tool._mouseMoveEvent(target, evt)
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        if self.__current_tool is not None:
+            self.__current_tool.contextMenuEvent(evt)
 
-    def mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> Any:
-        assert self.__current_tool is not None
-        return self.__current_tool._mousePressEvent(target, evt)
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if self.__current_tool is not None:
+            self.__current_tool.mouseMoveEvent(evt)
 
-    def mouseReleaseEvent(self, target: Any, evt: QtGui.QMouseEvent) -> Any:
-        assert self.__current_tool is not None
-        return self.__current_tool._mouseReleaseEvent(target, evt)
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if self.__current_tool is not None:
+            self.__current_tool.mousePressEvent(evt)
 
-    def mouseDoubleClickEvent(self, target: Any, evt: QtGui.QMouseEvent) -> Any:
-        assert self.__current_tool is not None
-        return self.__current_tool._mouseDoubleClickEvent(target, evt)
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if self.__current_tool is not None:
+            self.__current_tool.mouseReleaseEvent(evt)
 
-    def wheelEvent(self, target: Any, evt: QtGui.QWheelEvent) -> Any:
-        assert self.__current_tool is not None
-        return self.__current_tool._wheelEvent(target, evt)
+    def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if self.__current_tool is not None:
+            self.__current_tool.mouseDoubleClickEvent(evt)
 
-    def keyPressEvent(self, target: Any, evt: QtGui.QKeyEvent) -> Any:
-        assert self.__current_tool is not None
+    def wheelEvent(self, evt: QtGui.QWheelEvent) -> None:
+        if self.__current_tool is not None:
+            self.__current_tool.wheelEvent(evt)
 
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.KeypadModifier
-                and evt.key() == Qt.Key_Plus):
-            group_idx = self.__groups.index(self.__current_tool.group)
-            group_idx = (group_idx + 1) % len(self.__groups)
-            group = self.__groups[group_idx]
-            tool = self.__current_tool_in_group[group]
-            self.setCurrentToolType(tool)
-            evt.accept()
-            return
+    def keyPressEvent(self, evt: QtGui.QKeyEvent) -> None:
+        if self.__current_tool is not None:
+            if (not evt.isAutoRepeat()
+                    and evt.modifiers() == Qt.KeypadModifier
+                    and evt.key() == Qt.Key_Plus):
+                group_idx = self.__groups.index(self.__current_tool.group)
+                group_idx = (group_idx + 1) % len(self.__groups)
+                group = self.__groups[group_idx]
+                tool = self.__current_tool_in_group[group]
+                self.setCurrentToolType(tool)
+                evt.accept()
+                return
 
-        return self.__current_tool._keyPressEvent(target, evt)
+            self.__current_tool.keyPressEvent(evt)
 
-    def keyReleaseEvent(self, target: Any, evt: QtGui.QKeyEvent) -> Any:
-        assert self.__current_tool is not None
-        return self.__current_tool._keyReleaseEvent(target, evt)
+    def keyReleaseEvent(self, evt: QtGui.QKeyEvent) -> None:
+        if self.__current_tool is not None:
+            self.__current_tool.keyReleaseEvent(evt)

@@ -21,8 +21,9 @@
 # @end:license
 
 import fractions
+import functools
 import logging
-from typing import cast, Any, Optional, Union, Dict, List, Type
+from typing import cast, Any, Dict, List
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -33,6 +34,7 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
+from noisicaa.ui import slots
 from noisicaa.ui import ui_base
 from noisicaa.ui import player_state as player_state_lib
 from noisicaa.builtin_nodes import ui_registry
@@ -44,41 +46,41 @@ from . import tools
 logger = logging.getLogger(__name__)
 
 
-class AsyncSetupBase(object):
-    async def setup(self) -> None:
-        pass
-
-    async def cleanup(self) -> None:
-        pass
-
-
 class Editor(
-        time_view_mixin.TimeViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidgets.QWidget):
+        time_view_mixin.TimeViewMixin,
+        ui_base.ProjectMixin,
+        slots.SlotContainer,
+        QtWidgets.QWidget):
     maximumYOffsetChanged = QtCore.pyqtSignal(int)
     yOffsetChanged = QtCore.pyqtSignal(int)
     pageHeightChanged = QtCore.pyqtSignal(int)
 
     currentToolBoxChanged = QtCore.pyqtSignal(tools.ToolBox)
     currentTrackChanged = QtCore.pyqtSignal(object)
+    playbackPosition, setPlaybackPosition, playbackPositionChanged = slots.slot(
+        audioproc.MusicalTime, 'playbackPosition', default=audioproc.MusicalTime(-1, 1))
 
     def __init__(self, *, player_state: player_state_lib.PlayerState, **kwargs: Any) -> None:
         self.__player_state = player_state
 
         self.__current_tool_box = None  # type: tools.ToolBox
         self.__current_tool = None  # type: tools.ToolBase
-        self.__mouse_grabber = None  # type: base_track_editor.BaseTrackEditor
         self.__current_track_editor = None  # type: base_track_editor.BaseTrackEditor
-        self.__hover_track_editor = None  # type: base_track_editor.BaseTrackEditor
-
         self.__y_offset = 0
-        self.__content_height = 100
 
         super().__init__(**kwargs)
 
-        self.setAttribute(Qt.WA_OpaquePaintEvent)
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setMinimumHeight(0)
+
+        self.__viewport = QtWidgets.QWidget(self)
+        self.__viewport.move(0, 0)
+
+        self.__viewport_layout = QtWidgets.QVBoxLayout()
+        self.__viewport_layout.setContentsMargins(0, 0, 0, 0)
+        self.__viewport_layout.setSpacing(3)
+        self.__viewport.setLayout(self.__viewport_layout)
 
         self.__listeners = core.ListenerMap[str]()
 
@@ -96,24 +98,41 @@ class Editor(
             if idx == 0:
                 self.__onCurrentTrackChanged(track_editor.track)
 
-        self.updateTracks()
         self.currentTrackChanged.connect(self.__onCurrentTrackChanged)
 
-        self.__player_state.currentTimeChanged.connect(
-            lambda time: self.setPlaybackPos(time, 1))
+        self.__player_state.currentTimeChanged.connect(self.setPlaybackPosition)
 
-        self.scaleXChanged.connect(lambda _: self.updateTracks())
+        self.__increase_scale_x_action = QtWidgets.QAction(self)
+        self.__increase_scale_x_action.setShortcut("ctrl+left")
+        self.__increase_scale_x_action.setShortcutContext(Qt.WindowShortcut)
+        self.__increase_scale_x_action.triggered.connect(
+            functools.partial(self.__setScaleX, fractions.Fraction(2, 3)))
+        self.addAction(self.__increase_scale_x_action)
 
-    async def setup(self) -> None:
-        await super().setup()
+        self.__decrease_scale_x_action = QtWidgets.QAction(self)
+        self.__decrease_scale_x_action.setShortcut("ctrl+right")
+        self.__decrease_scale_x_action.setShortcutContext(Qt.WindowShortcut)
+        self.__decrease_scale_x_action.triggered.connect(
+            functools.partial(self.__setScaleX, fractions.Fraction(3, 2)))
+        self.addAction(self.__decrease_scale_x_action)
 
-    async def cleanup(self) -> None:
+    def cleanup(self) -> None:
         for track_editor in list(self.__tracks):
             self.__removeNode(track_editor.track)
 
         self.__listeners.cleanup()
 
-        await super().cleanup()
+    def __setScaleX(self, factor: fractions.Fraction) -> None:
+        new_scale_x = self.scaleX() * factor
+        new_scale_x = max(fractions.Fraction(5, 1), new_scale_x)
+        new_scale_x = min(fractions.Fraction(10000, 1), new_scale_x)
+
+        center_time = max(0, self.width() // 2 - self.leftMargin() + self.xOffset()) / self.scaleX()
+
+        self.setScaleX(new_scale_x)
+
+        center_x = self.leftMargin() + int(self.scaleX() * center_time)
+        self.setXOffset(max(0, center_x - self.width() // 2))
 
     def currentTrack(self) -> music.Track:
         return self.__current_track
@@ -127,7 +146,7 @@ class Editor(
             track_editor.setIsCurrent(False)
             if self.__current_track.visible:
                 self.update(
-                    0, track_editor.viewTop() - self.yOffset(),
+                    0, track_editor.y() - self.yOffset(),
                     self.width(), track_editor.height())
             self.__current_track = None
 
@@ -138,15 +157,15 @@ class Editor(
 
             if self.__current_track.visible:
                 self.update(
-                    0, track_editor.viewTop() - self.yOffset(),
+                    0, track_editor.y() - self.yOffset(),
                     self.width(), track_editor.height())
 
             if track_editor.track.visible and self.isVisible():
                 yoffset = self.yOffset()
-                if track_editor.viewTop() + track_editor.height() > yoffset + self.height():
-                    yoffset = track_editor.viewTop() + track_editor.height() - self.height()
-                if track_editor.viewTop() < yoffset:
-                    yoffset = track_editor.viewTop()
+                if track_editor.y() + track_editor.height() > yoffset + self.height():
+                    yoffset = track_editor.y() + track_editor.height() - self.height()
+                if track_editor.y() < yoffset:
+                    yoffset = track_editor.y()
                 self.setYOffset(yoffset)
 
         self.currentTrackChanged.emit(self.__current_track)
@@ -191,29 +210,27 @@ class Editor(
             player_state=self.__player_state,
             editor=self,
             context=self.context)
-        track_editor.rectChanged.connect(
-            lambda rect: self.update(rect.translated(-self.offset())))
-        track_editor.sizeChanged.connect(
-            lambda size: self.updateTracks())
+        self.xOffsetChanged.connect(track_editor.setXOffset)
+        self.scaleXChanged.connect(track_editor.setScaleX)
+        self.playbackPositionChanged.connect(track_editor.setPlaybackPosition)
+        track_editor.setXOffset(self.xOffset())
         return track_editor
 
     def updateTracks(self) -> None:
-        self.__content_height = 0
+        while self.__viewport_layout.count() > 0:
+            self.__viewport_layout.takeAt(0)
 
-        p = QtCore.QPoint(0, 0)
         for track_editor in self.__tracks:
+            track_editor.setVisible(track_editor.track.visible)
             if not track_editor.track.visible:
                 continue
+            self.__viewport_layout.addWidget(track_editor)
 
-            track_editor.setScaleX(self.scaleX())
-            track_editor.setViewTopLeft(p)
-            p += QtCore.QPoint(0, track_editor.height())
-            p += QtCore.QPoint(0, 3)
-
-        self.__content_height = p.y() + 10
+        self.__viewport.adjustSize()
+        self.__viewport.resize(self.width(), self.__viewport.height())
 
         self.maximumYOffsetChanged.emit(
-            max(0, self.__content_height - self.height()))
+            max(0, self.__viewport.height() - self.height()))
 
         self.update()
 
@@ -222,27 +239,27 @@ class Editor(
             track_editor = down_cast(base_track_editor.BaseTrackEditor, self.__track_map[track.id])
             self.__current_track_editor = track_editor
 
-            self.setCurrentToolBoxClass(track_editor.toolBoxClass)
+            self.setCurrentToolBox(track_editor.toolBox())
 
         else:
             self.__current_track_editor = None
-            self.setCurrentToolBoxClass(None)
+            self.setCurrentToolBox(None)
 
     def currentToolBox(self) -> tools.ToolBox:
         return self.__current_tool_box
 
-    def setCurrentToolBoxClass(self, cls: Type[tools.ToolBox]) -> None:
-        if type(self.__current_tool_box) is cls:  # pylint: disable=unidiomatic-typecheck
+    def setCurrentToolBox(self, toolbox: tools.ToolBox) -> None:
+        if self.__current_tool_box is toolbox:
             return
-        logger.debug("Switching to tool box class %s", cls)
+        logger.debug("Switching to tool box %s", type(toolbox).__name__)
 
         if self.__current_tool_box is not None:
             self.__current_tool_box.currentToolChanged.disconnect(self.__onCurrentToolChanged)
             self.__onCurrentToolChanged(None)
             self.__current_tool_box = None
 
-        if cls is not None:
-            self.__current_tool_box = cls(context=self.context)
+        if toolbox is not None:
+            self.__current_tool_box = toolbox
             self.__onCurrentToolChanged(self.__current_tool_box.currentTool())
             self.__current_tool_box.currentToolChanged.connect(self.__onCurrentToolChanged)
 
@@ -272,7 +289,7 @@ class Editor(
             self.setCursor(QtGui.QCursor(Qt.ArrowCursor))
 
     def maximumYOffset(self) -> int:
-        return max(0, self.__content_height - self.height())
+        return max(0, self.__viewport.height() - self.height())
 
     def pageHeight(self) -> int:
         return self.height()
@@ -284,18 +301,13 @@ class Editor(
         if offset == self.__y_offset:
             return
 
-        dy = self.__y_offset - offset
         self.__y_offset = offset
         self.yOffsetChanged.emit(self.__y_offset)
 
-        self.scroll(0, dy)
+        self.__viewport.move(0, -self.__y_offset)
 
     def offset(self) -> QtCore.QPoint:
         return QtCore.QPoint(self.xOffset(), self.__y_offset)
-
-    def setPlaybackPos(self, current_time: audioproc.MusicalTime, num_samples: int) -> None:
-        for track_editor in self.__tracks:
-            track_editor.setPlaybackPos(current_time)
 
     def onClearSelection(self) -> None:
         if self.selection_set.empty():
@@ -328,137 +340,14 @@ class Editor(
         else:
             raise ValueError(clipboard['type'])
 
-    def trackEditorAt(self, pos: QtCore.QPoint) -> base_track_editor.BaseTrackEditor:
-        p = -self.offset()
-        for track_editor in self.__tracks:
-            if not track_editor.track.visible:
-                continue
-
-            if p.y() <= pos.y() < p.y() + track_editor.height():
-                return down_cast(base_track_editor.BaseTrackEditor, track_editor)
-
-            p += QtCore.QPoint(0, track_editor.height())
-            p += QtCore.QPoint(0, 3)
-
-        return None
-
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)
 
+        self.__viewport.resize(self.width(), self.__viewport.height())
+
         self.maximumYOffsetChanged.emit(
-            max(0, self.__content_height - self.height()))
+            max(0, self.__viewport.height() - self.height()))
         self.pageHeightChanged.emit(self.height())
-
-    def setHoverTrackEditor(
-            self, track_editor: Optional[base_track_editor.BaseTrackEditor],
-            evt: Union[None, QtGui.QEnterEvent, QtGui.QMouseEvent]
-    ) -> None:
-        if track_editor is self.__hover_track_editor:
-            return
-
-        if self.__hover_track_editor is not None:
-            track_evt = QtCore.QEvent(QtCore.QEvent.Leave)
-            self.__hover_track_editor.leaveEvent(track_evt)
-
-        if track_editor is not None:
-            track_evt = QtGui.QEnterEvent(
-                evt.localPos() + self.offset() - track_editor.viewTopLeft(),
-                evt.windowPos(),
-                evt.screenPos())
-            track_editor.enterEvent(track_evt)
-
-        self.__hover_track_editor = track_editor
-
-    def enterEvent(self, evt: QtCore.QEvent) -> None:
-        evt = down_cast(QtGui.QEnterEvent, evt)
-        self.setHoverTrackEditor(self.trackEditorAt(evt.pos()), evt)
-
-    def leaveEvent(self, evt: QtCore.QEvent) -> None:
-        self.setHoverTrackEditor(None, None)
-
-    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
-        if self.__mouse_grabber is not None:
-            track_editor = self.__mouse_grabber
-        else:
-            track_editor = self.trackEditorAt(evt.pos())
-            self.setHoverTrackEditor(track_editor, evt)
-
-        if track_editor is not None:
-            track_evt = QtGui.QMouseEvent(
-                evt.type(),
-                evt.localPos() + self.offset() - track_editor.viewTopLeft(),
-                evt.windowPos(),
-                evt.screenPos(),
-                evt.button(),
-                evt.buttons(),
-                evt.modifiers())
-            track_evt.setAccepted(False)
-            track_editor.mouseMoveEvent(track_evt)
-            evt.setAccepted(track_evt.isAccepted())
-            return
-
-    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
-        track_editor = self.trackEditorAt(evt.pos())
-        if track_editor is not None:
-            if not track_editor.isCurrent():
-                self.setCurrentTrack(track_editor.track)
-                evt.accept()
-                return
-
-        if track_editor is not None:
-            track_evt = QtGui.QMouseEvent(
-                evt.type(),
-                evt.localPos() + self.offset() - track_editor.viewTopLeft(),
-                evt.windowPos(),
-                evt.screenPos(),
-                evt.button(),
-                evt.buttons(),
-                evt.modifiers())
-            track_evt.setAccepted(False)
-            track_editor.mousePressEvent(track_evt)
-            if track_evt.isAccepted():
-                self.__mouse_grabber = track_editor
-            evt.setAccepted(track_evt.isAccepted())
-            return
-
-    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
-        if self.__mouse_grabber is not None:
-            track_evt = QtGui.QMouseEvent(
-                evt.type(),
-                evt.localPos() + self.offset() - self.__mouse_grabber.viewTopLeft(),
-                evt.windowPos(),
-                evt.screenPos(),
-                evt.button(),
-                evt.buttons(),
-                evt.modifiers())
-            track_evt.setAccepted(False)
-            self.__mouse_grabber.mouseReleaseEvent(track_evt)
-            self.__mouse_grabber = None
-            evt.setAccepted(track_evt.isAccepted())
-            self.setHoverTrackEditor(self.trackEditorAt(evt.pos()), evt)
-            return
-
-    def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
-        track_editor = self.trackEditorAt(evt.pos())
-        if track_editor is not None:
-            if not track_editor.isCurrent():
-                self.setCurrentTrack(track_editor.track)
-                evt.accept()
-                return
-
-        if track_editor is not None:
-            track_evt = QtGui.QMouseEvent(
-                evt.type(),
-                evt.localPos() + self.offset() - track_editor.viewTopLeft(),
-                evt.windowPos(),
-                evt.screenPos(),
-                evt.button(),
-                evt.buttons(),
-                evt.modifiers())
-            track_evt.setAccepted(False)
-            track_editor.mouseDoubleClickEvent(track_evt)
-            evt.setAccepted(track_evt.isAccepted())
-            return
 
     def wheelEvent(self, evt: QtGui.QWheelEvent) -> None:
         if evt.modifiers() == Qt.ShiftModifier:
@@ -470,7 +359,7 @@ class Editor(
             evt.accept()
             return
 
-        elif evt.modifiers() == Qt.NoModifier:
+        elif evt.modifiers() == Qt.ControlModifier:
             offset = self.yOffset()
             offset -= evt.angleDelta().y()
             offset = min(self.maximumYOffset(), offset)
@@ -479,126 +368,4 @@ class Editor(
             evt.accept()
             return
 
-        track_editor = self.trackEditorAt(evt.pos())
-        if track_editor is not None:
-            track_evt = QtGui.QWheelEvent(
-                evt.pos() + self.offset() - track_editor.viewTopLeft(),
-                evt.globalPos(),
-                evt.pixelDelta(),
-                evt.angleDelta(),
-                0,
-                Qt.Horizontal,
-                evt.buttons(),
-                evt.modifiers(),
-                evt.phase(),
-                evt.source())
-            track_evt.setAccepted(False)
-            track_editor.wheelEvent(track_evt)
-            evt.setAccepted(track_evt.isAccepted())
-            return
-
-    def keyPressEvent(self, evt: QtGui.QKeyEvent) -> None:
-        if evt.modifiers() == Qt.ControlModifier and evt.key() == Qt.Key_Left:
-            if self.scaleX() > fractions.Fraction(10, 1):
-                self.setScaleX(self.scaleX() * fractions.Fraction(2, 3))
-            evt.accept()
-            return
-
-        if evt.modifiers() == Qt.ControlModifier and evt.key() == Qt.Key_Right:
-            self.setScaleX(self.scaleX() * fractions.Fraction(3, 2))
-            evt.accept()
-            return
-
-        current_track = self.currentTrack()
-        if current_track is not None:
-            current_track_editor = self.__track_map[current_track.id]
-            track_evt = QtGui.QKeyEvent(
-                evt.type(),
-                evt.key(),
-                evt.modifiers(),
-                evt.nativeScanCode(),
-                evt.nativeVirtualKey(),
-                evt.nativeModifiers(),
-                evt.text(),
-                evt.isAutoRepeat(),
-                evt.count())
-            track_evt.setAccepted(False)
-            current_track_editor.keyPressEvent(track_evt)
-            evt.setAccepted(track_evt.isAccepted())
-            return
-
-    def keyReleaseEvent(self, evt: QtGui.QKeyEvent) -> None:
-        current_track = self.currentTrack()
-        if current_track is not None:
-            current_track_editor = self.__track_map[current_track.id]
-            track_evt = QtGui.QKeyEvent(
-                evt.type(),
-                evt.key(),
-                evt.modifiers(),
-                evt.nativeScanCode(),
-                evt.nativeVirtualKey(),
-                evt.nativeModifiers(),
-                evt.text(),
-                evt.isAutoRepeat(),
-                evt.count())
-            track_evt.setAccepted(False)
-            current_track_editor.keyReleaseEvent(track_evt)
-            evt.setAccepted(track_evt.isAccepted())
-            return
-
-    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
-        track_editor = self.trackEditorAt(evt.pos())
-        if track_editor is not None:
-            menu = QtWidgets.QMenu()
-            track_editor.buildContextMenu(
-                menu, evt.pos() + self.offset() - track_editor.viewTopLeft())
-            if not menu.isEmpty():
-                menu.exec_(evt.globalPos())
-                evt.accept()
-                return
-
-    def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
-        super().paintEvent(evt)
-
-        #t1 = time.perf_counter()
-
-        painter = QtGui.QPainter(self)
-        try:
-            p = -self.offset()
-            for track_editor in self.__tracks:
-                if not track_editor.track.visible:
-                    continue
-
-                track_rect = QtCore.QRect(
-                    0, p.y(), max(self.contentWidth(), self.width()), track_editor.height())
-                track_rect = track_rect.intersected(evt.rect())
-                if not track_rect.isEmpty():
-                    painter.save()
-                    try:
-                        painter.setClipRect(track_rect)
-                        painter.translate(p)
-                        track_editor.paint(painter, track_rect.translated(-p))
-                    finally:
-                        painter.restore()
-
-                # TODO: messes up display, when scrolling horizontally.
-                #painter.drawText(15, p.y() + 14, track_editor.track.name)
-
-                p += QtCore.QPoint(0, track_editor.height())
-
-                painter.fillRect(
-                    evt.rect().left(), p.y(),
-                    evt.rect().width(), 3,
-                    QtGui.QColor(200, 200, 200))
-                p += QtCore.QPoint(0, 3)
-
-            fill_rect = QtCore.QRect(p, evt.rect().bottomRight())
-            if not fill_rect.isEmpty():
-                painter.fillRect(fill_rect, Qt.white)
-
-        finally:
-            painter.end()
-
-        #t2 = time.perf_counter()
-
-        #logger.info("Editor.paintEvent(%s): %.2fµs", evt.rect(), 1e6 * (t2 - t1))
+        super().wheelEvent(evt)

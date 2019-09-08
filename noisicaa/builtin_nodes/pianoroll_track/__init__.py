@@ -1,4 +1,4 @@
-# -*- mode: python -*-
+#!/usr/bin/python3
 
 # @begin:license
 #
@@ -19,21 +19,3 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # @end:license
-
-def build(ctx):
-    ctx.py_module('__init__.py')
-    ctx.py_module('base_track_editor.py')
-    #ctx.py_test('base_track_editor_test.py')
-    ctx.py_module('editor.py')
-    ctx.py_test('editor_test.py')
-    ctx.py_module('measured_track_editor.py')
-    ctx.py_module('time_line.py')
-    ctx.py_module('time_view_mixin.py')
-    ctx.py_module('toolbox.py')
-    ctx.py_module('tools.py')
-    ctx.py_module('view.py')
-
-    if ctx.env.ENABLE_TEST:
-        with ctx.group(ctx.GRP_BUILD_TESTS):
-            ctx.py_module('track_editor_tests.py', mypy='loose')
-

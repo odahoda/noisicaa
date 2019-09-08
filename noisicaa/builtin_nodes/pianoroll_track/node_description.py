@@ -1,4 +1,4 @@
-# -*- mode: python -*-
+#!/usr/bin/python3
 
 # @begin:license
 #
@@ -20,20 +20,25 @@
 #
 # @end:license
 
-def build(ctx):
-    ctx.py_module('__init__.py')
-    ctx.py_module('base_track_editor.py')
-    #ctx.py_test('base_track_editor_test.py')
-    ctx.py_module('editor.py')
-    ctx.py_test('editor_test.py')
-    ctx.py_module('measured_track_editor.py')
-    ctx.py_module('time_line.py')
-    ctx.py_module('time_view_mixin.py')
-    ctx.py_module('toolbox.py')
-    ctx.py_module('tools.py')
-    ctx.py_module('view.py')
+from noisicaa import node_db
 
-    if ctx.env.ENABLE_TEST:
-        with ctx.group(ctx.GRP_BUILD_TESTS):
-            ctx.py_module('track_editor_tests.py', mypy='loose')
 
+PianoRollTrackDescription = node_db.NodeDescription(
+    uri='builtin://pianoroll-track',
+    display_name='Piano Roll Track',
+    type=node_db.NodeDescription.PROCESSOR,
+    node_ui=node_db.NodeUIDescription(
+        type='builtin://pianoroll-track',
+    ),
+    builtin_icon='track-type-pianoroll',
+    processor=node_db.ProcessorDescription(
+        type='builtin://pianoroll',
+    ),
+    ports=[
+        node_db.PortDescription(
+            name='out',
+            direction=node_db.PortDescription.OUTPUT,
+            types=[node_db.PortDescription.EVENTS],
+        ),
+    ]
+)

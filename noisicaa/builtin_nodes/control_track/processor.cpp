@@ -44,7 +44,7 @@ bool control_point_comp(const ControlPoint &e1, const ControlPoint &e2) {
 
 namespace noisicaa {
 
-void CVRecipe::apply_mutation(pb::ProcessorMessage* msg) {
+void CVRecipe::apply_mutation(Logger* logger, pb::ProcessorMessage* msg) {
   if (msg->HasExtension(pb::cvgenerator_add_control_point)) {
     const pb::CVGeneratorAddControlPoint& m =
       msg->GetExtension(pb::cvgenerator_add_control_point);

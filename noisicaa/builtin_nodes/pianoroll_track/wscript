@@ -21,19 +21,14 @@
 # @end:license
 
 def build(ctx):
+    ctx.model_description('model.desc.pb')
+
     ctx.py_module('__init__.py')
-    ctx.py_module('base_track_editor.py')
-    #ctx.py_test('base_track_editor_test.py')
-    ctx.py_module('editor.py')
-    ctx.py_test('editor_test.py')
-    ctx.py_module('measured_track_editor.py')
-    ctx.py_module('time_line.py')
-    ctx.py_module('time_view_mixin.py')
-    ctx.py_module('toolbox.py')
-    ctx.py_module('tools.py')
-    ctx.py_module('view.py')
-
-    if ctx.env.ENABLE_TEST:
-        with ctx.group(ctx.GRP_BUILD_TESTS):
-            ctx.py_module('track_editor_tests.py', mypy='loose')
-
+    ctx.py_module('node_description.py')
+    ctx.py_module('model.py')
+    ctx.py_test('model_test.py')
+    ctx.py_module('node_ui.py')
+    ctx.py_module('track_ui.py')
+    ctx.py_test('track_ui_test.py')
+    ctx.py_proto('model.proto')
+    ctx.py_module('processor_messages.py')

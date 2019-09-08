@@ -27,6 +27,7 @@ from .score_track.node_description import ScoreTrackDescription
 from .beat_track.node_description import BeatTrackDescription
 from .control_track.node_description import ControlTrackDescription
 from .sample_track.node_description import SampleTrackDescription
+from .pianoroll_track.node_description import PianoRollTrackDescription
 from .instrument.node_description import InstrumentDescription
 from .mixer.node_description import MixerDescription
 from .custom_csound.node_description import CustomCSoundDescription
@@ -49,6 +50,7 @@ def node_descriptions() -> Iterator[node_db.NodeDescription]:
     yield BeatTrackDescription
     yield ControlTrackDescription
     yield SampleTrackDescription
+    yield PianoRollTrackDescription
     yield InstrumentDescription
     yield MixerDescription
     yield CustomCSoundDescription

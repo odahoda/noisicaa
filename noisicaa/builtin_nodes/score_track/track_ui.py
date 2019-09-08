@@ -36,6 +36,7 @@ from noisicaa import value_types
 from noisicaa.ui import svg_symbol
 from noisicaa.ui.track_list import tools
 from noisicaa.ui.track_list import measured_track_editor
+from noisicaa.builtin_nodes.pianoroll import processor_messages
 from . import model
 
 logger = logging.getLogger(__name__)
@@ -61,13 +62,138 @@ class ScoreToolBase(measured_track_editor.MeasuredToolBase):
     def cursor(self) -> QtGui.QCursor:
         return self.__cursor
 
-    def _updateGhost(self, target: 'ScoreMeasureEditor', pos: QtCore.QPoint) -> None:
-        target.setGhost(None)
+    def _updateGhost(self, measure: 'ScoreMeasureEditor', pos: QtCore.QPoint) -> None:
+        measure.setGhost(None)
 
-    def mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, ScoreMeasureEditor), type(target).__name__
+    def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
+        super().buildContextMenu(menu, pos)
 
-        self._updateGhost(target, evt.pos())
+        affected_measure_editors = []  # type: List[ScoreMeasureEditor]
+        if not self.track.selection_set.empty():
+            affected_measure_editors.extend(
+                down_cast(ScoreMeasureEditor, seditor) for seditor in self.track.selection_set)
+        else:
+            meditor = self.track.measureEditorAt(pos)
+            if isinstance(meditor, ScoreMeasureEditor):
+                affected_measure_editors.append(meditor)
+
+        enable_measure_actions = bool(affected_measure_editors)
+
+        clef_menu = menu.addMenu("Set clef")
+        for clef in value_types.Clef:
+            clef_action = QtWidgets.QAction(clef.value, menu)
+            clef_action.setEnabled(enable_measure_actions)
+            clef_action.triggered.connect(
+                lambda _, clef=clef: self.onSetClef(affected_measure_editors, clef))
+            clef_menu.addAction(clef_action)
+
+        key_signature_menu = menu.addMenu("Set key signature")
+        key_signatures = [
+            value_types.KeySignature('C major'),
+            value_types.KeySignature('A minor'),
+            value_types.KeySignature('G major'),
+            value_types.KeySignature('E minor'),
+            value_types.KeySignature('D major'),
+            value_types.KeySignature('B minor'),
+            value_types.KeySignature('A major'),
+            value_types.KeySignature('F# minor'),
+            value_types.KeySignature('E major'),
+            value_types.KeySignature('C# minor'),
+            value_types.KeySignature('B major'),
+            value_types.KeySignature('G# minor'),
+            value_types.KeySignature('F# major'),
+            value_types.KeySignature('D# minor'),
+            value_types.KeySignature('C# major'),
+            value_types.KeySignature('A# minor'),
+            value_types.KeySignature('F major'),
+            value_types.KeySignature('D minor'),
+            value_types.KeySignature('Bb major'),
+            value_types.KeySignature('G minor'),
+            value_types.KeySignature('Eb major'),
+            value_types.KeySignature('C minor'),
+            value_types.KeySignature('Ab major'),
+            value_types.KeySignature('F minor'),
+            value_types.KeySignature('Db major'),
+            value_types.KeySignature('Bb minor'),
+            value_types.KeySignature('Gb major'),
+            value_types.KeySignature('Eb minor'),
+            value_types.KeySignature('Cb major'),
+            value_types.KeySignature('Ab minor'),
+        ]
+        for key_signature in key_signatures:
+            key_signature_action = QtWidgets.QAction(key_signature.name, menu)
+            key_signature_action.setEnabled(enable_measure_actions)
+            key_signature_action.triggered.connect(
+                lambda _, sig=key_signature: self.onSetKeySignature(affected_measure_editors, sig))
+            key_signature_menu.addAction(key_signature_action)
+
+        transpose_menu = menu.addMenu("Transpose")
+
+        octave_up_action = QtWidgets.QAction("Octave up", self)
+        octave_up_action.setEnabled(enable_measure_actions)
+        octave_up_action.setShortcut('Ctrl+Shift+Up')
+        octave_up_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        octave_up_action.triggered.connect(
+            lambda _: self.onTranspose(affected_measure_editors, 12))
+        transpose_menu.addAction(octave_up_action)
+
+        halfnote_up_action = QtWidgets.QAction("Half-note up", self)
+        halfnote_up_action.setEnabled(enable_measure_actions)
+        halfnote_up_action.setShortcut('Ctrl+Up')
+        halfnote_up_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        halfnote_up_action.triggered.connect(
+            lambda _: self.onTranspose(affected_measure_editors, 1))
+        transpose_menu.addAction(halfnote_up_action)
+
+        halfnote_down_action = QtWidgets.QAction("Half-note down", self)
+        halfnote_down_action.setEnabled(enable_measure_actions)
+        halfnote_down_action.setShortcut('Ctrl+Down')
+        halfnote_down_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        halfnote_down_action.triggered.connect(
+            lambda _: self.onTranspose(affected_measure_editors, -1))
+        transpose_menu.addAction(halfnote_down_action)
+
+        octave_down_action = QtWidgets.QAction("Octave down", self)
+        octave_down_action.setEnabled(enable_measure_actions)
+        octave_down_action.setShortcut('Ctrl+Shift+Down')
+        octave_down_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        octave_down_action.triggered.connect(
+            lambda _: self.onTranspose(affected_measure_editors, -12))
+        transpose_menu.addAction(octave_down_action)
+
+    def onSetClef(
+            self,
+            affected_measure_editors: List['ScoreMeasureEditor'],
+            clef: value_types.Clef
+    ) -> None:
+        with self.project.apply_mutations('%s: Change clef' % self.track.track.name):
+            for meditor in affected_measure_editors:
+                meditor.measure.clef = clef
+
+    def onSetKeySignature(
+            self,
+            affected_measure_editors: List['ScoreMeasureEditor'],
+            key_signature: value_types.KeySignature
+    ) -> None:
+        with self.project.apply_mutations('%s: Change key signature' % self.track.track.name):
+            for meditor in affected_measure_editors:
+                meditor.measure.key_signature = key_signature
+
+    def onTranspose(
+            self,
+            affected_measure_editors: List['ScoreMeasureEditor'],
+            half_notes: int
+    ) -> None:
+        with self.project.apply_mutations('%s: Transpose notes' % self.track.track.name):
+            for meditor in affected_measure_editors:
+                for note in meditor.measure.notes:
+                    note.transpose(half_notes)
+
+    def mouseMoveMeasureEvent(
+            self, measure: measured_track_editor.BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
+        assert isinstance(measure, ScoreMeasureEditor), type(measure).__name__
+
+        self._updateGhost(measure, evt.pos())
 
         # ymid = target.height() // 2
         # stave_line = (
@@ -81,7 +207,7 @@ class ScoreToolBase(measured_track_editor.MeasuredToolBase):
         #         stave_line, target.measure.key_signature)
         #     self.editor_window.setInfoMessage(pitch)
 
-        super().mouseMoveEvent(target, evt)
+        super().mouseMoveMeasureEvent(measure, evt)
 
 
 class InsertNoteTool(ScoreToolBase):
@@ -119,87 +245,89 @@ class InsertNoteTool(ScoreToolBase):
             }[type],
             **kwargs)
 
-    def _updateGhost(self, target: 'ScoreMeasureEditor', pos: QtCore.QPoint) -> None:
+    def _updateGhost(self, measure: 'ScoreMeasureEditor', pos: QtCore.QPoint) -> None:
         if pos is None:
-            target.setGhost(None)
+            measure.setGhost(None)
             return
 
-        ymid = target.height() // 2
-        stave_line = int(ymid + 5 - pos.y()) // 10 + target.measure.clef.center_pitch.stave_line
+        ymid = measure.height() // 2
+        stave_line = int(ymid + 5 - pos.y()) // 10 + measure.measure.clef.center_pitch.stave_line
 
-        idx, _, insert_x = target.getEditArea(pos.x())
+        idx, _, insert_x = measure.getEditArea(pos.x())
         if idx < 0:
-            target.setGhost(None)
+            measure.setGhost(None)
             return
 
-        target.setGhost(
+        measure.setGhost(
             QtCore.QPoint(
                 insert_x,
-                ymid - 10 * (stave_line - target.measure.clef.center_pitch.stave_line)))
+                ymid - 10 * (stave_line - measure.measure.clef.center_pitch.stave_line)))
 
-    def mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, ScoreMeasureEditor), type(target).__name__
+    def mousePressMeasureEvent(
+            self, measure: measured_track_editor.BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
+        assert isinstance(measure, ScoreMeasureEditor), type(measure).__name__
 
-        ymid = target.height() // 2
+        ymid = measure.height() // 2
         stave_line = (
-            int(ymid + 5 - evt.pos().y()) // 10 + target.measure.clef.center_pitch.stave_line)
+            int(ymid + 5 - evt.pos().y()) // 10 + measure.measure.clef.center_pitch.stave_line)
 
         if evt.button() == Qt.LeftButton and (evt.modifiers() & ~Qt.ShiftModifier) == Qt.NoModifier:
             if self.type.is_note:
                 pitch = value_types.Pitch.name_from_stave_line(
-                    stave_line, target.measure.key_signature)
+                    stave_line, measure.measure.key_signature)
             else:
                 pitch = 'r'
 
-            duration = target.durationForTool(self.type)
+            duration = measure.durationForTool(self.type)
 
-            idx, overwrite, _ = target.getEditArea(evt.pos().x())
+            idx, overwrite, _ = measure.getEditArea(evt.pos().x())
             if idx >= 0:
                 if evt.modifiers() == Qt.ShiftModifier:
                     if overwrite:
-                        if len(target.measure.notes[idx].pitches) > 1:
-                            for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
+                        if len(measure.measure.notes[idx].pitches) > 1:
+                            for pitch_idx, p in enumerate(measure.measure.notes[idx].pitches):
                                 if p.stave_line == stave_line:
                                     with self.project.apply_mutations(
-                                            '%s: Change note' % target.track.name):
-                                        target.measure.notes[idx].remove_pitch(pitch_idx)
+                                            '%s: Change note' % measure.track.name):
+                                        measure.measure.notes[idx].remove_pitch(pitch_idx)
                                     evt.accept()
                                     return
 
                         else:
                             with self.project.apply_mutations(
-                                    '%s: Delete note' % target.track.name):
-                                target.measure.delete_note(target.measure.notes[idx])
+                                    '%s: Delete note' % measure.track.name):
+                                measure.measure.delete_note(measure.measure.notes[idx])
                             evt.accept()
                             return
 
                 else:
                     if overwrite:
-                        for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
+                        for pitch_idx, p in enumerate(measure.measure.notes[idx].pitches):
                             if p.stave_line == stave_line:
                                 break
                         else:
                             with self.project.apply_mutations(
-                                    '%s: Change note' % target.track.name):
-                                target.measure.notes[idx].add_pitch(value_types.Pitch(pitch))
-                            target.track_editor.playNoteOn(value_types.Pitch(pitch))
+                                    '%s: Change note' % measure.track.name):
+                                measure.measure.notes[idx].add_pitch(value_types.Pitch(pitch))
+                            measure.track_editor.playNoteOn(value_types.Pitch(pitch))
                             evt.accept()
                             return
 
                     else:
-                        with self.project.apply_mutations('%s: Create note' % target.track.name):
-                            target.measure.create_note(idx, value_types.Pitch(pitch), duration)
-                        target.track_editor.playNoteOn(value_types.Pitch(pitch))
+                        with self.project.apply_mutations('%s: Create note' % measure.track.name):
+                            measure.measure.create_note(idx, value_types.Pitch(pitch), duration)
+                        measure.track_editor.playNoteOn(value_types.Pitch(pitch))
                         evt.accept()
                         return
 
-        super().mousePressEvent(target, evt)
+        super().mousePressMeasureEvent(measure, evt)
 
-    def mouseReleaseEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, ScoreMeasureEditor), type(target).__name__
+    def mouseReleaseMeasureEvent(
+            self, measure: measured_track_editor.BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
+        assert isinstance(measure, ScoreMeasureEditor), type(measure).__name__
 
-        target.track_editor.playNoteOff()
-        return super().mouseReleaseEvent(target, evt)
+        measure.track_editor.playNoteOff()
+        return super().mouseReleaseMeasureEvent(measure, evt)
 
 
 class ModifyNoteTool(ScoreToolBase):
@@ -229,34 +357,35 @@ class ModifyNoteTool(ScoreToolBase):
             }[type],
             **kwargs)
 
-    def _updateGhost(self, target: 'ScoreMeasureEditor', pos: QtCore.QPoint) -> None:
+    def _updateGhost(self, measure: 'ScoreMeasureEditor', pos: QtCore.QPoint) -> None:
         if pos is None:
-            target.setGhost(None)
+            measure.setGhost(None)
             return
 
-        ymid = target.height() // 2
-        stave_line = int(ymid + 5 - pos.y()) // 10 + target.measure.clef.center_pitch.stave_line
+        ymid = measure.height() // 2
+        stave_line = int(ymid + 5 - pos.y()) // 10 + measure.measure.clef.center_pitch.stave_line
 
-        idx, _, insert_x = target.getEditArea(pos.x())
+        idx, _, insert_x = measure.getEditArea(pos.x())
         if idx < 0:
-            target.setGhost(None)
+            measure.setGhost(None)
             return
 
-        target.setGhost(
+        measure.setGhost(
             QtCore.QPoint(
                 insert_x - 12,
-                ymid - 10 * (stave_line - target.measure.clef.center_pitch.stave_line)))
+                ymid - 10 * (stave_line - measure.measure.clef.center_pitch.stave_line)))
 
-    def mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
-        assert isinstance(target, ScoreMeasureEditor), type(target).__name__
-        ymid = target.height() // 2
+    def mousePressMeasureEvent(
+            self, measure: measured_track_editor.BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
+        assert isinstance(measure, ScoreMeasureEditor), type(measure).__name__
+        ymid = measure.height() // 2
         stave_line = (
-            int(ymid + 5 - evt.pos().y()) // 10 + target.measure.clef.center_pitch.stave_line)
+            int(ymid + 5 - evt.pos().y()) // 10 + measure.measure.clef.center_pitch.stave_line)
 
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.NoModifier
                 and self.type.is_accidental):
-            idx, overwrite, _ = target.getEditArea(evt.pos().x())
+            idx, overwrite, _ = measure.getEditArea(evt.pos().x())
             if idx >= 0 and overwrite:
                 accidental = {
                     tools.ToolType.ACCIDENTAL_NATURAL: '',
@@ -265,12 +394,12 @@ class ModifyNoteTool(ScoreToolBase):
                     tools.ToolType.ACCIDENTAL_DOUBLE_FLAT: 'bb',
                     tools.ToolType.ACCIDENTAL_DOUBLE_SHARP: '##',
                 }[self.type]
-                for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
+                for pitch_idx, p in enumerate(measure.measure.notes[idx].pitches):
                     if accidental in p.valid_accidentals:
                         if p.stave_line == stave_line:
                             with self.project.apply_mutations(
-                                    '%s: Change note' % target.track.name):
-                                target.measure.notes[idx].set_accidental(pitch_idx, accidental)
+                                    '%s: Change note' % measure.track.name):
+                                measure.measure.notes[idx].set_accidental(pitch_idx, accidental)
                             evt.accept()
                             return
 
@@ -278,23 +407,23 @@ class ModifyNoteTool(ScoreToolBase):
         if (evt.button() == Qt.LeftButton
                 and (evt.modifiers() & ~Qt.ShiftModifier) == Qt.NoModifier
                 and self.type.is_duration):
-            idx, overwrite, _ = target.getEditArea(evt.pos().x())
+            idx, overwrite, _ = measure.getEditArea(evt.pos().x())
             if idx >= 0 and overwrite:
-                note = target.measure.notes[idx]
+                note = measure.measure.notes[idx]
                 if self.type == tools.ToolType.DURATION_DOT:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.dots > 0:
                             with self.project.apply_mutations(
-                                    '%s: Change note' % target.track.name):
-                                target.measure.notes[idx].dots = note.dots - 1
+                                    '%s: Change note' % measure.track.name):
+                                measure.measure.notes[idx].dots = note.dots - 1
                             evt.accept()
                             return
 
                     else:
                         if note.dots < note.max_allowed_dots:
                             with self.project.apply_mutations(
-                                    '%s: Change note' % target.track.name):
-                                target.measure.notes[idx].dots = note.dots + 1
+                                    '%s: Change note' % measure.track.name):
+                                measure.measure.notes[idx].dots = note.dots + 1
                             evt.accept()
                             return
 
@@ -302,16 +431,16 @@ class ModifyNoteTool(ScoreToolBase):
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.tuplet != 0:
                             with self.project.apply_mutations(
-                                    '%s: Change note' % target.track.name):
-                                target.measure.notes[idx].tuplet = 0
+                                    '%s: Change note' % measure.track.name):
+                                measure.measure.notes[idx].tuplet = 0
                             evt.accept()
                             return
 
                     else:
                         if note.tuplet != 3:
                             with self.project.apply_mutations(
-                                    '%s: Change note' % target.track.name):
-                                target.measure.notes[idx].tuplet = 3
+                                    '%s: Change note' % measure.track.name):
+                                measure.measure.notes[idx].tuplet = 3
                             evt.accept()
                             return
 
@@ -319,47 +448,47 @@ class ModifyNoteTool(ScoreToolBase):
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.tuplet != 0:
                             with self.project.apply_mutations(
-                                    '%s: Change note' % target.track.name):
-                                target.measure.notes[idx].tuplet = 0
+                                    '%s: Change note' % measure.track.name):
+                                measure.measure.notes[idx].tuplet = 0
                             evt.accept()
                             return
 
                     else:
                         if note.tuplet != 5:
                             with self.project.apply_mutations(
-                                    '%s: Change note' % target.track.name):
-                                target.measure.notes[idx].tuplet = 5
+                                    '%s: Change note' % measure.track.name):
+                                measure.measure.notes[idx].tuplet = 5
                             evt.accept()
                             return
 
-        return super().mousePressEvent(target, evt)
+        return super().mousePressMeasureEvent(measure, evt)
 
 
 class ScoreToolBox(tools.ToolBox):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.addTool(measured_track_editor.ArrangeMeasuresTool(context=self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_WHOLE, context=self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_HALF, context=self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_QUARTER, context=self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_8TH, context=self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_16TH, context=self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_32TH, context=self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.REST_WHOLE, context=self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.REST_HALF, context=self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.REST_QUARTER, context=self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.REST_8TH, context=self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.REST_16TH, context=self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.REST_32TH, context=self.context))
-        self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_NATURAL, context=self.context))
-        self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_SHARP, context=self.context))
-        self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_FLAT, context=self.context))
-        self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_DOT, context=self.context))
-        self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_TRIPLET, context=self.context))
-        self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_QUINTUPLET, context=self.context))
+        self.addTool(measured_track_editor.ArrangeMeasuresTool)
+        self.addTool(InsertNoteTool, type=tools.ToolType.NOTE_WHOLE)
+        self.addTool(InsertNoteTool, type=tools.ToolType.NOTE_HALF)
+        self.addTool(InsertNoteTool, type=tools.ToolType.NOTE_QUARTER)
+        self.addTool(InsertNoteTool, type=tools.ToolType.NOTE_8TH)
+        self.addTool(InsertNoteTool, type=tools.ToolType.NOTE_16TH)
+        self.addTool(InsertNoteTool, type=tools.ToolType.NOTE_32TH)
+        self.addTool(InsertNoteTool, type=tools.ToolType.REST_WHOLE)
+        self.addTool(InsertNoteTool, type=tools.ToolType.REST_HALF)
+        self.addTool(InsertNoteTool, type=tools.ToolType.REST_QUARTER)
+        self.addTool(InsertNoteTool, type=tools.ToolType.REST_8TH)
+        self.addTool(InsertNoteTool, type=tools.ToolType.REST_16TH)
+        self.addTool(InsertNoteTool, type=tools.ToolType.REST_32TH)
+        self.addTool(ModifyNoteTool, type=tools.ToolType.ACCIDENTAL_NATURAL)
+        self.addTool(ModifyNoteTool, type=tools.ToolType.ACCIDENTAL_SHARP)
+        self.addTool(ModifyNoteTool, type=tools.ToolType.ACCIDENTAL_FLAT)
+        self.addTool(ModifyNoteTool, type=tools.ToolType.DURATION_DOT)
+        self.addTool(ModifyNoteTool, type=tools.ToolType.DURATION_TRIPLET)
+        self.addTool(ModifyNoteTool, type=tools.ToolType.DURATION_QUINTUPLET)
 
-    def keyPressEvent(self, target: Any, evt: QtGui.QKeyEvent) -> None:
+    def keyPressEvent(self, evt: QtGui.QKeyEvent) -> None:
         if (not evt.isAutoRepeat()
                 and evt.modifiers() == Qt.NoModifier
                 and evt.key() == Qt.Key_Period):
@@ -469,9 +598,9 @@ class ScoreToolBox(tools.ToolBox):
             evt.accept()
             return
 
-        super().keyPressEvent(target, evt)
+        super().keyPressEvent(evt)
 
-    def keyReleaseEvent(self, target: Any, evt: QtGui.QKeyEvent) -> None:
+    def keyReleaseEvent(self, evt: QtGui.QKeyEvent) -> None:
         if (not evt.isAutoRepeat()
                 and evt.modifiers() == Qt.NoModifier
                 and evt.key() == Qt.Key_Period):
@@ -500,7 +629,7 @@ class ScoreToolBox(tools.ToolBox):
             evt.accept()
             return
 
-        super().keyReleaseEvent(target, evt)
+        super().keyReleaseEvent(evt)
 
     # def keyPressEvent(self, evt):
     #     if (evt.modifiers() == Qt.ControlModifier | Qt.ShiftModifier
@@ -992,165 +1121,30 @@ class ScoreMeasureEditor(measured_track_editor.MeasureEditor):
 class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
     measure_editor_cls = ScoreMeasureEditor
 
-    toolBoxClass = ScoreToolBox
-
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.__play_last_pitch = None  # type: value_types.Pitch
 
-        self.setHeight(240)
+        self.setFixedHeight(240)
 
-    def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
-        super().buildContextMenu(menu, pos)
-
-        affected_measure_editors = []  # type: List[ScoreMeasureEditor]
-        if not self.selection_set.empty():
-            affected_measure_editors.extend(
-                down_cast(ScoreMeasureEditor, seditor) for seditor in self.selection_set)
-        else:
-            meditor = self.measureEditorAt(pos)
-            if isinstance(meditor, ScoreMeasureEditor):
-                affected_measure_editors.append(meditor)
-
-        enable_measure_actions = bool(affected_measure_editors)
-
-        clef_menu = menu.addMenu("Set clef")
-        for clef in value_types.Clef:
-            clef_action = QtWidgets.QAction(clef.value, menu)
-            clef_action.setEnabled(enable_measure_actions)
-            clef_action.triggered.connect(
-                lambda _, clef=clef: self.onSetClef(affected_measure_editors, clef))
-            clef_menu.addAction(clef_action)
-
-        key_signature_menu = menu.addMenu("Set key signature")
-        key_signatures = [
-            value_types.KeySignature('C major'),
-            value_types.KeySignature('A minor'),
-            value_types.KeySignature('G major'),
-            value_types.KeySignature('E minor'),
-            value_types.KeySignature('D major'),
-            value_types.KeySignature('B minor'),
-            value_types.KeySignature('A major'),
-            value_types.KeySignature('F# minor'),
-            value_types.KeySignature('E major'),
-            value_types.KeySignature('C# minor'),
-            value_types.KeySignature('B major'),
-            value_types.KeySignature('G# minor'),
-            value_types.KeySignature('F# major'),
-            value_types.KeySignature('D# minor'),
-            value_types.KeySignature('C# major'),
-            value_types.KeySignature('A# minor'),
-            value_types.KeySignature('F major'),
-            value_types.KeySignature('D minor'),
-            value_types.KeySignature('Bb major'),
-            value_types.KeySignature('G minor'),
-            value_types.KeySignature('Eb major'),
-            value_types.KeySignature('C minor'),
-            value_types.KeySignature('Ab major'),
-            value_types.KeySignature('F minor'),
-            value_types.KeySignature('Db major'),
-            value_types.KeySignature('Bb minor'),
-            value_types.KeySignature('Gb major'),
-            value_types.KeySignature('Eb minor'),
-            value_types.KeySignature('Cb major'),
-            value_types.KeySignature('Ab minor'),
-        ]
-        for key_signature in key_signatures:
-            key_signature_action = QtWidgets.QAction(key_signature.name, menu)
-            key_signature_action.setEnabled(enable_measure_actions)
-            key_signature_action.triggered.connect(
-                lambda _, sig=key_signature: self.onSetKeySignature(affected_measure_editors, sig))
-            key_signature_menu.addAction(key_signature_action)
-
-        transpose_menu = menu.addMenu("Transpose")
-
-        octave_up_action = QtWidgets.QAction("Octave up", self)
-        octave_up_action.setEnabled(enable_measure_actions)
-        octave_up_action.setShortcut('Ctrl+Shift+Up')
-        octave_up_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-        octave_up_action.triggered.connect(
-            lambda _: self.onTranspose(affected_measure_editors, 12))
-        transpose_menu.addAction(octave_up_action)
-
-        halfnote_up_action = QtWidgets.QAction("Half-note up", self)
-        halfnote_up_action.setEnabled(enable_measure_actions)
-        halfnote_up_action.setShortcut('Ctrl+Up')
-        halfnote_up_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-        halfnote_up_action.triggered.connect(
-            lambda _: self.onTranspose(affected_measure_editors, 1))
-        transpose_menu.addAction(halfnote_up_action)
-
-        halfnote_down_action = QtWidgets.QAction("Half-note down", self)
-        halfnote_down_action.setEnabled(enable_measure_actions)
-        halfnote_down_action.setShortcut('Ctrl+Down')
-        halfnote_down_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-        halfnote_down_action.triggered.connect(
-            lambda _: self.onTranspose(affected_measure_editors, -1))
-        transpose_menu.addAction(halfnote_down_action)
-
-        octave_down_action = QtWidgets.QAction("Octave down", self)
-        octave_down_action.setEnabled(enable_measure_actions)
-        octave_down_action.setShortcut('Ctrl+Shift+Down')
-        octave_down_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-        octave_down_action.triggered.connect(
-            lambda _: self.onTranspose(affected_measure_editors, -12))
-        transpose_menu.addAction(octave_down_action)
-
-    def onSetClef(
-            self,
-            affected_measure_editors: List[ScoreMeasureEditor],
-            clef: value_types.Clef
-    ) -> None:
-        with self.project.apply_mutations('%s: Change clef' % self.__track.name):
-            for meditor in affected_measure_editors:
-                meditor.measure.clef = clef
-
-    def onSetKeySignature(
-            self,
-            affected_measure_editors: List[ScoreMeasureEditor],
-            key_signature: value_types.KeySignature
-    ) -> None:
-        with self.project.apply_mutations('%s: Change key signature' % self.__track.name):
-            for meditor in affected_measure_editors:
-                meditor.measure.key_signature = key_signature
-
-    def onTranspose(
-            self,
-            affected_measure_editors: List[ScoreMeasureEditor],
-            half_notes: int
-    ) -> None:
-        with self.project.apply_mutations('%s: Transpose notes' % self.__track.name):
-            for meditor in affected_measure_editors:
-                for note in meditor.measure.notes:
-                    note.transpose(half_notes)
+    def createToolBox(self) -> ScoreToolBox:
+        return ScoreToolBox(track=self, context=self.context)
 
     def playNoteOn(self, pitch: value_types.Pitch) -> None:
         self.playNoteOff()
 
         if self.playerState().playerID():
-            # TODO: reimplement
-            # self.call_async(
-            #     self.project_client.player_send_message(
-            #         self.playerState().playerID(),
-            #         core.build_message(
-            #             {core.MessageKey.trackId: self.track.id},
-            #             core.MessageType.atom,
-            #             lv2.AtomForge.build_midi_noteon(0, pitch.midi_note, 127))))
+            self.call_async(self.project_view.sendNodeMessage(
+                processor_messages.note_on_event(
+                    self.track.pipeline_node_id, 0, pitch.midi_note, 100)))
 
             self.__play_last_pitch = pitch
 
     def playNoteOff(self) -> None:
         if self.__play_last_pitch is not None:
             if self.playerState().playerID():
-                pass
-                # TODO: reimplement
-                # self.call_async(
-                #     self.project_client.player_send_message(
-                #         self.playerState().playerID(),
-                #         core.build_message(
-                #             {core.MessageKey.trackId: self.track.id},
-                #             core.MessageType.atom,
-                #             lv2.AtomForge.build_midi_noteoff(
-                #                 0, self.__play_last_pitch.midi_note))))
+                self.call_async(self.project_view.sendNodeMessage(
+                    processor_messages.note_off_event(
+                        self.track.pipeline_node_id, 0, self.__play_last_pitch.midi_note)))
 
             self.__play_last_pitch = None

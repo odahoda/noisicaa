@@ -27,6 +27,7 @@ from typing import Any, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
+from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa.core.typing_extra import down_cast
@@ -61,6 +62,8 @@ class ProjectView(ui_base.AbstractProjectView):
             app=context.app)
         super().__init__(parent=None, context=context, **kwargs)
 
+        self.__session_prefix = 'project-view:%016x:' % self.project.id
+
         self.__player_id = None  # type: str
         self.__player_realm = None  # type: str
         self.__player_node_id = None  # type: str
@@ -80,16 +83,16 @@ class ProjectView(ui_base.AbstractProjectView):
         self.__track_list.currentTrackChanged.connect(self.__graph.setCurrentTrack)
         self.__graph.currentTrackChanged.connect(self.__track_list.setCurrentTrack)
 
-        splitter = QtWidgets.QSplitter(self)
-        splitter.setOrientation(Qt.Vertical)
-        splitter.setHandleWidth(10)
-        splitter.addWidget(self.__track_list)
-        splitter.setCollapsible(0, False)
-        splitter.addWidget(self.__graph)
+        self.__splitter = QtWidgets.QSplitter(self)
+        self.__splitter.setOrientation(Qt.Vertical)
+        self.__splitter.setHandleWidth(10)
+        self.__splitter.addWidget(self.__track_list)
+        self.__splitter.setCollapsible(0, False)
+        self.__splitter.addWidget(self.__graph)
 
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(splitter)
+        layout.addWidget(self.__splitter)
         self.setLayout(layout)
 
     async def setup(self) -> None:
@@ -285,3 +288,16 @@ class ProjectView(ui_base.AbstractProjectView):
     def __onSetBPMDone(self, dialog: QtWidgets.QInputDialog) -> None:
         with self.project.apply_mutations('Change BPM'):
             self.project.bpm = dialog.intValue()
+
+    def showEvent(self, evt: QtGui.QShowEvent) -> None:
+        super().showEvent(evt)
+
+        splitter_state = self.get_session_value(self.__session_prefix + 'splitter-state', None)
+        if splitter_state:
+            self.__splitter.restoreState(splitter_state)
+
+    def hideEvent(self, evt: QtGui.QHideEvent) -> None:
+        super().hideEvent(evt)
+
+        self.set_session_value(
+            self.__session_prefix + 'splitter-state', self.__splitter.saveState().data())
