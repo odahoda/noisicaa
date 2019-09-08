@@ -65,6 +65,130 @@ class ScoreToolBase(measured_track_editor.MeasuredToolBase):
     def _updateGhost(self, measure: 'ScoreMeasureEditor', pos: QtCore.QPoint) -> None:
         measure.setGhost(None)
 
+    def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
+        super().buildContextMenu(menu, pos)
+
+        affected_measure_editors = []  # type: List[ScoreMeasureEditor]
+        if not self.track.selection_set.empty():
+            affected_measure_editors.extend(
+                down_cast(ScoreMeasureEditor, seditor) for seditor in self.track.selection_set)
+        else:
+            meditor = self.track.measureEditorAt(pos)
+            if isinstance(meditor, ScoreMeasureEditor):
+                affected_measure_editors.append(meditor)
+
+        enable_measure_actions = bool(affected_measure_editors)
+
+        clef_menu = menu.addMenu("Set clef")
+        for clef in value_types.Clef:
+            clef_action = QtWidgets.QAction(clef.value, menu)
+            clef_action.setEnabled(enable_measure_actions)
+            clef_action.triggered.connect(
+                lambda _, clef=clef: self.onSetClef(affected_measure_editors, clef))
+            clef_menu.addAction(clef_action)
+
+        key_signature_menu = menu.addMenu("Set key signature")
+        key_signatures = [
+            value_types.KeySignature('C major'),
+            value_types.KeySignature('A minor'),
+            value_types.KeySignature('G major'),
+            value_types.KeySignature('E minor'),
+            value_types.KeySignature('D major'),
+            value_types.KeySignature('B minor'),
+            value_types.KeySignature('A major'),
+            value_types.KeySignature('F# minor'),
+            value_types.KeySignature('E major'),
+            value_types.KeySignature('C# minor'),
+            value_types.KeySignature('B major'),
+            value_types.KeySignature('G# minor'),
+            value_types.KeySignature('F# major'),
+            value_types.KeySignature('D# minor'),
+            value_types.KeySignature('C# major'),
+            value_types.KeySignature('A# minor'),
+            value_types.KeySignature('F major'),
+            value_types.KeySignature('D minor'),
+            value_types.KeySignature('Bb major'),
+            value_types.KeySignature('G minor'),
+            value_types.KeySignature('Eb major'),
+            value_types.KeySignature('C minor'),
+            value_types.KeySignature('Ab major'),
+            value_types.KeySignature('F minor'),
+            value_types.KeySignature('Db major'),
+            value_types.KeySignature('Bb minor'),
+            value_types.KeySignature('Gb major'),
+            value_types.KeySignature('Eb minor'),
+            value_types.KeySignature('Cb major'),
+            value_types.KeySignature('Ab minor'),
+        ]
+        for key_signature in key_signatures:
+            key_signature_action = QtWidgets.QAction(key_signature.name, menu)
+            key_signature_action.setEnabled(enable_measure_actions)
+            key_signature_action.triggered.connect(
+                lambda _, sig=key_signature: self.onSetKeySignature(affected_measure_editors, sig))
+            key_signature_menu.addAction(key_signature_action)
+
+        transpose_menu = menu.addMenu("Transpose")
+
+        octave_up_action = QtWidgets.QAction("Octave up", self)
+        octave_up_action.setEnabled(enable_measure_actions)
+        octave_up_action.setShortcut('Ctrl+Shift+Up')
+        octave_up_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        octave_up_action.triggered.connect(
+            lambda _: self.onTranspose(affected_measure_editors, 12))
+        transpose_menu.addAction(octave_up_action)
+
+        halfnote_up_action = QtWidgets.QAction("Half-note up", self)
+        halfnote_up_action.setEnabled(enable_measure_actions)
+        halfnote_up_action.setShortcut('Ctrl+Up')
+        halfnote_up_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        halfnote_up_action.triggered.connect(
+            lambda _: self.onTranspose(affected_measure_editors, 1))
+        transpose_menu.addAction(halfnote_up_action)
+
+        halfnote_down_action = QtWidgets.QAction("Half-note down", self)
+        halfnote_down_action.setEnabled(enable_measure_actions)
+        halfnote_down_action.setShortcut('Ctrl+Down')
+        halfnote_down_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        halfnote_down_action.triggered.connect(
+            lambda _: self.onTranspose(affected_measure_editors, -1))
+        transpose_menu.addAction(halfnote_down_action)
+
+        octave_down_action = QtWidgets.QAction("Octave down", self)
+        octave_down_action.setEnabled(enable_measure_actions)
+        octave_down_action.setShortcut('Ctrl+Shift+Down')
+        octave_down_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        octave_down_action.triggered.connect(
+            lambda _: self.onTranspose(affected_measure_editors, -12))
+        transpose_menu.addAction(octave_down_action)
+
+    def onSetClef(
+            self,
+            affected_measure_editors: List['ScoreMeasureEditor'],
+            clef: value_types.Clef
+    ) -> None:
+        with self.project.apply_mutations('%s: Change clef' % self.track.track.name):
+            for meditor in affected_measure_editors:
+                meditor.measure.clef = clef
+
+    def onSetKeySignature(
+            self,
+            affected_measure_editors: List['ScoreMeasureEditor'],
+            key_signature: value_types.KeySignature
+    ) -> None:
+        with self.project.apply_mutations('%s: Change key signature' % self.track.track.name):
+            for meditor in affected_measure_editors:
+                meditor.measure.key_signature = key_signature
+
+    def onTranspose(
+            self,
+            affected_measure_editors: List['ScoreMeasureEditor'],
+            half_notes: int
+    ) -> None:
+        with self.project.apply_mutations('%s: Transpose notes' % self.track.track.name):
+            for meditor in affected_measure_editors:
+                for note in meditor.measure.notes:
+                    note.transpose(half_notes)
+
     def mouseMoveMeasureEvent(
             self, measure: measured_track_editor.BaseMeasureEditor, evt: QtGui.QMouseEvent) -> None:
         assert isinstance(measure, ScoreMeasureEditor), type(measure).__name__
@@ -1005,130 +1129,6 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
 
     def createToolBox(self) -> ScoreToolBox:
         return ScoreToolBox(track=self, context=self.context)
-
-    def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
-        super().buildContextMenu(menu, pos)
-
-        affected_measure_editors = []  # type: List[ScoreMeasureEditor]
-        if not self.selection_set.empty():
-            affected_measure_editors.extend(
-                down_cast(ScoreMeasureEditor, seditor) for seditor in self.selection_set)
-        else:
-            meditor = self.measureEditorAt(pos)
-            if isinstance(meditor, ScoreMeasureEditor):
-                affected_measure_editors.append(meditor)
-
-        enable_measure_actions = bool(affected_measure_editors)
-
-        clef_menu = menu.addMenu("Set clef")
-        for clef in value_types.Clef:
-            clef_action = QtWidgets.QAction(clef.value, menu)
-            clef_action.setEnabled(enable_measure_actions)
-            clef_action.triggered.connect(
-                lambda _, clef=clef: self.onSetClef(affected_measure_editors, clef))
-            clef_menu.addAction(clef_action)
-
-        key_signature_menu = menu.addMenu("Set key signature")
-        key_signatures = [
-            value_types.KeySignature('C major'),
-            value_types.KeySignature('A minor'),
-            value_types.KeySignature('G major'),
-            value_types.KeySignature('E minor'),
-            value_types.KeySignature('D major'),
-            value_types.KeySignature('B minor'),
-            value_types.KeySignature('A major'),
-            value_types.KeySignature('F# minor'),
-            value_types.KeySignature('E major'),
-            value_types.KeySignature('C# minor'),
-            value_types.KeySignature('B major'),
-            value_types.KeySignature('G# minor'),
-            value_types.KeySignature('F# major'),
-            value_types.KeySignature('D# minor'),
-            value_types.KeySignature('C# major'),
-            value_types.KeySignature('A# minor'),
-            value_types.KeySignature('F major'),
-            value_types.KeySignature('D minor'),
-            value_types.KeySignature('Bb major'),
-            value_types.KeySignature('G minor'),
-            value_types.KeySignature('Eb major'),
-            value_types.KeySignature('C minor'),
-            value_types.KeySignature('Ab major'),
-            value_types.KeySignature('F minor'),
-            value_types.KeySignature('Db major'),
-            value_types.KeySignature('Bb minor'),
-            value_types.KeySignature('Gb major'),
-            value_types.KeySignature('Eb minor'),
-            value_types.KeySignature('Cb major'),
-            value_types.KeySignature('Ab minor'),
-        ]
-        for key_signature in key_signatures:
-            key_signature_action = QtWidgets.QAction(key_signature.name, menu)
-            key_signature_action.setEnabled(enable_measure_actions)
-            key_signature_action.triggered.connect(
-                lambda _, sig=key_signature: self.onSetKeySignature(affected_measure_editors, sig))
-            key_signature_menu.addAction(key_signature_action)
-
-        transpose_menu = menu.addMenu("Transpose")
-
-        octave_up_action = QtWidgets.QAction("Octave up", self)
-        octave_up_action.setEnabled(enable_measure_actions)
-        octave_up_action.setShortcut('Ctrl+Shift+Up')
-        octave_up_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-        octave_up_action.triggered.connect(
-            lambda _: self.onTranspose(affected_measure_editors, 12))
-        transpose_menu.addAction(octave_up_action)
-
-        halfnote_up_action = QtWidgets.QAction("Half-note up", self)
-        halfnote_up_action.setEnabled(enable_measure_actions)
-        halfnote_up_action.setShortcut('Ctrl+Up')
-        halfnote_up_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-        halfnote_up_action.triggered.connect(
-            lambda _: self.onTranspose(affected_measure_editors, 1))
-        transpose_menu.addAction(halfnote_up_action)
-
-        halfnote_down_action = QtWidgets.QAction("Half-note down", self)
-        halfnote_down_action.setEnabled(enable_measure_actions)
-        halfnote_down_action.setShortcut('Ctrl+Down')
-        halfnote_down_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-        halfnote_down_action.triggered.connect(
-            lambda _: self.onTranspose(affected_measure_editors, -1))
-        transpose_menu.addAction(halfnote_down_action)
-
-        octave_down_action = QtWidgets.QAction("Octave down", self)
-        octave_down_action.setEnabled(enable_measure_actions)
-        octave_down_action.setShortcut('Ctrl+Shift+Down')
-        octave_down_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-        octave_down_action.triggered.connect(
-            lambda _: self.onTranspose(affected_measure_editors, -12))
-        transpose_menu.addAction(octave_down_action)
-
-    def onSetClef(
-            self,
-            affected_measure_editors: List[ScoreMeasureEditor],
-            clef: value_types.Clef
-    ) -> None:
-        with self.project.apply_mutations('%s: Change clef' % self.track.name):
-            for meditor in affected_measure_editors:
-                meditor.measure.clef = clef
-
-    def onSetKeySignature(
-            self,
-            affected_measure_editors: List[ScoreMeasureEditor],
-            key_signature: value_types.KeySignature
-    ) -> None:
-        with self.project.apply_mutations('%s: Change key signature' % self.track.name):
-            for meditor in affected_measure_editors:
-                meditor.measure.key_signature = key_signature
-
-    def onTranspose(
-            self,
-            affected_measure_editors: List[ScoreMeasureEditor],
-            half_notes: int
-    ) -> None:
-        with self.project.apply_mutations('%s: Transpose notes' % self.track.name):
-            for meditor in affected_measure_editors:
-                for note in meditor.measure.notes:
-                    note.transpose(half_notes)
 
     def playNoteOn(self, pitch: value_types.Pitch) -> None:
         self.playNoteOff()

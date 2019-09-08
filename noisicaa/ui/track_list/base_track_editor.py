@@ -142,9 +142,6 @@ class BaseTrackEditor(
     def playerState(self) -> player_state_lib.PlayerState:
         return self.__player_state
 
-    def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
-        pass
-
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         self.sizeChanged.emit(evt.size())
         super().resizeEvent(evt)

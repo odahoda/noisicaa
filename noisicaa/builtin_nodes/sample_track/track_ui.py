@@ -60,6 +60,36 @@ class EditSamplesTool(tools.ToolBase):
     def iconName(self) -> str:
         return 'edit-samples'
 
+    def onAddSample(self, time: audioproc.MusicalTime) -> None:
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            parent=self.project_view,
+            caption="Add Sample to track \"%s\"" % self.track.track.name,
+            #directory=self.ui_state.get(
+            #'instruments_add_dialog_path', ''),
+            filter="All Files (*);;Wav files (*.wav)",
+            #initialFilter=self.ui_state.get(
+            #    'instruments_add_dialog_path', ''),
+        )
+        if not path:
+            return
+
+        with self.project.apply_mutations('%s: Create sample' % self.track.track.name):
+            self.track.track.create_sample(time, path)
+
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        time = self.track.xToTime(evt.pos().x())
+
+        menu = QtWidgets.QMenu(self.track)
+        menu.setObjectName('context-menu')
+
+        add_sample_action = QtWidgets.QAction("Add sample...", menu)
+        add_sample_action.setStatusTip("Add a sample to the track.")
+        add_sample_action.triggered.connect(functools.partial(self.onAddSample, time))
+        menu.addAction(add_sample_action)
+
+        menu.popup(evt.globalPos())
+        evt.accept()
+
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.NoModifier
@@ -357,32 +387,6 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
     def setSamplePos(self, sample: SampleItem, pos: QtCore.QPoint) -> None:
         sample.setPos(pos)
         self.update()
-
-    def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
-        super().buildContextMenu(menu, pos)
-
-        time = self.xToTime(pos.x())
-
-        add_sample_action = QtWidgets.QAction("Add sample...", menu)
-        add_sample_action.setStatusTip("Add a sample to the track.")
-        add_sample_action.triggered.connect(functools.partial(self.onAddSample, time))
-        menu.addAction(add_sample_action)
-
-    def onAddSample(self, time: audioproc.MusicalTime) -> None:
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            parent=self.project_view,
-            caption="Add Sample to track \"%s\"" % self.track.name,
-            #directory=self.ui_state.get(
-            #'instruments_add_dialog_path', ''),
-            filter="All Files (*);;Wav files (*.wav)",
-            #initialFilter=self.ui_state.get(
-            #    'instruments_add_dialog_path', ''),
-        )
-        if not path:
-            return
-
-        with self.project.apply_mutations('%s: Create sample' % self.track.name):
-            self.track.create_sample(time, path)
 
     def leaveEvent(self, evt: QtCore.QEvent) -> None:
         self.__mouse_pos = None

@@ -25,7 +25,6 @@ from fractions import Fraction
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
-from PyQt5 import QtWidgets
 
 from noisidev import uitest
 from noisicaa.ui import player_state
@@ -69,7 +68,7 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
             self.assertEqual(ti.scaleX(), Fraction(1000, 1))
 
     def test_mouse_events(self):
-        with self._trackItem() as ti:
+        with self._trackItem():
             self.replayEvents(
                 uitest.MoveMouse(QtCore.QPoint(100, 50)),
                 uitest.PressMouseButton(Qt.LeftButton),
@@ -82,7 +81,7 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
             )
 
     def test_key_events(self):
-        with self._trackItem() as ti:
+        with self._trackItem():
             self.replayEvents(
                 uitest.MoveMouse(QtCore.QPoint(100, 50)),
                 uitest.PressKey(Qt.Key_Shift),
@@ -90,11 +89,6 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
                 uitest.ReleaseKey(Qt.Key_A),
                 uitest.ReleaseKey(Qt.Key_Shift),
             )
-
-    def test_buildContextMenu(self):
-        with self._trackItem() as ti:
-            menu = QtWidgets.QMenu()
-            ti.buildContextMenu(menu, QtCore.QPoint(100, 50))
 
     def test_paint(self):
         with self._trackItem() as ti:

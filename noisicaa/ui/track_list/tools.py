@@ -139,12 +139,7 @@ class ToolBase(ui_base.ProjectMixin, QtCore.QObject):
         pass
 
     def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
-        menu = QtWidgets.QMenu()
-        self.track.buildContextMenu(menu, evt.pos())
-        if not menu.isEmpty():
-            menu.exec_(evt.globalPos())
-            evt.accept()
-            return
+        pass
 
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         pass

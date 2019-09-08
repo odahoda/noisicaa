@@ -344,9 +344,59 @@ class Appendix(BaseMeasureEditor):
         super().leaveEvent(evt)
 
 
-class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
+class MeasuredTrackToolBase(tools.ToolBase):  # pylint: disable=abstract-method
     track = None  # type: MeasuredTrackEditor
 
+    def onSetTimeSignature(
+            self,
+            affected_measure_editors: List[MeasureEditor],
+            time_signature: value_types.TimeSignature
+    ) -> None:
+        with self.project.apply_mutations('%s: Change time signature' % self.track.track.name):
+            for meditor in affected_measure_editors:
+                meditor.measure.time_signature = time_signature
+
+    def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
+        affected_measure_editors = []  # type: List[Editor]
+        if not self.track.selection_set.empty():
+            affected_measure_editors.extend(
+                down_cast(MeasureEditor, seditor) for seditor in self.track.selection_set)
+        else:
+            meditor = self.track.measureEditorAt(pos)
+            if isinstance(meditor, MeasureEditor):
+                affected_measure_editors.append(meditor)
+
+        enable_measure_actions = bool(affected_measure_editors)
+
+        time_signature_menu = menu.addMenu("Set time signature")
+        time_signatures = [
+            value_types.TimeSignature(4, 4),
+            value_types.TimeSignature(3, 4),
+        ]
+        for time_signature in time_signatures:
+            time_signature_action = QtWidgets.QAction(
+                "%d/%d" % (time_signature.upper, time_signature.lower),
+                menu)
+            time_signature_action.setEnabled(enable_measure_actions)
+            time_signature_action.triggered.connect(
+                lambda _, time_signature=time_signature: (
+                    self.onSetTimeSignature(affected_measure_editors, time_signature)))
+            time_signature_menu.addAction(time_signature_action)
+
+        measure_editor = self.track.measureEditorAt(pos)
+        if measure_editor is not None:
+            measure_editor.buildContextMenu(
+                menu, pos - measure_editor.topLeft())
+
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        menu = QtWidgets.QMenu(self.track)
+        menu.setObjectName('context-menu')
+        self.buildContextMenu(menu, evt.pos())
+        menu.popup(evt.globalPos())
+        evt.accept()
+
+
+class MeasuredToolBase(MeasuredTrackToolBase):  # pylint: disable=abstract-method
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
@@ -499,7 +549,7 @@ class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
             evt.setAccepted(measure_evt.isAccepted())
 
 
-class ArrangeMeasuresTool(tools.ToolBase):
+class ArrangeMeasuresTool(MeasuredTrackToolBase):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(
             type=tools.ToolType.ARRANGE_MEASURES,
@@ -673,49 +723,6 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):  # pylint: disable
             p += QtCore.QPoint(measure_editor.width(), 0)
 
         return None
-
-    def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
-        super().buildContextMenu(menu, pos)
-
-        affected_measure_editors = []  # type: List[Editor]
-        if not self.selection_set.empty():
-            affected_measure_editors.extend(
-                down_cast(MeasureEditor, seditor) for seditor in self.selection_set)
-        else:
-            meditor = self.measureEditorAt(pos)
-            if isinstance(meditor, MeasureEditor):
-                affected_measure_editors.append(meditor)
-
-        enable_measure_actions = bool(affected_measure_editors)
-
-        time_signature_menu = menu.addMenu("Set time signature")
-        time_signatures = [
-            value_types.TimeSignature(4, 4),
-            value_types.TimeSignature(3, 4),
-        ]
-        for time_signature in time_signatures:
-            time_signature_action = QtWidgets.QAction(
-                "%d/%d" % (time_signature.upper, time_signature.lower),
-                menu)
-            time_signature_action.setEnabled(enable_measure_actions)
-            time_signature_action.triggered.connect(
-                lambda _, time_signature=time_signature: (
-                    self.onSetTimeSignature(affected_measure_editors, time_signature)))
-            time_signature_menu.addAction(time_signature_action)
-
-        measure_editor = self.measureEditorAt(pos)
-        if measure_editor is not None:
-            measure_editor.buildContextMenu(
-                menu, pos - measure_editor.topLeft())
-
-    def onSetTimeSignature(
-            self,
-            affected_measure_editors: List[MeasureEditor],
-            time_signature: value_types.TimeSignature
-    ) -> None:
-        with self.project.apply_mutations('%s: Change time signature' % self.track.name):
-            for meditor in affected_measure_editors:
-                meditor.measure.time_signature = time_signature
 
     def onInsertMeasure(self) -> None:
         with self.project.apply_mutations('%s: Insert measure' % self.track.name):
