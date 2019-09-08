@@ -160,9 +160,10 @@ class PianoRollTrackConnector(node_connector.NodeConnector):
 
 
 class PianoRollEvent(_model.PianoRollEvent):
-    def create(self, *, midi_event: value_types.MidiEvent, **kwargs: Any) -> None:
+    def create(self, *, midi_event: value_types.MidiEvent = None, **kwargs: Any) -> None:
         super().create(**kwargs)
 
+        assert midi_event is not None
         self.midi_event = midi_event
 
     @property
@@ -255,9 +256,10 @@ class Interval(object):
 
 
 class PianoRollSegment(_model.PianoRollSegment):
-    def create(self, *, duration: audioproc.MusicalDuration, **kwargs: Any) -> None:
+    def create(self, *, duration: audioproc.MusicalDuration = None, **kwargs: Any) -> None:
         super().create(**kwargs)
 
+        assert duration is not None
         self.duration = duration
 
     def add_event(self, midi_event: value_types.MidiEvent) -> PianoRollEvent:
@@ -300,13 +302,15 @@ class PianoRollSegment(_model.PianoRollSegment):
 class PianoRollSegmentRef(_model.PianoRollSegmentRef):
     def create(
             self, *,
-            time: audioproc.MusicalTime,
-            segment: PianoRollSegment,
+            time: audioproc.MusicalTime = None,
+            segment: PianoRollSegment = None,
             **kwargs: Any
     ) -> None:
         super().create(**kwargs)
 
+        assert time is not None
         self.time = time
+        assert segment is not None
         self.segment = segment
 
 

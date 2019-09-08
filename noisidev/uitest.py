@@ -392,6 +392,7 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.node_db_client = None
         self.app = None
         self.context = None
+        self.widget_under_test = None
 
     async def setup_testcase(self):
         self.hid_state = HIDState()

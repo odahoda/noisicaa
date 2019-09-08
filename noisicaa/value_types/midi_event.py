@@ -38,7 +38,7 @@ class MidiEvent(proto_value.ProtoValue):
             self.__time.to_float(), ' '.join('%02x' % m for m in self.__midi))
     __repr__ = __str__
 
-    def __hash__(self) -> str:
+    def __hash__(self) -> int:
         return hash((self.__time, self.__midi))
 
     def to_proto(self) -> 'audioproc.MidiEvent':

@@ -300,4 +300,4 @@ class ProjectView(ui_base.AbstractProjectView):
         super().hideEvent(evt)
 
         self.set_session_value(
-            self.__session_prefix + 'splitter-state', bytes(self.__splitter.saveState()))
+            self.__session_prefix + 'splitter-state', self.__splitter.saveState().data())

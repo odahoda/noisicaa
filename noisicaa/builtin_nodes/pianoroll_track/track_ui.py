@@ -744,7 +744,7 @@ class PianoRollTrackEditor(
 
         label = QtWidgets.QLabel("Velocity")
         font = QtGui.QFont(label.font())
-        font.setPointSize(font.pointSize() / 1.2)
+        font.setPointSizeF(font.pointSizeF() / 1.2)
         label.setFont(font)
 
         l = QtWidgets.QVBoxLayout()

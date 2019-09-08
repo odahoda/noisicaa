@@ -1484,10 +1484,15 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
             overlay_color = self.overlayColor()
             if overlay_color.alpha() > 0:
-                edge_color = overlay_color
                 s_color = QtGui.QColor(255, 255, 255)
-                tl_color = edge_color.fromHsvF(edge_color.hueF(), 0.3 * edge_color.saturationF(), 0.5 + 0.5 * edge_color.valueF())
-                br_color = edge_color.fromHsvF(edge_color.hueF(), 0.3 * edge_color.saturationF(), 0.5 * edge_color.valueF())
+                tl_color = QtGui.QColor.fromHsvF(
+                    overlay_color.hueF(),
+                    0.3 * overlay_color.saturationF(),
+                    0.5 + 0.5 * overlay_color.valueF())
+                br_color = QtGui.QColor.fromHsvF(
+                    overlay_color.hueF(),
+                    0.3 * overlay_color.saturationF(),
+                    0.5 * overlay_color.valueF())
                 w = self.width()
                 h = self.height()
 
