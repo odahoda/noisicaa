@@ -289,8 +289,8 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
 
     def test_clear_selection_segment(self):
         with self.project.apply_mutations('test'):
-            ref1 = self.track.create_segment(MT(0, 4), MD(4, 4))
-            ref2 = self.track.create_segment(MT(6, 4), MD(4, 4))
+            self.track.create_segment(MT(0, 4), MD(4, 4))
+            self.track.create_segment(MT(6, 4), MD(4, 4))
 
         with self._trackItem() as ti:
             ti.addToSelection(ti.segments[0])

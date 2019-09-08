@@ -248,6 +248,12 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
         self.track.unsetCursor()
         super().deactivated()
 
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        if self.__action is not None:
+            evt.accept()
+            return
+        super().contextMenuEvent(evt)
+
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton:
             click_segment = self.track.segmentAt(evt.pos().x())
@@ -277,6 +283,8 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
                 x2 = self.track.timeToX(seditor.endTime())
 
                 if abs(x2 - evt.pos().x()) < 4:
+                    self.track.clearSelection()
+                    self.track.addToSelection(seditor)
                     self.__action = 'move-end'
                     self.__resize_segment = seditor
                     self.__handle_offset = evt.pos().x() - x2
@@ -285,6 +293,8 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
                     return
 
                 if abs(x1 - evt.pos().x()) < 4:
+                    self.track.clearSelection()
+                    self.track.addToSelection(seditor)
                     self.__action = 'move-start'
                     self.__resize_segment = seditor
                     self.__handle_offset = evt.pos().x() - x1
@@ -313,6 +323,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
                 self.__time = self.track.snapTime(self.__time)
             self.__time = max(audioproc.MusicalTime(0, 1), self.__time)
             for segment in self.__drag_segments:
+                segment.setShowPlaybackPosition(False)
                 time = self.__time + (segment.startTime() - self.__ref_time)
                 self.track.repositionSegment(
                     segment, time, time + segment.duration())
@@ -320,6 +331,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
             return
 
         if self.__action == 'move-end':
+            self.__resize_segment.setShowPlaybackPosition(False)
             self.__time = self.track.xToTime(evt.pos().x() - self.__handle_offset)
             if self.track.shouldSnap(evt):
                 self.__time = self.track.snapTime(self.__time)
@@ -333,6 +345,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
             return
 
         if self.__action == 'move-start':
+            self.__resize_segment.setShowPlaybackPosition(False)
             self.__time = self.track.xToTime(evt.pos().x() - self.__handle_offset)
             if self.track.shouldSnap(evt):
                 self.__time = self.track.snapTime(self.__time)
@@ -367,38 +380,54 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
         if evt.button() == Qt.LeftButton and self.__action == 'drag':
             with self.project.apply_mutations('%s: Move segment' % self.track.track.name):
                 for segment in self.__drag_segments:
+                    segment.setShowPlaybackPosition(True)
                     segment.segmentRef().time += self.__time - self.__ref_time
+            self.track.updatePlaybackPosition()
             self.__drag_segments.clear()
             self.__action = None
             evt.accept()
             return
 
         if evt.button() == Qt.LeftButton and self.__action == 'move-start':
+            self.__resize_segment.setShowPlaybackPosition(True)
             with self.project.apply_mutations('%s: Resize segment' % self.track.track.name):
                 delta_time = self.__time - self.__resize_segment.startTime()
                 self.__resize_segment.segmentRef().time = self.__time
                 self.__resize_segment.segment().duration -= delta_time
+            self.track.updatePlaybackPosition()
             self.__resize_segment = None
             self.__action = None
             evt.accept()
             return
 
         if evt.button() == Qt.LeftButton and self.__action == 'move-end':
+            self.__resize_segment.setShowPlaybackPosition(True)
             with self.project.apply_mutations('%s: Resize segment' % self.track.track.name):
                 delta_time = self.__time - self.__resize_segment.endTime()
                 self.__resize_segment.segment().duration += delta_time
+            self.track.updatePlaybackPosition()
             self.__resize_segment = None
             self.__action = None
             evt.accept()
             return
 
-        if evt.button() == Qt.RightButton and self.__action in ('drag', 'move-start', 'move-end'):
-            self.__resize_segment.move(
-                self.track.timeToX(self.__resize_segment.startTime()) - self.track.xOffset(),
-                0)
-            self.__resize_segment.resize(
-                int(self.track.scaleX() * self.__resize_segment.duration().fraction) + 1,
-                self.track.height())
+        if evt.button() == Qt.RightButton and self.__action == 'drag':
+            for segment in self.__drag_segments:
+                segment.setShowPlaybackPosition(True)
+                self.track.repositionSegment(segment, segment.startTime(), segment.endTime())
+            self.track.updatePlaybackPosition()
+            self.__resize_segment = None
+            self.__action = None
+            evt.accept()
+            return
+
+        if evt.button() == Qt.RightButton and self.__action in ('move-start', 'move-end'):
+            self.__resize_segment.setShowPlaybackPosition(True)
+            self.track.repositionSegment(
+                self.__resize_segment,
+                self.__resize_segment.startTime(), self.__resize_segment.endTime())
+            self.__resize_segment.setDuration(self.__resize_segment.duration())
+            self.track.updatePlaybackPosition()
             self.__resize_segment = None
             self.__action = None
             evt.accept()
@@ -502,6 +531,8 @@ class SegmentEditor(
     insertVelocity, setInsertVelocity, insertVelocityChanged = slots.slot(
         int, 'insertVelocity', default=100)
     selected, setSelected, selectedChanged = slots.slot(bool, 'selected', default=False)
+    showPlaybackPosition, setShowPlaybackPosition, showPlaybackPositionChanged = slots.slot(
+        bool, 'showPlaybackPosition', default=True)
 
     def __init__(
             self, *,
@@ -543,10 +574,11 @@ class SegmentEditor(
         self.insertVelocityChanged.connect(self.__grid.setInsertVelocity)
         self.__grid.hoverPitchChanged.connect(self.__track_editor.setHoverPitch)
         self.__grid.playNotes.connect(self.playNotes.emit)
-        self.playbackPositionChanged.connect(self.__grid.setPlaybackPosition)
         self.__listeners.add(self.__grid.mutations.add(self.__gridMutations))
 
         self.selectedChanged.connect(self.__selectedChanged)
+        self.playbackPositionChanged.connect(lambda _: self.__updatePlaybackPosition())
+        self.showPlaybackPositionChanged.connect(lambda _: self.__updatePlaybackPosition())
 
         self.__ignore_model_mutations = False
         self.__obj_to_grid_map = {}  # type: Dict[int, int]
@@ -564,6 +596,12 @@ class SegmentEditor(
             self.__grid.setOverlayColor(QtGui.QColor(150, 150, 255, 150))
         else:
             self.__grid.setOverlayColor(QtGui.QColor(0, 0, 0, 0))
+
+    def __updatePlaybackPosition(self) -> None:
+        if self.showPlaybackPosition():
+            self.__grid.setPlaybackPosition(self.playbackPosition())
+        else:
+            self.__grid.setPlaybackPosition(audioproc.MusicalTime(-1, 1))
 
     def __timeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
         self.__track_editor.repositionSegment(
@@ -652,7 +690,8 @@ class PianoRollTrackEditor(
     snapToGrid, setSnapToGrid, snapToGridChanged = slots.slot(bool, 'snapToGrid', default=True)
     currentChannel, setCurrentChannel, currentChannelChanged = slots.slot(
         int, 'currentChannel', default=0)
-    showVelocity, setShowVelocity, showVelocityChanged = slots.slot(bool, 'showVelocity', default=False)
+    showVelocity, setShowVelocity, showVelocityChanged = slots.slot(
+        bool, 'showVelocity', default=False)
 
     MIN_GRID_Y_SIZE = 2
     MAX_GRID_Y_SIZE = 64
@@ -697,9 +736,10 @@ class PianoRollTrackEditor(
 
         self.__velocity = int_dial.IntDial(self)
         self.__velocity.setFixedSize(48, 48)
-        self.__velocity.setValue(self.get_session_value(self.__session_prefix + 'new-interval-velocity', 100))
-        self.__velocity.valueChanged.connect(
-            functools.partial(self.set_session_value, self.__session_prefix + 'new-interval-velocity'))
+        self.__velocity.setValue(
+            self.get_session_value(self.__session_prefix + 'new-interval-velocity', 100))
+        self.__velocity.valueChanged.connect(functools.partial(
+            self.set_session_value, self.__session_prefix + 'new-interval-velocity'))
         self.__velocity.setRange(1, 127)
 
         label = QtWidgets.QLabel("Velocity")
@@ -729,7 +769,7 @@ class PianoRollTrackEditor(
         self.xOffsetChanged.connect(lambda _: self.update())
         self.scaleXChanged.connect(lambda _: self.__repositionSegments())
         self.gridYSizeChanged.connect(lambda _: self.__updateYScrollbar())
-        self.playbackPositionChanged.connect(self.__playbackPositionChanged)
+        self.playbackPositionChanged.connect(lambda _: self.updatePlaybackPosition())
 
         self.setCurrentChannel(
             self.get_session_value(self.__session_prefix + 'current-channel', 0))
@@ -883,7 +923,8 @@ class PianoRollTrackEditor(
 
         return segments
 
-    def __playbackPositionChanged(self, time: audioproc.MusicalTime) -> None:
+    def updatePlaybackPosition(self) -> None:
+        time = self.playbackPosition()
         for segment in self.segments:
             if segment.startTime() <= time < segment.endTime():
                 segment.setPlaybackPosition(time.relative_to(segment.startTime()))
