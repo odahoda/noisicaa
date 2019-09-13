@@ -35,8 +35,11 @@ import sortedcontainers
 
 from noisicaa import core
 from noisicaa import audioproc
+from noisicaa import music
 from noisicaa import value_types
 from . import slots
+from . import clipboard
+from . import pianoroll_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -433,7 +436,7 @@ class TempInterval(AbstractInterval):
         return self.__display_velocity
 
 
-class State(object):
+class State(clipboard.CopyableMixin, QtCore.QObject):
     def __init__(self, *, grid: 'PianoRollGrid') -> None:
         self.grid = grid
 
@@ -453,11 +456,9 @@ class State(object):
 
             yield interval
 
-        for interval in current_channel_intervals:
-            yield interval
-
-        for interval in selected_intervals:
-            yield interval
+        yield from current_channel_intervals
+        yield from selected_intervals
+        yield from self.grid.floatingSelection()
 
     def paintOverlay(self, painter: QtGui.QPainter) -> None:
         pass
@@ -495,6 +496,51 @@ class DefaultState(State):
         self.grid.removeAction(self.grid.transpose_selection_up_octave_action)
         self.grid.removeAction(self.grid.transpose_selection_down_octave_action)
 
+    def copyToClipboard(self) -> music.ClipboardContents:
+        data = music.ClipboardContents()
+        pianoroll_intervals = data.Extensions[pianoroll_pb2.pianoroll_intervals]
+
+        for interval in self.grid.selection():
+            serialized_interval = pianoroll_intervals.intervals.add()
+            serialized_interval.time.CopyFrom(interval.start_time.to_proto())
+            serialized_interval.duration.CopyFrom(interval.duration.to_proto())
+            serialized_interval.channel = interval.channel
+            serialized_interval.pitch = interval.pitch
+            serialized_interval.velocity = interval.velocity
+
+        return data
+
+    def cutToClipboard(self) -> music.ClipboardContents:
+        data = self.copyToClipboard()
+        self.grid.deleteSelection()
+        return data
+
+    def canPaste(self, data: music.ClipboardContents) -> bool:
+        return data.HasExtension(pianoroll_pb2.pianoroll_intervals)
+
+    def pasteFromClipboard(self, data: music.ClipboardContents) -> None:
+        assert data.HasExtension(pianoroll_pb2.pianoroll_intervals)
+        pianoroll_intervals = data.Extensions[pianoroll_pb2.pianoroll_intervals]
+
+        self.grid.clearSelection()
+        for serialized_interval in pianoroll_intervals.intervals:
+            time = audioproc.MusicalTime.from_proto(serialized_interval.time)
+            duration = audioproc.MusicalDuration.from_proto(serialized_interval.duration)
+            interval = TempInterval(
+                start_time=time,
+                end_time=time + duration,
+                channel=serialized_interval.channel,
+                pitch=serialized_interval.pitch,
+                velocity=serialized_interval.velocity,
+                selected=True)
+            self.grid.addToFloatingSelection(interval)
+
+    def canPasteAsLink(self, data: music.ClipboardContents) -> bool:
+        return False
+
+    def pasteAsLinkFromClipboard(self, data: music.ClipboardContents) -> None:
+        raise AssertionError("This should not happen")
+
     def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
         # Do not swallow the context menu and let a parent widget show it menu.
         evt.ignore()
@@ -502,6 +548,30 @@ class DefaultState(State):
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         pitch = self.grid.pitchAt(evt.pos().y() + self.grid.yOffset())
         time = self.grid.timeAt(evt.pos().x() + self.grid.xOffset())
+
+        if evt.button() == Qt.LeftButton:
+            floating_selection = self.grid.floatingSelection()
+            if floating_selection:
+                hit = any(
+                    interval.pitch == pitch and interval.start_time <= time <= interval.end_time
+                    for interval in floating_selection)
+
+                if hit:
+                    self.grid.setCurrentState(MoveSelectionState(
+                        grid=self.grid, evt=evt, intervals=floating_selection))
+                else:
+                    self.grid.clearSelection()
+                    with self.grid.collect_mutations():
+                        for floating_interval in floating_selection:
+                            self.grid.addInterval(
+                                channel=floating_interval.channel,
+                                pitch=floating_interval.pitch,
+                                velocity=floating_interval.velocity,
+                                time=floating_interval.start_time,
+                                duration=floating_interval.duration)
+                evt.accept()
+                return
+
         interval = (
             self.grid.intervalAt(pitch, time, self.grid.currentChannel())
             if pitch >= 0 else None)
@@ -574,7 +644,8 @@ class DefaultState(State):
         if (self.grid.numSelected() > 0
                 and evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.NoModifier):
-            self.grid.setCurrentState(MoveSelectionState(grid=self.grid, evt=evt))
+            self.grid.setCurrentState(MoveSelectionState(
+                grid=self.grid, evt=evt, intervals=self.grid.selection()))
             evt.accept()
             return
 
@@ -851,21 +922,22 @@ class ResizeIntervalState(State):
 
 
 class MoveSelectionState(State):
-    def __init__(self, evt: QtGui.QMouseEvent, **kwargs: Any) -> None:
+    def __init__(self, evt: QtGui.QMouseEvent, intervals: Set[Interval], **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        assert self.grid.numSelected() > 0
+        assert len(intervals) > 0
 
+        self.__intervals = intervals
         self.click_pos = evt.pos()
         self.delta_pitch = 0
         self.delta_time = audioproc.MusicalDuration(0, 1)
 
         self.min_time = min(
-            interval.start_time for interval in self.grid.selection())
+            interval.start_time for interval in self.__intervals)
 
     def intervals(self) -> Iterator[AbstractInterval]:
         for interval in super().intervals():
-            if interval.selected:
+            if interval in self.__intervals:
                 pitch = interval.pitch + self.delta_pitch
                 if not 0 <= pitch <= 127:
                     continue
@@ -878,7 +950,7 @@ class MoveSelectionState(State):
                     velocity=interval.velocity,
                     start_time=start_time,
                     end_time=end_time,
-                    selected=True)
+                    selected=interval.selected)
                 yield interval
 
             else:
@@ -920,11 +992,12 @@ class MoveSelectionState(State):
 
             if (self.delta_pitch != 0
                     or self.delta_time != audioproc.MusicalDuration(0, 1)):
-                intervals = self.grid.selection()
                 self.grid.clearSelection()
 
                 with self.grid.collect_mutations():
-                    for interval in intervals:
+                    for interval in self.__intervals:
+                        if not isinstance(interval, Interval):
+                            continue
                         self.grid.removeEvent(interval.start_id)
                         if interval.end_event is not None:
                             self.grid.removeEvent(interval.end_id)
@@ -932,7 +1005,7 @@ class MoveSelectionState(State):
                     segment_start_time = audioproc.MusicalTime(0, 1)
                     segment_end_time = audioproc.MusicalTime(0, 1) + self.grid.duration()
 
-                    for interval in intervals:
+                    for interval in self.__intervals:
                         pitch = interval.pitch + self.delta_pitch
                         if not 0 <= pitch <= 127:
                             continue
@@ -1039,7 +1112,7 @@ class ChangeVelocityState(State):
             evt.accept()
 
 
-class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
+class PianoRollGrid(clipboard.CopyableMixin, slots.SlotContainer, QtWidgets.QWidget):
     playNotes = QtCore.pyqtSignal(PlayNotes)
 
     duration, setDuration, durationChanged = slots.slot(
@@ -1116,6 +1189,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         self.__sorted_events = sortedcontainers.SortedList()
 
         self.__selection = set()  # type: Set[int]
+        self.__floating_selection = set()  # type: Set[Interval]
 
         self.__current_state = None  # type: State
 
@@ -1143,7 +1217,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
         self.select_all_action = createAction('ctrl+a', self.__selectAll)
         self.select_none_action = createAction('ctrl+shift+a', self.__selectNone)
-        self.delete_selection_action = createAction('del', self.__deleteSelection)
+        self.delete_selection_action = createAction('del', self.deleteSelection)
         self.transpose_selection_up_step_action = createAction(
             'up', functools.partial(self.__transposeSelection, 1))
         self.transpose_selection_down_step_action = createAction(
@@ -1205,17 +1279,48 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
     def numSelected(self) -> int:
         return len(self.__selection)
 
+    def __selectionChanged(self) -> None:
+        self.setCanCopy(bool(self.__selection))
+        self.setCanCut(bool(self.__selection))
+        self.update()
+
     def addToSelection(self, interval: Interval) -> None:
         self.__selection.add(interval.start_id)
-        self.update()
+        self.__selectionChanged()
 
     def removeFromSelection(self, interval: Interval) -> None:
         self.__selection.discard(interval.start_id)
-        self.update()
+        self.__selectionChanged()
 
     def clearSelection(self) -> None:
         self.__selection.clear()
-        self.update()
+        self.__floating_selection.clear()
+        self.__selectionChanged()
+
+    def floatingSelection(self) -> Set[Interval]:
+        return set(self.__floating_selection)
+
+    def addToFloatingSelection(self, interval: Interval) -> None:
+        self.__floating_selection.add(interval)
+        self.__selectionChanged()
+
+    def copyToClipboard(self) -> music.ClipboardContents:
+        return self.__current_state.copyToClipboard()
+
+    def cutToClipboard(self) -> music.ClipboardContents:
+        return self.__current_state.cutToClipboard()
+
+    def canPaste(self, data: music.ClipboardContents) -> bool:
+        return self.__current_state.canPaste(data)
+
+    def pasteFromClipboard(self, data: music.ClipboardContents) -> None:
+        self.__current_state.pasteFromClipboard(data)
+
+    def canPasteAsLink(self, data: music.ClipboardContents) -> bool:
+        return self.__current_state.canPasteAsLink(data)
+
+    def pasteAsLinkFromClipboard(self, data: music.ClipboardContents) -> None:
+        self.__current_state.pasteAsLinkFromClipboard(data)
 
     def setCurrentState(self, state: State) -> None:
         if self.__current_state is not None:
@@ -1233,7 +1338,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
     def __selectNone(self) -> None:
         self.clearSelection()
 
-    def __deleteSelection(self) -> None:
+    def deleteSelection(self) -> None:
         if self.numSelected() > 0:
             intervals = self.selection()
             self.clearSelection()

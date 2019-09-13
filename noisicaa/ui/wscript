@@ -47,6 +47,7 @@ def build(ctx):
     ctx.py_module('piano.py')
     ctx.py_test('piano_test.py')
     ctx.py_module('pianoroll.py')
+    ctx.py_proto('pianoroll.proto')
     ctx.py_test('pianoroll_test.py')
     ctx.py_module('pipeline_perf_monitor.py')
     ctx.py_module('player_state.py')
