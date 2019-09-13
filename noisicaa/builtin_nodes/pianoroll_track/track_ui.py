@@ -37,6 +37,7 @@ from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
 from noisicaa.ui import ui_base
+from noisicaa.ui import clipboard
 from noisicaa.ui import pianoroll
 from noisicaa.ui import slots
 from noisicaa.ui import int_dial
@@ -45,6 +46,7 @@ from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
 from noisicaa.builtin_nodes.pianoroll import processor_messages
 from . import model
+from . import clipboard_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +156,13 @@ class PianoRollToolMixin(tools.ToolBase):  # pylint: disable=abstract-method
         for ch in range(16):
             current_channel_menu.addAction(
                 self.track.set_current_channel_actions[ch])
+
+        menu.addSeparator()
+
+        menu.addAction(self.app.clipboard.cut_action)
+        menu.addAction(self.app.clipboard.copy_action)
+        menu.addAction(self.app.clipboard.paste_action)
+        menu.addAction(self.app.clipboard.paste_as_link_action)
 
         menu.addSeparator()
 
@@ -682,6 +691,7 @@ class SegmentEditor(
 
 
 class PianoRollTrackEditor(
+        clipboard.CopyableMixin,
         time_view_mixin.ContinuousTimeMixin,
         base_track_editor.BaseTrackEditor):
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
@@ -698,6 +708,7 @@ class PianoRollTrackEditor(
 
     def __init__(self, **kwargs: Any) -> None:
         self.segments = []  # type: List[SegmentEditor]
+        self.__segment_map = {}  # type: Dict[int, SegmentEditor]
         self.__selection = set()  # type: Set[int]
         self.__last_selected = None  # type: SegmentEditor
 
@@ -817,6 +828,8 @@ class PianoRollTrackEditor(
             if segment.segmentRef().id in selected_ids:
                 segment.setSelected(True)
                 self.__selection.add(segment.segmentRef().id)
+        self.setCanCopy(bool(self.__selection))
+        self.setCanCut(bool(self.__selection))
 
     @property
     def track(self) -> model.PianoRollTrack:
@@ -832,7 +845,9 @@ class PianoRollTrackEditor(
 
     def __addSegment(self, insert_index: int, segment_ref: model.PianoRollSegmentRef) -> None:
         seditor = SegmentEditor(track_editor=self, segment_ref=segment_ref, context=self.context)
+        self.__segment_map[segment_ref.id] = seditor
         self.segments.insert(insert_index, seditor)
+
         seditor.setEnabled(self.isCurrent())
         seditor.setScaleX(self.scaleX())
         self.scaleXChanged.connect(seditor.setScaleX)
@@ -855,8 +870,9 @@ class PianoRollTrackEditor(
 
         self.update()
 
-    def __removeSegment(self, remove_index: int, point: QtCore.QPoint) -> None:
+    def __removeSegment(self, remove_index: int, segment_ref: model.PianoRollSegmentRef) -> None:
         seditor = self.segments.pop(remove_index)
+        del self.__segment_map[seditor.segmentRef().id]
         seditor.cleanup()
         seditor.hide()
         seditor.setParent(None)
@@ -886,31 +902,32 @@ class PianoRollTrackEditor(
         for segment in self.segments:
             segment.setEnabled(is_current)
 
+    def __selectionChanged(self) -> None:
+        self.set_session_value(
+            self.__session_prefix + 'selected-segments',
+            ','.join(str(segment_id) for segment_id in sorted(self.__selection)))
+        self.setCanCut(bool(self.__selection))
+        self.setCanCopy(bool(self.__selection))
+
     def addToSelection(self, segment: SegmentEditor) -> None:
         self.__selection.add(segment.segmentRef().id)
         self.__last_selected = segment
         segment.setSelected(True)
-        self.set_session_value(
-            self.__session_prefix + 'selected-segments',
-            ','.join(str(segment_id) for segment_id in sorted(self.__selection)))
+        self.__selectionChanged()
 
     def removeFromSelection(self, segment: SegmentEditor) -> None:
         self.__selection.discard(segment.segmentRef().id)
         if segment is self.__last_selected:
             self.__last_selected = None
         segment.setSelected(False)
-        self.set_session_value(
-            self.__session_prefix + 'selected-segments',
-            ','.join(str(segment_id) for segment_id in sorted(self.__selection)))
+        self.__selectionChanged()
 
     def clearSelection(self) -> None:
         for segment in self.selection():
             segment.setSelected(False)
         self.__selection.clear()
         self.__last_selected = None
-        self.set_session_value(
-            self.__session_prefix + 'selected-segments',
-            ','.join(str(segment_id) for segment_id in sorted(self.__selection)))
+        self.__selectionChanged()
 
     def lastSelected(self) -> SegmentEditor:
         return self.__last_selected
@@ -922,6 +939,50 @@ class PianoRollTrackEditor(
                 segments.append(segment)
 
         return segments
+
+    def copyToClipboard(self) -> music.ClipboardContents:
+        segments = self.selection()
+        assert len(segments) > 0
+
+        segment_data = self.track.copy_segments(
+            [segment.segmentRef() for segment in segments])
+
+        data = music.ClipboardContents()
+        data.Extensions[clipboard_pb2.pianoroll_segments].CopyFrom(segment_data)
+        return data
+
+    def cutToClipboard(self) -> music.ClipboardContents:
+        segments = self.selection()
+        assert len(segments) > 0
+
+        with self.project.apply_mutations('%s: cut segment(s)' % self.track.name):
+            segment_data = self.track.cut_segments(
+                [segment.segmentRef() for segment in segments])
+        self.clearSelection()
+
+        data = music.ClipboardContents()
+        data.Extensions[clipboard_pb2.pianoroll_segments].CopyFrom(segment_data)
+        return data
+
+    def canPaste(self, data: music.ClipboardContents) -> bool:
+        return data.HasExtension(clipboard_pb2.pianoroll_segments)
+
+    def pasteFromClipboard(self, data: music.ClipboardContents) -> None:
+        assert data.HasExtension(clipboard_pb2.pianoroll_segments)
+        segment_data = data.Extensions[clipboard_pb2.pianoroll_segments]
+
+        with self.project.apply_mutations('%s: cut segment(s)' % self.track.name):
+            segments = self.track.paste_segments(segment_data, audioproc.MusicalTime(0, 1))
+
+        self.clearSelection()
+        for segment in segments:
+            self.addToSelection(self.__segment_map[segment.id])
+
+    def canPasteAsLink(self, data: music.ClipboardContents) -> bool:
+        return False
+
+    def pasteAsLinkFromClipboard(self, data: music.ClipboardContents) -> None:
+        raise AssertionError("This should not happen")
 
     def updatePlaybackPosition(self) -> None:
         time = self.playbackPosition()

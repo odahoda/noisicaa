@@ -85,3 +85,6 @@ from .session_value_store import (
 from .project_client import (
     ProjectClient,
 )
+from .clipboard_pb2 import (
+    ClipboardContents,
+)

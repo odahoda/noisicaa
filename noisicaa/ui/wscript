@@ -27,6 +27,7 @@ def build(ctx):
     ctx.py_module('base_dial.py')
     ctx.py_module('control_value_dial.py')
     ctx.py_module('int_dial.py')
+    ctx.py_module('clipboard.py')
     ctx.py_module('device_list.py')
     ctx.py_module('dynamic_layout.py')
     ctx.py_module('editor_app.py')

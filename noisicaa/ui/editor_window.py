@@ -409,25 +409,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._redo_action.setStatusTip("Redo most recently undone action")
         self._redo_action.triggered.connect(self.onRedo)
 
-        self._clear_selection_action = QtWidgets.QAction("Clear", self)
-        self._clear_selection_action.setStatusTip("Clear the selected items")
-        self._clear_selection_action.triggered.connect(self.onClearSelection)
-
-        self._copy_action = QtWidgets.QAction("Copy", self)
-        self._copy_action.setShortcut(QtGui.QKeySequence.Copy)
-        self._copy_action.setStatusTip("Copy current selected items to clipboard")
-        self._copy_action.triggered.connect(self.onCopy)
-
-        self._paste_as_link_action = QtWidgets.QAction("Paste as link", self)
-        self._paste_as_link_action.setStatusTip(
-            "Paste items from clipboard to current location as linked items")
-        self._paste_as_link_action.triggered.connect(self.onPasteAsLink)
-
-        self._paste_action = QtWidgets.QAction("Paste", self)
-        self._paste_action.setShortcut(QtGui.QKeySequence.Paste)
-        self._paste_action.setStatusTip("Paste items from clipboard to current location")
-        self._paste_action.triggered.connect(self.onPaste)
-
         self._set_num_measures_action = QtWidgets.QAction("Set # measures", self)
         self._set_num_measures_action.setStatusTip("Set the number of measures in the project")
         self._set_num_measures_action.triggered.connect(self.onSetNumMeasures)
@@ -500,10 +481,10 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._edit_menu.addAction(self._undo_action)
         self._edit_menu.addAction(self._redo_action)
         self._project_menu.addSeparator()
-        self._edit_menu.addAction(self._clear_selection_action)
-        self._edit_menu.addAction(self._copy_action)
-        self._edit_menu.addAction(self._paste_action)
-        self._edit_menu.addAction(self._paste_as_link_action)
+        self._edit_menu.addAction(self.app.clipboard.copy_action)
+        self._edit_menu.addAction(self.app.clipboard.cut_action)
+        self._edit_menu.addAction(self.app.clipboard.paste_action)
+        self._edit_menu.addAction(self.app.clipboard.paste_as_link_action)
         self._project_menu.addSeparator()
         #self._edit_menu.addAction(self._set_num_measures_action)
         self._edit_menu.addAction(self._set_bpm_action)
@@ -653,26 +634,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         view = self.getCurrentProjectView()
         if view is not None:
             self.call_async(view.project.redo())
-
-    def onClearSelection(self) -> None:
-        view = self.getCurrentProjectView()
-        if view is not None:
-            view.onClearSelection()
-
-    def onCopy(self) -> None:
-        view = self.getCurrentProjectView()
-        if view is not None:
-            view.onCopy()
-
-    def onPaste(self) -> None:
-        view = self.getCurrentProjectView()
-        if view is not None:
-            view.onPaste(mode='overwrite')
-
-    def onPasteAsLink(self) -> None:
-        view = self.getCurrentProjectView()
-        if view is not None:
-            view.onPaste(mode='link')
 
     def onSetNumMeasures(self) -> None:
         view = self.getCurrentProjectView()

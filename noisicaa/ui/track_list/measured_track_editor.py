@@ -241,13 +241,6 @@ class MeasureEditor(selection_set.Selectable, core.AutoCleanupMixin, BaseMeasure
             self.__hovered = hovered
             self.rectChanged.emit(self.viewRect())
 
-    def getCopy(self) -> Dict[str, Any]:
-        return {
-            'class': type(self.__measure).__name__,
-            'id': self.__measure.id,
-            'data': self.__measure.serialize(),
-        }
-
     def purgePaintCaches(self) -> None:
         self.__paint_caches.clear()
 

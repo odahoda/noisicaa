@@ -103,6 +103,71 @@ class PianoRollTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase)
              MEVT(MT(2, 4), NOTE_OFF(0, 63)),
             })
 
+    async def test_copy_segment(self):
+        track = await self._add_track()
+        with self.project.apply_mutations('test'):
+            segment_ref = track.create_segment(MT(0, 4), MD(4, 4))
+            segment = segment_ref.segment
+            segment.add_event(MEVT(MT(0, 4), NOTE_ON(0, 70, 100)))
+            segment.add_event(MEVT(MT(4, 4), NOTE_OFF(0, 70)))
+            segment.add_event(MEVT(MT(0, 4), NOTE_ON(0, 60, 100)))
+            segment.add_event(MEVT(MT(1, 4), NOTE_OFF(0, 60)))
+            segment.add_event(MEVT(MT(1, 4), NOTE_ON(0, 61, 100)))
+            segment.add_event(MEVT(MT(2, 4), NOTE_OFF(0, 61)))
+            segment.add_event(MEVT(MT(2, 4), NOTE_ON(0, 62, 100)))
+            segment.add_event(MEVT(MT(3, 4), NOTE_OFF(0, 62)))
+            segment.add_event(MEVT(MT(3, 4), NOTE_ON(0, 63, 100)))
+            segment.add_event(MEVT(MT(4, 4), NOTE_OFF(0, 63)))
+
+        data = track.copy_segments([segment_ref])
+        self.assertEqual(len(data.segments), 1)
+
+    async def test_cut_segment(self):
+        track = await self._add_track()
+        with self.project.apply_mutations('test'):
+            segment_ref = track.create_segment(MT(0, 4), MD(4, 4))
+            segment = segment_ref.segment
+            segment.add_event(MEVT(MT(0, 4), NOTE_ON(0, 70, 100)))
+            segment.add_event(MEVT(MT(4, 4), NOTE_OFF(0, 70)))
+            segment.add_event(MEVT(MT(0, 4), NOTE_ON(0, 60, 100)))
+            segment.add_event(MEVT(MT(1, 4), NOTE_OFF(0, 60)))
+            segment.add_event(MEVT(MT(1, 4), NOTE_ON(0, 61, 100)))
+            segment.add_event(MEVT(MT(2, 4), NOTE_OFF(0, 61)))
+            segment.add_event(MEVT(MT(2, 4), NOTE_ON(0, 62, 100)))
+            segment.add_event(MEVT(MT(3, 4), NOTE_OFF(0, 62)))
+            segment.add_event(MEVT(MT(3, 4), NOTE_ON(0, 63, 100)))
+            segment.add_event(MEVT(MT(4, 4), NOTE_OFF(0, 63)))
+
+        with self.project.apply_mutations('test'):
+            data = track.cut_segments([segment_ref])
+        self.assertEqual(len(data.segments), 1)
+        self.assertEqual(len(track.segments), 0)
+
+    async def test_paste_segment(self):
+        track = await self._add_track()
+        with self.project.apply_mutations('test'):
+            segment_ref = track.create_segment(MT(0, 4), MD(4, 4))
+            segment = segment_ref.segment
+            segment.add_event(MEVT(MT(0, 4), NOTE_ON(0, 70, 100)))
+            segment.add_event(MEVT(MT(4, 4), NOTE_OFF(0, 70)))
+            segment.add_event(MEVT(MT(0, 4), NOTE_ON(0, 60, 100)))
+            segment.add_event(MEVT(MT(1, 4), NOTE_OFF(0, 60)))
+            segment.add_event(MEVT(MT(1, 4), NOTE_ON(0, 61, 100)))
+            segment.add_event(MEVT(MT(2, 4), NOTE_OFF(0, 61)))
+            segment.add_event(MEVT(MT(2, 4), NOTE_ON(0, 62, 100)))
+            segment.add_event(MEVT(MT(3, 4), NOTE_OFF(0, 62)))
+            segment.add_event(MEVT(MT(3, 4), NOTE_ON(0, 63, 100)))
+            segment.add_event(MEVT(MT(4, 4), NOTE_OFF(0, 63)))
+
+        data = track.copy_segments([segment_ref])
+        with self.project.apply_mutations('test'):
+            segment_refs = track.paste_segments(data, MT(8, 4))
+
+        self.assertEqual(len(segment_refs), 1)
+        self.assertEqual(len(track.segments), 2)
+        self.assertEqual(len(track.segment_heap), 2)
+        self.assertEqual(segment_refs[0].time, MT(8, 4))
+
     async def test_connector(self):
         track = await self._add_track()
 

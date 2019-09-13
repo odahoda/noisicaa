@@ -36,11 +36,12 @@ from noisicaa import core
 from . import selection_set as selection_set_lib
 
 if typing.TYPE_CHECKING:
-    from . import device_list
     from noisicaa import instrument_db as instrument_db_lib
     from noisicaa import node_db as node_db_lib
     from noisicaa import runtime_settings as runtime_settings_lib
     from noisicaa import lv2
+    from . import clipboard
+    from . import device_list
     from . import instrument_list as instrument_list_lib
     from . import project_registry as project_registry_lib
     from . import editor_window
@@ -255,17 +256,12 @@ class AbstractEditorApp(object):
     instrument_list = None  # type: instrument_list_lib.InstrumentList
     project_registry = None  # type: project_registry_lib.ProjectRegistry
     setup_complete = None  # type: asyncio.Event
+    clipboard = None  # type: clipboard.Clipboard
 
     def quit(self, exit_code: int = 0) -> None:
         raise NotImplementedError
 
     def crashWithMessage(self, title: str, msg: str) -> None:
-        raise NotImplementedError
-
-    def setClipboardContent(self, content: Any) -> None:
-        raise NotImplementedError
-
-    def clipboardContent(self) -> Any:
         raise NotImplementedError
 
     async def deleteWindow(self, win: 'editor_window.EditorWindow') -> None:

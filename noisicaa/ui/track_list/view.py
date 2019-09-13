@@ -179,6 +179,3 @@ class TrackListView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QSplitt
 
     def cleanup(self) -> None:
         self.__editor.cleanup()
-
-    def onPaste(self, *, mode: str) -> None:
-        self.__editor.onPaste(mode=mode)

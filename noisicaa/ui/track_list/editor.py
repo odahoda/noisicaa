@@ -309,37 +309,6 @@ class Editor(
     def offset(self) -> QtCore.QPoint:
         return QtCore.QPoint(self.xOffset(), self.__y_offset)
 
-    def onClearSelection(self) -> None:
-        if self.selection_set.empty():
-            return
-
-        with self.project.apply_mutations('Clear selection'):
-            for mref in sorted(
-                    (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
-                     for measure_editor in self.selection_set),
-                    key=lambda mref: mref.index):
-                mref.clear_measure()
-
-    def onPaste(self, *, mode: str) -> None:
-        assert mode in ('overwrite', 'link')
-
-        if self.selection_set.empty():
-            return
-
-        clipboard = self.app.clipboardContent()
-        if clipboard['type'] == 'measures':
-            with self.project.apply_mutations('Paste measures'):
-                self.project.paste_measures(
-                    mode=mode,
-                    src_objs=[copy['data'] for copy in clipboard['data']],
-                    targets=sorted(
-                        (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
-                         for measure_editor in self.selection_set),
-                        key=lambda mref: mref.index))
-
-        else:
-            raise ValueError(clipboard['type'])
-
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)
 

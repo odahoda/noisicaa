@@ -238,24 +238,6 @@ class ProjectView(ui_base.AbstractProjectView):
                 self.__player_id,
                 audioproc.PlayerState(loop_enabled=loop)))
 
-    def onClearSelection(self) -> None:
-        self.__editor.onClearSelection()
-
-    def onCopy(self) -> None:
-        if self.selection_set.empty():
-            return
-
-        data = []
-        items = [down_cast(measured_track_editor.MeasureEditor, item)
-                 for item in self.selection_set]
-        for item in sorted(items, key=lambda item: item.measure_reference.index):
-            data.append(item.getCopy())
-
-        self.app.setClipboardContent({'type': 'measures', 'data': data})
-
-    def onPaste(self, *, mode: str) -> None:
-        self.__track_list.onPaste(mode=mode)
-
     def onRender(self) -> None:
         dialog = render_dialog.RenderDialog(parent=self, context=self.context)
         dialog.setModal(True)

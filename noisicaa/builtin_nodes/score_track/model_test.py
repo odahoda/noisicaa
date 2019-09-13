@@ -160,38 +160,3 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         with self.project.apply_mutations('test'):
             measure.notes[0].transpose(2)
         self.assertEqual(measure.notes[0].pitches[0], value_types.Pitch('G2'))
-
-    async def test_paste_overwrite(self):
-        track = await self._add_track()
-        measure = track.measure_list[0].measure
-        await self._fill_measure(measure)
-
-        clipboard = measure.serialize()
-
-        with self.project.apply_mutations('test'):
-            self.project.paste_measures(
-                mode='overwrite',
-                src_objs=[clipboard],
-                targets=[track.measure_list[0]])
-        new_measure = track.measure_list[0].measure
-        self.assertNotEqual(new_measure.id, measure.id)
-        self.assertEqual(new_measure.notes[0].pitches[0], value_types.Pitch('F2'))
-
-    async def test_paste_link(self):
-        track = await self._add_track()
-        while len(track.measure_list) < 3:
-            with self.project.apply_mutations('test'):
-                track.insert_measure(-1)
-
-        measure = track.measure_list[0].measure
-        await self._fill_measure(measure)
-
-        clipboard = measure.serialize()
-
-        with self.project.apply_mutations('test'):
-            self.project.paste_measures(
-                mode='link',
-                src_objs=[clipboard],
-                targets=[track.measure_list[1], track.measure_list[2]])
-        self.assertIs(track.measure_list[1].measure, measure)
-        self.assertIs(track.measure_list[2].measure, measure)
