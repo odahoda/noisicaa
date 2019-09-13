@@ -80,39 +80,7 @@ class PianoRollToolMixin(tools.ToolBase):  # pylint: disable=abstract-method
         increase_button.setEnabled(tr.gridYSize() < tr.MAX_GRID_Y_SIZE)
         decrease_button.setEnabled(tr.gridYSize() > tr.MIN_GRID_Y_SIZE)
 
-    def __selectAll(self) -> None:
-        for segment in self.track.segments:
-            self.track.addToSelection(segment)
-
-    def __clearSelection(self) -> None:
-        self.track.clearSelection()
-
-    def __createSegment(self, time: audioproc.MusicalTime) -> None:
-        tr = self.track
-        with tr.project.apply_mutations('%s: Add segment' % tr.track.name):
-            tr.track.create_segment(
-                time, audioproc.MusicalDuration(16, 4))
-
-    def __deleteSegments(self, segments: List['SegmentEditor']) -> None:
-        tr = self.track
-        with tr.project.apply_mutations('%s: Remove segment(s)' % tr.track.name):
-            for segment in segments:
-                tr.track.remove_segment(segment.segmentRef())
-
-    def __splitSegment(self, segment: 'SegmentEditor', split_time: audioproc.MusicalTime) -> None:
-        assert segment.startTime() < split_time < segment.endTime()
-
-        tr = self.track
-        with tr.project.apply_mutations('%s: Split segment' % tr.track.name):
-            tr.track.split_segment(segment.segmentRef(), split_time)
-
     def buildContextMenu(self, menu: QtWidgets.QMenu, evt: QtGui.QContextMenuEvent) -> None:
-        affected_segments = self.track.selection()
-        if not affected_segments:
-            segment = self.track.segmentAt(evt.pos().x())
-            if segment:
-                affected_segments.append(segment)
-
         view_menu = menu.addMenu("View")
 
         increase_row_height_button = QtWidgets.QToolButton()
@@ -156,6 +124,81 @@ class PianoRollToolMixin(tools.ToolBase):  # pylint: disable=abstract-method
         for ch in range(16):
             current_channel_menu.addAction(
                 self.track.set_current_channel_actions[ch])
+
+
+    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
+        menu = QtWidgets.QMenu(self.track)
+        menu.setObjectName('context-menu')
+        self.buildContextMenu(menu, evt)
+        menu.popup(evt.globalPos())
+        evt.accept()
+
+
+class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(
+            type=tools.ToolType.PIANOROLL_ARRANGE_SEGMENTS,
+            group=tools.ToolGroup.EDIT,
+            **kwargs)
+
+        self.__action = None  # type: str
+
+        self.__resize_segment = None  # type: SegmentEditor
+        self.__drag_segments = None  # type: List[SegmentEditor]
+        self.__handle_offset = None  # type: int
+        self.__ref_time = None  # type: audioproc.MusicalTime
+        self.__time = None  # type: audioproc.MusicalTime
+
+    def iconName(self) -> str:
+        return 'pianoroll-arrange-segments'
+
+    def keySequence(self) -> QtGui.QKeySequence:
+        return QtGui.QKeySequence('a')
+
+    def activateSegment(self, segment: 'SegmentEditor') -> None:
+        segment.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        segment.setReadOnly(True)
+
+    def deactivated(self) -> None:
+        self.track.setInsertTime(audioproc.MusicalTime(-1, 1))
+        self.track.clearSelection()
+        self.track.unsetCursor()
+        super().deactivated()
+
+    def __selectAll(self) -> None:
+        for segment in self.track.segments:
+            self.track.addToSelection(segment)
+
+    def __clearSelection(self) -> None:
+        self.track.clearSelection()
+
+    def __createSegment(self, time: audioproc.MusicalTime) -> None:
+        tr = self.track
+        with tr.project.apply_mutations('%s: Add segment' % tr.track.name):
+            tr.track.create_segment(
+                time, audioproc.MusicalDuration(16, 4))
+
+    def __deleteSegments(self, segments: List['SegmentEditor']) -> None:
+        tr = self.track
+        with tr.project.apply_mutations('%s: Remove segment(s)' % tr.track.name):
+            for segment in segments:
+                tr.track.remove_segment(segment.segmentRef())
+
+    def __splitSegment(self, segment: 'SegmentEditor', split_time: audioproc.MusicalTime) -> None:
+        assert segment.startTime() < split_time < segment.endTime()
+
+        tr = self.track
+        with tr.project.apply_mutations('%s: Split segment' % tr.track.name):
+            tr.track.split_segment(segment.segmentRef(), split_time)
+
+    def buildContextMenu(self, menu: QtWidgets.QMenu, evt: QtGui.QContextMenuEvent) -> None:
+        super().buildContextMenu(menu, evt)
+
+        affected_segments = self.track.selection()
+        if not affected_segments:
+            segment = self.track.segmentAt(evt.pos().x())
+            if segment:
+                affected_segments.append(segment)
 
         menu.addSeparator()
 
@@ -218,44 +261,6 @@ class PianoRollToolMixin(tools.ToolBase):  # pylint: disable=abstract-method
         else:
             split_segment_action.setEnabled(False)
         menu.addAction(split_segment_action)
-
-    def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
-        menu = QtWidgets.QMenu(self.track)
-        menu.setObjectName('context-menu')
-        self.buildContextMenu(menu, evt)
-        menu.popup(evt.globalPos())
-        evt.accept()
-
-
-class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(
-            type=tools.ToolType.PIANOROLL_ARRANGE_SEGMENTS,
-            group=tools.ToolGroup.EDIT,
-            **kwargs)
-
-        self.__action = None  # type: str
-
-        self.__resize_segment = None  # type: SegmentEditor
-        self.__drag_segments = None  # type: List[SegmentEditor]
-        self.__handle_offset = None  # type: int
-        self.__ref_time = None  # type: audioproc.MusicalTime
-        self.__time = None  # type: audioproc.MusicalTime
-
-    def iconName(self) -> str:
-        return 'pianoroll-arrange-segments'
-
-    def keySequence(self) -> QtGui.QKeySequence:
-        return QtGui.QKeySequence('a')
-
-    def activateSegment(self, segment: 'SegmentEditor') -> None:
-        segment.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        segment.setReadOnly(True)
-
-    def deactivated(self) -> None:
-        self.track.clearSelection()
-        self.track.unsetCursor()
-        super().deactivated()
 
     def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
         if self.__action is not None:
@@ -460,6 +465,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
             seditor = self.track.segmentAt(evt.pos().x())
             if seditor is not None:
                 self.track.setCurrentToolType(tools.ToolType.PIANOROLL_EDIT_EVENTS)
+                seditor.activate()
 
             evt.accept()
             return
@@ -695,6 +701,9 @@ class SegmentEditor(
 
     def setDuration(self, duration: audioproc.MusicalDuration) -> None:
         self.__grid.setDuration(duration)
+
+    def activate(self) -> None:
+        self.__grid.setFocus()
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         self.__grid.resize(self.width(), self.height())

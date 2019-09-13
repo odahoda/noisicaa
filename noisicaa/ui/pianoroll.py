@@ -1119,11 +1119,9 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
         self.__current_state = None  # type: State
 
-        self.setFocusPolicy(Qt.StrongFocus)
-        self.setMouseTracking(not self.readOnly())
-        self.readOnlyChanged.connect(lambda _: self.setMouseTracking(not self.readOnly()))
+        self.__readOnlyChanged(self.readOnly())
+        self.readOnlyChanged.connect(self.__readOnlyChanged)
 
-        self.readOnlyChanged.connect(lambda _: self.update())
         self.playbackPositionChanged.connect(lambda _: self.update())
         self.durationChanged.connect(lambda _: self.update())
         self.unfinishedNoteModeChanged.connect(lambda _: self.update())
@@ -1268,8 +1266,26 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
                     self.addToSelection(interval)
 
+    def __readOnlyChanged(self, readonly: bool) -> None:
+        if readonly:
+            self.clearFocus()
+            self.setFocusPolicy(Qt.NoFocus)
+            self.setMouseTracking(False)
+        else:
+            self.setFocusPolicy(Qt.StrongFocus)
+            self.setMouseTracking(True)
+        self.update()
+
     def leaveEvent(self, evt: QtCore.QEvent) -> None:
         self.setHoverPitch(-1)
+
+    def focusInEvent(self, evt: QtGui.QFocusEvent) -> None:
+        super().focusInEvent(evt)
+        self.update()
+
+    def focusOutEvent(self, evt: QtGui.QFocusEvent) -> None:
+        super().focusOutEvent(evt)
+        self.update()
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)
@@ -1510,6 +1526,15 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                 painter.fillRect(2, h - 2, w - 3, 1, br_color)
                 painter.fillRect(w - 2, 2, 1, h - 4, br_color)
                 painter.fillRect(2, 2, w - 4, h - 4, overlay_color)
+                painter.translate(-self.xOffset(), -self.yOffset())
+
+            if not self.readOnly() and self.hasFocus():
+                f_color = QtGui.QColor(0, 0, 0)
+                painter.translate(self.xOffset(), self.yOffset())
+                painter.fillRect(0, 0, self.width(), 1, f_color)
+                painter.fillRect(0, 1, 1, self.height() - 2, f_color)
+                painter.fillRect(self.width() - 1, 1, 1, self.height() - 2, f_color)
+                painter.fillRect(0, self.height() - 1, self.width(), 1, f_color)
                 painter.translate(-self.xOffset(), -self.yOffset())
 
             playback_position = self.playbackPosition()
