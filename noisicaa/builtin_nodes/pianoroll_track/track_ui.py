@@ -261,6 +261,10 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
         if self.__action is not None:
             evt.accept()
             return
+
+        if self.track.insertTime() < audioproc.MusicalTime(0, 1):
+            self.track.setInsertTime(self.track.xToTime(evt.pos().x()))
+
         super().contextMenuEvent(evt)
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
@@ -292,6 +296,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
                 x2 = self.track.timeToX(seditor.endTime())
 
                 if abs(x2 - evt.pos().x()) < 4:
+                    self.track.setInsertTime(audioproc.MusicalTime(-1, 1))
                     self.track.clearSelection()
                     self.track.addToSelection(seditor)
                     self.__action = 'move-end'
@@ -302,6 +307,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
                     return
 
                 if abs(x1 - evt.pos().x()) < 4:
+                    self.track.setInsertTime(audioproc.MusicalTime(-1, 1))
                     self.track.clearSelection()
                     self.track.addToSelection(seditor)
                     self.__action = 'move-start'
@@ -312,6 +318,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
                     return
 
                 if x1 <= evt.pos().x() < x2:
+                    self.track.setInsertTime(audioproc.MusicalTime(-1, 1))
                     self.__action = 'drag'
                     if seditor.selected():
                         self.__drag_segments = self.track.selection()
@@ -322,6 +329,10 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
                     self.__time = self.__ref_time
                     evt.accept()
                     return
+
+            self.track.setInsertTime(self.track.xToTime(evt.pos().x()))
+            evt.accept()
+            return
 
         super().mousePressEvent(evt)
 
@@ -690,6 +701,14 @@ class SegmentEditor(
         super().resizeEvent(evt)
 
 
+class InsertCursor(QtWidgets.QWidget):
+    def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
+        painter = QtGui.QPainter(self)
+        painter.fillRect(0, 0, 1, self.height(), QtGui.QColor(160, 160, 255))
+        painter.fillRect(1, 0, 1, self.height(), QtGui.QColor(0, 0, 255))
+        painter.fillRect(2, 0, 1, self.height(), QtGui.QColor(160, 160, 255))
+
+
 class PianoRollTrackEditor(
         clipboard.CopyableMixin,
         time_view_mixin.ContinuousTimeMixin,
@@ -702,6 +721,8 @@ class PianoRollTrackEditor(
         int, 'currentChannel', default=0)
     showVelocity, setShowVelocity, showVelocityChanged = slots.slot(
         bool, 'showVelocity', default=False)
+    insertTime, setInsertTime, insertTimeChanged = slots.slot(
+        audioproc.MusicalTime, 'insertTime', default=audioproc.MusicalTime(-1, 1))
 
     MIN_GRID_Y_SIZE = 2
     MAX_GRID_Y_SIZE = 64
@@ -769,6 +790,9 @@ class PianoRollTrackEditor(
         self.__velocity_group.setVisible(self.showVelocity())
         self.showVelocityChanged.connect(self.__velocity_group.setVisible)
 
+        self.__insert_cursor = InsertCursor(self)
+        self.updateInsertTime()
+
         for segment_ref in self.track.segments:
             self.__addSegment(len(self.segments), segment_ref)
         self.__listeners.add(self.track.segments_changed.add(self.__segmentsChanged))
@@ -781,6 +805,9 @@ class PianoRollTrackEditor(
         self.scaleXChanged.connect(lambda _: self.__repositionSegments())
         self.gridYSizeChanged.connect(lambda _: self.__updateYScrollbar())
         self.playbackPositionChanged.connect(lambda _: self.updatePlaybackPosition())
+        self.insertTimeChanged.connect(lambda _: self.updateInsertTime())
+        self.xOffsetChanged.connect(lambda _: self.updateInsertTime())
+        self.scaleXChanged.connect(lambda _: self.updateInsertTime())
 
         self.setCurrentChannel(
             self.get_session_value(self.__session_prefix + 'current-channel', 0))
@@ -866,6 +893,7 @@ class PianoRollTrackEditor(
 
         for segment in self.segments:
             segment.raise_()
+        self.__insert_cursor.raise_()
         self.__keys.raise_()
         self.__velocity_group.raise_()
         self.__y_scrollbar.raise_()
@@ -973,8 +1001,12 @@ class PianoRollTrackEditor(
         assert data.HasExtension(clipboard_pb2.pianoroll_segments)
         segment_data = data.Extensions[clipboard_pb2.pianoroll_segments]
 
+        time = self.insertTime()
+        if time < audioproc.MusicalTime(0, 1):
+            time = audioproc.MusicalTime(0, 1)
+
         with self.project.apply_mutations('%s: cut segment(s)' % self.track.name):
-            segments = self.track.paste_segments(segment_data, audioproc.MusicalTime(0, 1))
+            segments = self.track.paste_segments(segment_data, time)
 
         self.clearSelection()
         for segment in segments:
@@ -993,6 +1025,20 @@ class PianoRollTrackEditor(
                 segment.setPlaybackPosition(time.relative_to(segment.startTime()))
             else:
                 segment.setPlaybackPosition(audioproc.MusicalTime(-1, 1))
+
+    def updateInsertTime(self) -> None:
+        time = self.insertTime()
+        if time < audioproc.MusicalTime(0, 1):
+            self.__insert_cursor.hide()
+            return
+
+        x = self.timeToX(time) - self.xOffset() - 1
+        if not -3 < x <= self.width():
+            self.__insert_cursor.hide()
+            return
+
+        self.__insert_cursor.setGeometry(x, 0, 3, self.height())
+        self.__insert_cursor.show()
 
     def gridStep(self) -> audioproc.MusicalDuration:
         for s in (64, 32, 16, 8, 4, 2):
