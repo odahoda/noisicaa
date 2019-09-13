@@ -287,7 +287,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
                 self.track.clearSelection()
 
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
-            for seditor in self.track.segments:
+            for seditor in reversed(self.track.segments):
                 x1 = self.track.timeToX(seditor.startTime())
                 x2 = self.track.timeToX(seditor.endTime())
 
@@ -367,7 +367,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
             evt.accept()
             return
 
-        for seditor in self.track.segments:
+        for seditor in reversed(self.track.segments):
             x1 = self.track.timeToX(seditor.startTime())
             x2 = self.track.timeToX(seditor.endTime())
 
@@ -864,6 +864,8 @@ class PianoRollTrackEditor(
         seditor.setSelected(segment_ref.id in self.__selection)
         down_cast(PianoRollToolMixin, self.currentTool()).activateSegment(seditor)
 
+        for segment in self.segments:
+            segment.raise_()
         self.__keys.raise_()
         self.__velocity_group.raise_()
         self.__y_scrollbar.raise_()
@@ -1028,7 +1030,7 @@ class PianoRollTrackEditor(
         return self.segmentAtTime(self.xToTime(x))
 
     def segmentAtTime(self, time: audioproc.MusicalTime) -> 'SegmentEditor':
-        for seditor in self.segments:
+        for seditor in reversed(self.segments):
             if seditor.startTime() <= time < seditor.endTime():
                 return seditor
         return None
