@@ -149,6 +149,38 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
         self.__ref_time = None  # type: audioproc.MusicalTime
         self.__time = None  # type: audioproc.MusicalTime
 
+        self.__select_all_action = QtWidgets.QAction(self)
+        self.__select_all_action.setObjectName('select-all')
+        self.__select_all_action.setText("Select All")
+        self.__select_all_action.setShortcut('ctrl+a')
+        self.__select_all_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.__select_all_action.triggered.connect(self.__selectAll)
+
+        self.__clear_selection_action = QtWidgets.QAction(self)
+        self.__clear_selection_action.setObjectName('clear-selection')
+        self.__clear_selection_action.setText("Clear Selection")
+        self.__clear_selection_action.setShortcut('ctrl+shift+a')
+        self.__clear_selection_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.__clear_selection_action.triggered.connect(self.__clearSelection)
+
+        self.__add_segment_action = QtWidgets.QAction(self)
+        self.__add_segment_action.setObjectName('add-segment')
+        self.__add_segment_action.setText("Add Segment")
+        self.__add_segment_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'list-add.svg')))
+        self.__add_segment_action.setShortcut('ins')
+        self.__add_segment_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.__add_segment_action.triggered.connect(self.__createSegment)
+
+        self.__delete_segment_action = QtWidgets.QAction(self)
+        self.__delete_segment_action.setObjectName('delete-segment')
+        self.__delete_segment_action.setText("Delete Segment(s)")
+        self.__delete_segment_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'list-remove.svg')))
+        self.__delete_segment_action.setShortcut('del')
+        self.__delete_segment_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.__delete_segment_action.triggered.connect(self.__deleteSegments)
+
     def iconName(self) -> str:
         return 'pianoroll-arrange-segments'
 
@@ -159,7 +191,18 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
         segment.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         segment.setReadOnly(True)
 
+    def activated(self) -> None:
+        self.track.addAction(self.__select_all_action)
+        self.track.addAction(self.__clear_selection_action)
+        self.track.addAction(self.__add_segment_action)
+        self.track.addAction(self.__delete_segment_action)
+        super().activated()
+
     def deactivated(self) -> None:
+        self.track.removeAction(self.__select_all_action)
+        self.track.removeAction(self.__clear_selection_action)
+        self.track.removeAction(self.__add_segment_action)
+        self.track.removeAction(self.__delete_segment_action)
         self.track.setInsertTime(audioproc.MusicalTime(-1, 1))
         self.track.clearSelection()
         self.track.unsetCursor()
@@ -172,13 +215,18 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
     def __clearSelection(self) -> None:
         self.track.clearSelection()
 
-    def __createSegment(self, time: audioproc.MusicalTime) -> None:
+    def __createSegment(self) -> None:
+        time = self.track.insertTime()
+        if time < audioproc.MusicalTime(0, 1):
+            time = audioproc.MusicalTime(0, 1)
+
         tr = self.track
         with tr.project.apply_mutations('%s: Add segment' % tr.track.name):
             tr.track.create_segment(
                 time, audioproc.MusicalDuration(16, 4))
 
-    def __deleteSegments(self, segments: List['SegmentEditor']) -> None:
+    def __deleteSegments(self) -> None:
+        segments = self.track.selection()
         tr = self.track
         with tr.project.apply_mutations('%s: Remove segment(s)' % tr.track.name):
             for segment in segments:
@@ -209,41 +257,13 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
 
         menu.addSeparator()
 
-        select_all_action = QtWidgets.QAction(menu)
-        select_all_action.setObjectName('select-all')
-        select_all_action.setText("Select All")
-        select_all_action.triggered.connect(self.__selectAll)
-        menu.addAction(select_all_action)
-
-        clear_selection_action = QtWidgets.QAction(menu)
-        clear_selection_action.setObjectName('clear-selection')
-        clear_selection_action.setText("Clear Selection")
-        clear_selection_action.triggered.connect(self.__clearSelection)
-        menu.addAction(clear_selection_action)
+        menu.addAction(self.__select_all_action)
+        menu.addAction(self.__clear_selection_action)
 
         menu.addSeparator()
 
-        add_segment_action = QtWidgets.QAction(menu)
-        add_segment_action.setObjectName('add-segment')
-        add_segment_action.setText("Add Segment")
-        add_segment_action.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'list-add.svg')))
-        add_segment_action.triggered.connect(
-            functools.partial(self.__createSegment, self.track.xToTime(evt.pos().x())))
-        menu.addAction(add_segment_action)
-
-        delete_segment_action = QtWidgets.QAction(menu)
-        delete_segment_action.setObjectName('delete-segment')
-        delete_segment_action.setText(
-            "Delete Segment" if len(affected_segments) < 2 else "Delete Segments")
-        delete_segment_action.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'list-remove.svg')))
-        if affected_segments:
-            delete_segment_action.triggered.connect(
-                functools.partial(self.__deleteSegments, affected_segments))
-        else:
-            delete_segment_action.setEnabled(False)
-        menu.addAction(delete_segment_action)
+        menu.addAction(self.__add_segment_action)
+        menu.addAction(self.__delete_segment_action)
 
         playback_position = self.track.playbackPosition()
         split_segment = self.track.segmentAtTime(playback_position)
