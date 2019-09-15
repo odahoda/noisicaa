@@ -314,6 +314,10 @@ class PianoRollSegmentRef(_model.PianoRollSegmentRef):
         assert segment is not None
         self.segment = segment
 
+    @property
+    def end_time(self) -> audioproc.MusicalTime:
+        return self.time + self.segment.duration
+
 
 class PianoRollTrack(_model.PianoRollTrack):
     def create_node_connector(

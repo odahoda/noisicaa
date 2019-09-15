@@ -986,6 +986,8 @@ class PianoRollTrackEditor(
         segment_data = self.track.copy_segments(
             [segment.segmentRef() for segment in segments])
 
+        self.setInsertTime(max(segment.endTime() for segment in segments))
+
         data = music.ClipboardContents()
         data.Extensions[clipboard_pb2.pianoroll_segments].CopyFrom(segment_data)
         return data
@@ -998,6 +1000,8 @@ class PianoRollTrackEditor(
             segment_data = self.track.cut_segments(
                 [segment.segmentRef() for segment in segments])
         self.clearSelection()
+
+        self.setInsertTime(min(segment.startTime() for segment in segments))
 
         data = music.ClipboardContents()
         data.Extensions[clipboard_pb2.pianoroll_segments].CopyFrom(segment_data)
@@ -1016,6 +1020,8 @@ class PianoRollTrackEditor(
 
         with self.project.apply_mutations('%s: cut segment(s)' % self.track.name):
             segments = self.track.paste_segments(segment_data, time)
+
+        self.setInsertTime(max(segment.end_time for segment in segments))
 
         self.clearSelection()
         for segment in segments:
