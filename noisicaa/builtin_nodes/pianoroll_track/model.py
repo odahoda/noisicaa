@@ -453,3 +453,21 @@ class PianoRollTrack(_model.PianoRollTrack):
             segment_refs.append(ref)
 
         return segment_refs
+
+    def link_segments(self, data: clipboard_pb2.PianoRollSegments, time: audioproc.MusicalTime) -> List[PianoRollSegmentRef]:
+        segment_map = {}  # type: Dict[int, PianoRollSegment]
+
+        for segment in self.segment_heap:
+            segment_map[segment.id] = segment
+
+        segment_refs = []  # type: List[PianoRollSegmentRef]
+        for serialized_segment_ref in data.segment_refs:
+            assert serialized_segment_ref.segment in segment_map
+            ref = self._pool.create(
+                PianoRollSegmentRef,
+                time=time + (audioproc.MusicalTime.from_proto(serialized_segment_ref.time) - audioproc.MusicalTime(0, 1)),
+                segment=segment_map[serialized_segment_ref.segment])
+            self.segments.append(ref)
+            segment_refs.append(ref)
+
+        return segment_refs

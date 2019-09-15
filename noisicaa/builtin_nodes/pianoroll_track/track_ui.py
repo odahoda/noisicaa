@@ -1048,10 +1048,33 @@ class PianoRollTrackEditor(
             self.addToSelection(self.__segment_map[segment.id])
 
     def canPasteAsLink(self, data: music.ClipboardContents) -> bool:
-        return False
+        if not data.HasExtension(clipboard_pb2.pianoroll_segments):
+            return False
+
+        existing_segments = {segment.id for segment in self.track.segment_heap}
+        segment_data = data.Extensions[clipboard_pb2.pianoroll_segments]
+        for serialized_ref in segment_data.segment_refs:
+            if serialized_ref.segment not in existing_segments:
+                return False
+
+        return True
 
     def pasteAsLinkFromClipboard(self, data: music.ClipboardContents) -> None:
-        raise AssertionError("This should not happen")
+        assert data.HasExtension(clipboard_pb2.pianoroll_segments)
+        segment_data = data.Extensions[clipboard_pb2.pianoroll_segments]
+
+        time = self.insertTime()
+        if time < audioproc.MusicalTime(0, 1):
+            time = audioproc.MusicalTime(0, 1)
+
+        with self.project.apply_mutations('%s: cut segment(s)' % self.track.name):
+            segments = self.track.link_segments(segment_data, time)
+
+        self.setInsertTime(max(segment.end_time for segment in segments))
+
+        self.clearSelection()
+        for segment in segments:
+            self.addToSelection(self.__segment_map[segment.id])
 
     def updatePlaybackPosition(self) -> None:
         time = self.playbackPosition()
