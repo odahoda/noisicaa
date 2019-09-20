@@ -35,8 +35,10 @@ from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
 from noisicaa import value_types
+from noisicaa.music import base_track_pb2
 from noisicaa.ui import ui_base
-from noisicaa.ui import selection_set
+from noisicaa.ui import clipboard
+from noisicaa.ui import slots
 from . import base_track_editor
 from . import tools
 
@@ -134,8 +136,8 @@ class BaseMeasureEditor(ui_base.ProjectMixin, QtCore.QObject):
         pass
 
 
-class MeasureEditor(selection_set.Selectable, core.AutoCleanupMixin, BaseMeasureEditor):
-    selection_class = 'measure'
+class MeasureEditor(core.AutoCleanupMixin, slots.SlotContainer, BaseMeasureEditor):
+    selected, setSelected, selectedChanged = slots.slot(bool, 'selected', default=False)
 
     PLAYBACK_POS = 'playback_pos'
 
@@ -153,7 +155,6 @@ class MeasureEditor(selection_set.Selectable, core.AutoCleanupMixin, BaseMeasure
         self.__measure_listener = self.__measure_reference.measure_changed.add(
             self.__measureChanged)
 
-        self.__selected = False
         self.__hovered = False
 
         self._measure_listeners = core.ListenerList()
@@ -162,12 +163,11 @@ class MeasureEditor(selection_set.Selectable, core.AutoCleanupMixin, BaseMeasure
         if self.__measure is not None:
             self.addMeasureListeners()
 
+        self.selectedChanged.connect(lambda _: self.rectChanged.emit(self.viewRect()))
+
         self.track_editor.hoveredMeasureChanged.connect(self.__onHoveredMeasureChanged)
 
     def cleanup(self) -> None:
-        if self.selected():
-            self.selection_set.remove(self, update_object=False)
-
         self.track_editor.hoveredMeasureChanged.disconnect(self.__onHoveredMeasureChanged)
 
         super().cleanup()
@@ -227,14 +227,6 @@ class MeasureEditor(selection_set.Selectable, core.AutoCleanupMixin, BaseMeasure
         with self.project.apply_mutations('%s: Remove measure' % self.track.name):
             self.track.remove_measure(self.measure_reference.index)
 
-    def setSelected(self, selected: bool) -> None:
-        if selected != self.__selected:
-            self.__selected = selected
-            self.rectChanged.emit(self.viewRect())
-
-    def selected(self) -> bool:
-        return self.__selected
-
     def __onHoveredMeasureChanged(self, measure_id: int) -> None:
         hovered = (measure_id == self.measure_reference.measure.id)
         if hovered != self.__hovered:
@@ -275,7 +267,7 @@ class MeasureEditor(selection_set.Selectable, core.AutoCleanupMixin, BaseMeasure
 
         self.__cached_size = self.size()
 
-        if self.__selected:
+        if self.selected():
             painter.fillRect(paint_rect, QtGui.QColor(255, 200, 200))
         elif self.__hovered:
             painter.fillRect(paint_rect, QtGui.QColor(220, 220, 255))
@@ -337,7 +329,7 @@ class Appendix(BaseMeasureEditor):
         super().leaveEvent(evt)
 
 
-class MeasuredTrackToolBase(tools.ToolBase):  # pylint: disable=abstract-method
+class MeasuredTrackToolBase(clipboard.CopyableMixin, tools.ToolBase):  # pylint: disable=abstract-method
     track = None  # type: MeasuredTrackEditor
 
     def onSetTimeSignature(
@@ -552,17 +544,79 @@ class ArrangeMeasuresTool(MeasuredTrackToolBase):
         self.__selection_first = None  # type: MeasureEditor
         self.__selection_last = None  # type: MeasureEditor
 
+        self.track.selectionChanged.connect(self.__selectionChanged)
+
+    def deactivated(self) -> None:
+        self.track.clearSelection()
+        super().deactivated()
+
     def iconName(self) -> str:
         return 'pointer'
+
+    def __selectionChanged(self) -> None:
+        num_selected = self.track.numSelected()
+        self.setCanCopy(num_selected > 0)
+        self.setCanCut(False)
+
+    def copyToClipboard(self) -> music.ClipboardContents:
+        measures = self.track.selection()
+        assert len(measures) > 0
+
+        measures_data = self.track.track.copy_measures(
+            [measure.measure_reference for measure in measures])
+        measures_data.type = self.track.measure_type
+
+        data = music.ClipboardContents()
+        data.Extensions[base_track_pb2.measures].CopyFrom(measures_data)
+        return data
+
+    def cutToClipboard(self) -> music.ClipboardContents:
+        return None
+
+    def canPaste(self, data: music.ClipboardContents) -> bool:
+        if self.track.numSelected() == 0:
+            return False
+        if not data.HasExtension(base_track_pb2.measures):
+            return False
+        measures_data = data.Extensions[base_track_pb2.measures]
+        return measures_data.type == self.track.measure_type
+
+    def pasteFromClipboard(self, data: music.ClipboardContents) -> None:
+        assert data.HasExtension(base_track_pb2.measures)
+        measures_data = data.Extensions[base_track_pb2.measures]
+        assert measures_data.type == self.track.measure_type
+        refs = self.track.selection()
+        assert refs
+
+        with self.project.apply_mutations('%s: paste measures(s)' % self.track.track.name):
+            self.track.track.paste_measures(measures_data, min(ref.index for ref in refs), max(ref.index for ref in refs))
+
+    def canPasteAsLink(self, data: music.ClipboardContents) -> bool:
+        if self.track.numSelected() == 0:
+            return False
+        if not data.HasExtension(base_track_pb2.measures):
+            return False
+        measures_data = data.Extensions[base_track_pb2.measures]
+        return measures_data.type == self.track.measure_type
+
+    def pasteAsLinkFromClipboard(self, data: music.ClipboardContents) -> None:
+        assert data.HasExtension(base_track_pb2.measures)
+        measures_data = data.Extensions[base_track_pb2.measures]
+        assert measures_data.type == self.track.measure_type
+        refs = self.track.selection()
+        assert refs
+
+        with self.project.apply_mutations('%s: paste measures(s)' % self.track.track.name):
+            self.track.track.link_measures(measures_data, min(ref.index for ref in refs), max(ref.index for ref in refs))
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
             measure_editor = self.track.measureEditorAt(evt.pos())
 
             if isinstance(measure_editor, MeasureEditor):
-                self.selection_set.clear()
+                self.track.clearSelection()
 
-                self.selection_set.add(measure_editor)
+                self.track.addToSelection(measure_editor)
                 self.__selection_first = measure_editor
                 self.__selection_last = None
                 evt.accept()
@@ -593,13 +647,12 @@ class ArrangeMeasuresTool(MeasuredTrackToolBase):
 
             for meditor in itertools.islice(self.track.measure_editors(), start_idx, last_idx + 1):
                 if isinstance(meditor, MeasureEditor) and not meditor.selected():
-                    self.selection_set.add(meditor)
+                    self.track.addToSelection(meditor)
 
-            for seditor in list(self.selection_set):
-                assert isinstance(seditor, MeasureEditor)
+            for seditor in self.track.selection():
                 if (not (start_idx <= seditor.measure_reference.index <= last_idx)
                         and seditor.selected()):
-                    self.selection_set.remove(seditor)
+                    self.track.removeFromSelection(seditor)
 
             self.__selection_last = measure_editor
 
@@ -609,9 +662,13 @@ class ArrangeMeasuresTool(MeasuredTrackToolBase):
         super().mouseMoveEvent(evt)
 
 
-class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):  # pylint: disable=abstract-method
+class MeasuredTrackEditor(  # pylint: disable=abstract-method
+        clipboard.CopyableDelegatorMixin,
+        base_track_editor.BaseTrackEditor):
     hoveredMeasureChanged = QtCore.pyqtSignal(int)
+    selectionChanged = QtCore.pyqtSignal()
 
+    measure_type = None  # type: str
     measure_editor_cls = None  # type: Type[MeasureEditor]
 
     def __init__(self, **kwargs: Any) -> None:
@@ -619,10 +676,13 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):  # pylint: disable
 
         super().__init__(**kwargs)
 
+        self.setFocusPolicy(Qt.StrongFocus)
+
         self.__closing = False
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
 
+        self.__selection = set()  # type: Set[MeasureEditor]
         self.__measure_editor_at_playback_pos = None  # type: BaseMeasureEditor
         self.__hover_measure_editor = None  # type: BaseMeasureEditor
 
@@ -639,6 +699,9 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):  # pylint: disable
 
         self.playbackPositionChanged.connect(self.__playbackPositionChanged)
 
+        self.__currentToolChanged(self.currentToolType())
+        self.currentToolChanged.connect(self.__currentToolChanged)
+
     def cleanup(self) -> None:
         self.__closing = True
 
@@ -653,6 +716,42 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):  # pylint: disable
 
     def measure_editors(self) -> List[BaseMeasureEditor]:
         return self.__measure_editors
+
+    def addToSelection(self, measure: MeasureEditor) -> None:
+        if measure.selected():
+            return
+
+        self.__selection.add(measure.measure_reference.id)
+        measure.setSelected(True)
+        self.selectionChanged.emit()
+
+    def removeFromSelection(self, measure: MeasureEditor) -> None:
+        if not measure.selected():
+            return
+
+        measure.setSelected(False)
+        self.__selection.discard(measure.measure_reference.id)
+        self.selectionChanged.emit()
+
+    def clearSelection(self) -> None:
+        if not self.__selection:
+            return
+
+        for measure in self.__measure_editors:
+            if isinstance(measure, MeasureEditor):
+                measure.setSelected(False)
+        self.__selection.clear()
+        self.selectionChanged.emit()
+
+    def numSelected(self) -> int:
+        return len(self.__selection)
+
+    def selection(self) -> List[MeasureEditor]:
+        measures = []  # type: List[MeasureEditor]
+        for measure in self.__measure_editors:
+            if isinstance(measure, MeasureEditor) and measure.measure_reference.id in self.__selection:
+                measures.append(measure)
+        return measures
 
     def onMeasureListChanged(
             self, change: music.PropertyListChange[music.MeasureReference]) -> None:
@@ -675,6 +774,8 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):  # pylint: disable
 
     def removeMeasure(self, idx: int) -> None:
         measure_editor = self.__measure_editors.pop(idx)
+        if isinstance(measure_editor, MeasureEditor) and measure_editor.selected():
+            self.removeFromSelection(measure_editor)
         measure_editor.cleanup()
         measure_editor.rectChanged.disconnect(self.update)
         self.updateMeasures()
@@ -748,6 +849,9 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):  # pylint: disable
             measure_editor.measure_reference.measure.id
             if self.isCurrent() and isinstance(measure_editor, MeasureEditor)
             else 0)
+
+    def __currentToolChanged(self, tool: tools.ToolType) -> None:
+        self.setDelegatedCopyable(down_cast(MeasuredTrackToolBase, self.currentTool()))
 
     def enterEvent(self, evt: QtCore.QEvent) -> None:
         evt = down_cast(QtGui.QEnterEvent, evt)

@@ -1119,6 +1119,7 @@ class ScoreMeasureEditor(measured_track_editor.MeasureEditor):
 
 
 class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
+    measure_type = 'score'
     measure_editor_cls = ScoreMeasureEditor
 
     def __init__(self, **kwargs: Any) -> None:

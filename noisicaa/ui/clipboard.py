@@ -23,7 +23,6 @@
 from typing import Any
 
 import logging
-import os.path
 
 from PyQt5 import QtCore
 from PyQt5 import QtGui
@@ -182,20 +181,83 @@ class CopyableMixin(slots.SlotContainer):
     canCut, setCanCut, canCutChanged = slots.slot(bool, 'canCut', default=False)
     canCopy, setCanCopy, canCopyChanged = slots.slot(bool, 'canCopy', default=False)
 
-    def canPaste(self, data: music.ClipboardContents) -> bool:
-        return False
-
-    def canPasteAsLink(self, data: music.ClipboardContents) -> bool:
-        return False
-
     def copyToClipboard(self) -> music.ClipboardContents:
         return None
 
     def cutToClipboard(self) -> music.ClipboardContents:
         return None
 
+    def canPaste(self, data: music.ClipboardContents) -> bool:
+        return False
+
     def pasteFromClipboard(self, data: music.ClipboardContents) -> None:
         pass
 
+    def canPasteAsLink(self, data: music.ClipboardContents) -> bool:
+        return False
+
     def pasteAsLinkFromClipboard(self, data: music.ClipboardContents) -> None:
         pass
+
+
+class CopyableDelegatorMixin(CopyableMixin):
+    delegatedCopyable, setDelegatedCopyable, delegatedCopyableChanged = slots.slot(
+        CopyableMixin, 'delegatedCopyable')
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.__can_copy_conn = None  # type: QtCore.QMetaObject.Connection
+        self.__can_cut_conn = None  # type: QtCore.QMetaObject.Connection
+
+        self.delegatedCopyableChanged.connect(self.__delegatedCopyableChanged)
+
+    def __delegatedCopyableChanged(self, delegate: CopyableMixin) -> None:
+        if self.__can_copy_conn is not None:
+            self.canCopyChanged.disconnect(self.__can_copy_conn)
+            self.__can_copy_conn = None
+
+        if self.__can_cut_conn is not None:
+            self.canCutChanged.disconnect(self.__can_cut_conn)
+            self.__can_cut_conn = None
+
+        if delegate is not None:
+            self.setCanCopy(delegate.canCopy())
+            self.__can_copy_conn = delegate.canCopyChanged.connect(self.setCanCopy)
+
+            self.setCanCut(delegate.canCut())
+            self.__can_cut_conn = delegate.canCutChanged.connect(self.setCanCut)
+
+    def copyToClipboard(self) -> music.ClipboardContents:
+        delegate = self.delegatedCopyable()
+        if delegate is not None:
+            return delegate.copyToClipboard()
+        return None
+
+    def cutToClipboard(self) -> music.ClipboardContents:
+        delegate = self.delegatedCopyable()
+        if delegate is not None:
+            return delegate.cutToClipboard()
+        return None
+
+    def canPaste(self, data: music.ClipboardContents) -> bool:
+        delegate = self.delegatedCopyable()
+        if delegate is not None:
+            return delegate.canPaste(data)
+        return False
+
+    def pasteFromClipboard(self, data: music.ClipboardContents) -> None:
+        delegate = self.delegatedCopyable()
+        if delegate is not None:
+            delegate.pasteFromClipboard(data)
+
+    def canPasteAsLink(self, data: music.ClipboardContents) -> bool:
+        delegate = self.delegatedCopyable()
+        if delegate is not None:
+            return delegate.canPasteAsLink(data)
+        return False
+
+    def pasteAsLinkFromClipboard(self, data: music.ClipboardContents) -> None:
+        delegate = self.delegatedCopyable()
+        if delegate is not None:
+            delegate.pasteAsLinkFromClipboard(data)

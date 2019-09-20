@@ -1038,7 +1038,7 @@ class PianoRollTrackEditor(
         if time < audioproc.MusicalTime(0, 1):
             time = audioproc.MusicalTime(0, 1)
 
-        with self.project.apply_mutations('%s: cut segment(s)' % self.track.name):
+        with self.project.apply_mutations('%s: paste segment(s)' % self.track.name):
             segments = self.track.paste_segments(segment_data, time)
 
         self.setInsertTime(max(segment.end_time for segment in segments))
@@ -1067,7 +1067,7 @@ class PianoRollTrackEditor(
         if time < audioproc.MusicalTime(0, 1):
             time = audioproc.MusicalTime(0, 1)
 
-        with self.project.apply_mutations('%s: cut segment(s)' % self.track.name):
+        with self.project.apply_mutations('%s: link segment(s)' % self.track.name):
             segments = self.track.link_segments(segment_data, time)
 
         self.setInsertTime(max(segment.end_time for segment in segments))

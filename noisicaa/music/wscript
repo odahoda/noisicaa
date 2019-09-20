@@ -25,6 +25,7 @@ def build(ctx):
 
     ctx.py_module('__init__.py')
     ctx.py_module('base_track.py')
+    ctx.py_proto('base_track.proto')
     if ctx.env.ENABLE_TEST:
         with ctx.group(ctx.GRP_BUILD_TESTS):
             ctx.py_module('base_track_test.py')

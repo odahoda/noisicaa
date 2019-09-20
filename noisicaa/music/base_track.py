@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import itertools
 import logging
 import random
 from typing import cast, Any, Optional, Iterator, Dict, List, Type
@@ -33,6 +34,7 @@ from . import model_base
 from . import _model
 from . import node_connector
 from . import graph
+from . import base_track_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -314,3 +316,49 @@ class MeasuredTrack(_model.MeasuredTrack, Track):  # pylint: disable=abstract-me
 
     def create_empty_measure(self, ref: Optional[Measure]) -> Measure:  # pylint: disable=unused-argument
         return self._pool.create(self.measure_cls)
+
+    def copy_measures(self, refs: List[MeasureReference]) -> base_track_pb2.Measures:
+        data = base_track_pb2.Measures()
+
+        measure_ids = set()  # type: Set[int]
+        for ref in refs:
+            measure = ref.measure
+            if measure.id not in measure_ids:
+                serialized_measure = data.measures.add()
+                serialized_measure.CopyFrom(measure.serialize())
+                measure_ids.add(measure.id)
+
+            serialized_ref = data.refs.add()
+            serialized_ref.measure = measure.id
+
+        return data
+
+    def paste_measures(self, data: base_track_pb2.Measures, first_index: int, last_index: int) -> None:
+        assert first_index <= last_index
+        assert last_index < len(self.measure_list)
+
+        measure_map = {}  # type: Dict[int, int]
+        for index, serialized_measure in enumerate(data.measures):
+            measure_map[serialized_measure.root] = index
+
+        for serialized_ref, index in zip(itertools.cycle(data.refs), range(first_index, last_index + 1)):
+            measure = self._pool.clone_tree(data.measures[measure_map[serialized_ref.measure]])
+            self.measure_heap.append(measure)
+
+            ref = self.measure_list[index]
+            ref.measure = measure
+
+        self.garbage_collect_measures()
+
+    def link_measures(self, data: base_track_pb2.Measures, first_index: int, last_index: int) -> None:
+        assert first_index <= last_index
+        assert last_index < len(self.measure_list)
+
+        existing_measures = {measure.id: measure for measure in self.measure_heap}
+
+        for serialized_ref, index in zip(itertools.cycle(data.refs), range(first_index, last_index + 1)):
+            assert serialized_ref.measure in existing_measures
+            ref = self.measure_list[index]
+            ref.measure = existing_measures[serialized_ref.measure]
+
+        self.garbage_collect_measures()
