@@ -399,7 +399,6 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
 
     async def setup_testcase(self):
         self.hid_state = HIDState()
-        self.widget = None
 
         self.setup_node_db_process(inline=True)
         self.setup_urid_mapper_process(inline=True)
@@ -457,6 +456,11 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         if self.process is not None:
             await self.process.cleanup()
 
+        self.app = None
+        self.context = None
+        self.widget_under_test = None
+        self.selection_set = None
+
     def setWidgetUnderTest(self, widget):
         self.widget_under_test = widget
 
@@ -465,12 +469,7 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
 
     def renderWidget(self):
         pixmap = QtGui.QPixmap(self.widget_under_test.size())
-        painter = QtGui.QPainter(pixmap)
-        try:
-            self.widget_under_test.render(painter)
-        finally:
-            painter.end()
-            painter = None  # QPainter must be destroyed before QPixmap.
+        self.widget_under_test.render(pixmap)
         return pixmap
 
     def replayEvents(self, *events):

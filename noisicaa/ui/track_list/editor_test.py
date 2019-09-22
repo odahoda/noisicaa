@@ -38,23 +38,14 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
             player_state=self.player_state,
             context=self.context)
         self.editor.resize(800, 400)
+        self.setWidgetUnderTest(self.editor)
 
     async def cleanup_testcase(self):
         if self.editor is not None:
             self.editor.cleanup()
 
-    def _render(self):
-        img = QtGui.QPixmap(self.editor.size())
-        painter = QtGui.QPainter(img)
-        try:
-            self.editor.render(painter)
-        finally:
-            painter.end()
-            painter = None  # QPainter must be destroyed before QImage.
-            img = None
-
     def test_add_track(self):
         with self.project.apply_mutations('test'):
             self.project.create_node('builtin://pianoroll-track')
 
-        self._render()
+        self.renderWidget()
