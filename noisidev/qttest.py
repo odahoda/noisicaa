@@ -33,23 +33,32 @@ from . import unittest
 logger = logging.getLogger(__name__)
 
 
+qt_app = None
+
+
 class QtTestCase(unittest.AsyncTestCase):
     use_default_loop = True
-    qt_app = None  # type: QtWidgets.QApplication
+    qt_app = None
 
     @classmethod
     def setUpClass(cls):
         if not constants.TEST_OPTS.ALLOW_UI:
             return
 
-        if cls.qt_app is None:
-            cls.qt_app = QtWidgets.QApplication(['unittest'])
-            cls.qt_app.setQuitOnLastWindowClosed(False)
+        global qt_app
+        if qt_app is None:
+            qt_app = QtWidgets.QApplication(['unittest'])
+            qt_app.setQuitOnLastWindowClosed(False)
+        cls.qt_app = qt_app
 
         event_loop = quamash.QEventLoop(cls.qt_app)
         asyncio.set_event_loop(event_loop)
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
         event_loop.set_default_executor(executor)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.qt_app = None
 
     def setup_testcase(self):
         if not constants.TEST_OPTS.ALLOW_UI:

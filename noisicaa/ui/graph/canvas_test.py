@@ -49,8 +49,8 @@ class CanvasTest(uitest.ProjectMixin, uitest.UITestCase):
         self.canvas.zoomStarted.connect(sig)
 
         evt = QtGui.QWheelEvent(
-            QtCore.QPointF(200, 100),
-            QtCore.QPointF(500, 300),
+            QtCore.QPoint(200, 100),
+            QtCore.QPoint(500, 300),
             QtCore.QPoint(0, 10),
             QtCore.QPoint(0, 120),
             10, Qt.Vertical,
@@ -69,8 +69,8 @@ class CanvasTest(uitest.ProjectMixin, uitest.UITestCase):
         self.canvas.zoomStarted.connect(sig)
 
         evt = QtGui.QWheelEvent(
-            QtCore.QPointF(200, 100),
-            QtCore.QPointF(500, 300),
+            QtCore.QPoint(200, 100),
+            QtCore.QPoint(500, 300),
             QtCore.QPoint(0, -10),
             QtCore.QPoint(0, -120),
             10, Qt.Vertical,

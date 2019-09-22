@@ -89,8 +89,8 @@ class QComboBoxConnector(Generic[V], PropertyConnector[V, QtWidgets.QComboBox]):
         idx = self._widget.findData(self.value())
         if idx >= 0:
             self._widget.setCurrentIndex(idx)
-        connection = self._widget.currentIndexChanged.connect(self._widgetChanged)
-        self.add_cleanup_function(lambda: self._widget.currentIndexChanged.disconnect(connection))
+        self._widget.currentIndexChanged.connect(self._widgetChanged)
+        self.add_cleanup_function(lambda: self._widget.currentIndexChanged.disconnect(self._widgetChanged))
 
     def _widgetChanged(self) -> None:
         self.setValue(self._widget.currentData())
@@ -141,8 +141,8 @@ class QDoubleSpinBoxConnector(PropertyConnector[float, QtWidgets.QDoubleSpinBox]
 
     def _connectToWidget(self) -> None:
         self._widget.setValue(self.value())
-        connection = self._widget.valueChanged.connect(self.__valueChanged)
-        self.add_cleanup_function(lambda: self._widget.valueChanged.disconnect(connection))
+        self._widget.valueChanged.connect(self.__valueChanged)
+        self.add_cleanup_function(lambda: self._widget.valueChanged.disconnect(self.__valueChanged))
 
     def __valueChanged(self, value: float) -> None:
         if self.__ignore_change:

@@ -223,8 +223,7 @@ class StatMonitor(ui_base.AbstractStatMonitor):
         self.setCentralWidget(main_widget)
 
         self.setVisible(
-            int(self.app.settings.value(
-                'dialog/stat_monitor/visible', False)))
+            bool(self.app.settings.value('dialog/stat_monitor/visible') or False))
         self.restoreGeometry(
             self.app.settings.value(
                 'dialog/stat_monitor/geometry', b''))
