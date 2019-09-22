@@ -21,6 +21,7 @@
 # @end:license
 
 import asyncio
+import concurrent.futures
 import logging
 
 from PyQt5 import QtWidgets
@@ -45,7 +46,10 @@ class QtTestCase(unittest.AsyncTestCase):
             cls.qt_app = QtWidgets.QApplication(['unittest'])
             cls.qt_app.setQuitOnLastWindowClosed(False)
 
-        asyncio.set_event_loop(quamash.QEventLoop(cls.qt_app))
+        event_loop = quamash.QEventLoop(cls.qt_app)
+        asyncio.set_event_loop(event_loop)
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+        event_loop.set_default_executor(executor)
 
     def setup_testcase(self):
         if not constants.TEST_OPTS.ALLOW_UI:

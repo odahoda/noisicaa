@@ -20,14 +20,14 @@
 #
 # @end:license
 
-from typing import Interable
+from typing import Iterable
 
 from noisicaa import audioproc
 from noisicaa.builtin_nodes import processor_message_registry_pb2
 from . import processor_messages_pb2
 
 
-def emit_events(node_id: str, midi: Interable[bytes]) -> audioproc.ProcessorMessage:
+def emit_events(node_id: str, midi: Iterable[bytes]) -> audioproc.ProcessorMessage:
     msg = audioproc.ProcessorMessage(node_id=node_id)
     pb = msg.Extensions[processor_message_registry_pb2.pianoroll_emit_events]
     pb.midi.extend(midi)
