@@ -78,7 +78,6 @@ class Clipboard(core.AutoCleanupMixin, ui_base.CommonMixin, QtCore.QObject):
         self.add_cleanup_function(lambda conn=conn: self.__qt_app.focusChanged.disconnect(conn))  # type: ignore
 
     def store(self, data: music.ClipboardContents) -> None:
-        logger.error("Store in clipboard:\n%s", data)
         mime_data = QtCore.QMimeData()
         mime_data.setData(MIME_TYPE, data.SerializeToString())
         self.__qclipboard.setMimeData(mime_data)
@@ -109,17 +108,16 @@ class Clipboard(core.AutoCleanupMixin, ui_base.CommonMixin, QtCore.QObject):
 
         mime_data = self.__qclipboard.mimeData()
         if mime_data is None:
-            logger.error("no clipboard data")
             return
 
         if not mime_data.hasFormat(MIME_TYPE):
-            logger.error("unsupported clipboard contents (%s)", ", ".join(mime_data.formats()))
+            logger.info("unsupported clipboard contents (%s)", ", ".join(mime_data.formats()))
             return
 
         self.__contents = music.ClipboardContents()
         self.__contents.ParseFromString(mime_data.data(MIME_TYPE))
 
-        logger.error("Clipboard contents changed:\n%s", self.__contents)
+        logger.info("Clipboard contents changed:\n%s", self.__contents)
 
         self.__updateActions()
 
