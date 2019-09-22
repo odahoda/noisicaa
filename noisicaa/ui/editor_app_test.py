@@ -28,8 +28,8 @@ import sys
 import time
 
 import Cython
-from PyQt5 import QtCore
-from PyQt5 import QtWidgets
+from PySide2 import QtCore
+from PySide2 import QtWidgets
 
 from noisidev import qttest
 from noisidev import unittest

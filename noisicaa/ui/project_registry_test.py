@@ -23,7 +23,7 @@
 import builtins
 import shutil
 
-from PyQt5.QtCore import Qt
+from PySide2.QtCore import Qt
 from mox3 import stubout
 from pyfakefs import fake_filesystem
 

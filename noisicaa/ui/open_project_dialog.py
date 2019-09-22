@@ -27,10 +27,10 @@ import os.path
 import random
 from typing import Any, Dict, List
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 import humanize
 
 from noisicaa import constants
@@ -147,8 +147,8 @@ class ItemDelegate(QtWidgets.QAbstractItemDelegate):
 
 
 class ProjectListView(QtWidgets.QListView):
-    numProjectsSelected = QtCore.pyqtSignal(int)
-    itemDoubleClicked = QtCore.pyqtSignal(project_registry_lib.Item)
+    numProjectsSelected = QtCore.Signal(int)
+    itemDoubleClicked = QtCore.Signal(project_registry_lib.Item)
 
     def __init__(self, parent: QtWidgets.QWidget) -> None:
         super().__init__(parent)
@@ -358,9 +358,9 @@ class NewProjectDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
 
 class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
-    projectSelected = QtCore.pyqtSignal(project_registry_lib.Project)
-    createProject = QtCore.pyqtSignal(str)
-    debugProject = QtCore.pyqtSignal(project_registry_lib.Project)
+    projectSelected = QtCore.Signal(project_registry_lib.Project)
+    createProject = QtCore.Signal(str)
+    debugProject = QtCore.Signal(project_registry_lib.Project)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)

@@ -20,9 +20,9 @@
 #
 # @end:license
 
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 
 class QGraphicsGroup(QtWidgets.QGraphicsItem):

@@ -27,10 +27,10 @@ import random
 import uuid
 from typing import cast, Any, Optional, List
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa import constants
 from noisicaa import instrument_db
@@ -98,7 +98,7 @@ class FilterModel(QtCore.QSortFilterProxyModel):
 
 
 class LibraryView(QtWidgets.QTreeView):
-    currentIndexChanged = QtCore.pyqtSignal(QtCore.QModelIndex)
+    currentIndexChanged = QtCore.Signal(QtCore.QModelIndex)
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
@@ -123,7 +123,7 @@ class LibraryView(QtWidgets.QTreeView):
 
 
 class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
-    instrumentChanged = QtCore.pyqtSignal(instrument_db.InstrumentDescription)
+    instrumentChanged = QtCore.Signal(instrument_db.InstrumentDescription)
 
     def __init__(
             self, parent: Optional[QtWidgets.QWidget] = None, selectButton: bool = False,

@@ -24,8 +24,8 @@ import functools
 import os.path
 from typing import Any
 
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from ..constants import DATA_DIR
 from . import ui_base

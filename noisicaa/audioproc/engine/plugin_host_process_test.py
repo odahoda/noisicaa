@@ -26,9 +26,9 @@ import mmap
 import os
 import uuid
 
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 import posix_ipc
 
 from noisidev import unittest
@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 
 class Window(QtWidgets.QMainWindow):
-    closed = QtCore.pyqtSignal()
+    closed = QtCore.Signal()
 
     def closeEvent(self, event):
         self.closed.emit()

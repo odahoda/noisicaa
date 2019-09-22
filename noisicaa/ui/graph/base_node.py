@@ -25,11 +25,11 @@ import logging
 import os.path
 from typing import cast, Any, Optional, Dict, List, Iterable
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtSvg
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtSvg
+from PySide2 import QtWidgets
 
 from noisicaa import constants
 from noisicaa import audioproc
@@ -53,7 +53,7 @@ port_colors = {
 
 
 class SelectColorAction(QtWidgets.QWidgetAction):
-    colorSelected = QtCore.pyqtSignal(value_types.Color)
+    colorSelected = QtCore.Signal(value_types.Color)
 
     def __init__(self, parent: QtCore.QObject) -> None:
         super().__init__(parent)
@@ -62,7 +62,7 @@ class SelectColorAction(QtWidgets.QWidgetAction):
 
 
 class ColorBox(QtWidgets.QWidget):
-    clicked = QtCore.pyqtSignal()
+    clicked = QtCore.Signal()
 
     def __init__(self, color: value_types.Color, parent: QtWidgets.QWidget) -> None:
         super().__init__(parent)
@@ -152,8 +152,8 @@ class SelectColorWidget(QtWidgets.QWidget):
 
 
 class NodeProps(QtCore.QObject):
-    contentRectChanged = QtCore.pyqtSignal(QtCore.QRectF)
-    canvasLayoutChanged = QtCore.pyqtSignal()
+    contentRectChanged = QtCore.Signal(QtCore.QRectF)
+    canvasLayoutChanged = QtCore.Signal()
 
 
 class Title(QtWidgets.QGraphicsSimpleTextItem):

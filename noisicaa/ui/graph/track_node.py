@@ -23,7 +23,7 @@
 import logging
 from typing import cast, Any
 
-from PyQt5 import QtWidgets
+from PySide2 import QtWidgets
 
 from noisicaa import music
 from . import base_node

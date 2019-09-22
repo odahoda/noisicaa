@@ -26,9 +26,9 @@ import os.path
 from xml.etree import ElementTree
 from typing import Dict, Tuple
 
-from PyQt5 import QtCore
-from PyQt5 import QtSvg
-from PyQt5 import QtWidgets
+from PySide2 import QtCore
+from PySide2 import QtSvg
+from PySide2 import QtWidgets
 
 from noisicaa.constants import DATA_DIR
 from noisicaa import utils

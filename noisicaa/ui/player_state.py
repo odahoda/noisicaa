@@ -24,7 +24,7 @@ import logging
 import time as time_lib
 from typing import Any
 
-from PyQt5 import QtCore
+from PySide2 import QtCore
 
 from noisicaa import audioproc
 from noisicaa.audioproc.public import musical_time_pb2
@@ -34,11 +34,11 @@ logger = logging.getLogger(__name__)
 
 
 class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
-    playingChanged = QtCore.pyqtSignal(bool)
-    currentTimeChanged = QtCore.pyqtSignal(object)
-    loopStartTimeChanged = QtCore.pyqtSignal(object)
-    loopEndTimeChanged = QtCore.pyqtSignal(object)
-    loopEnabledChanged = QtCore.pyqtSignal(bool)
+    playingChanged = QtCore.Signal(bool)
+    currentTimeChanged = QtCore.Signal(object)
+    loopStartTimeChanged = QtCore.Signal(object)
+    loopEndTimeChanged = QtCore.Signal(object)
+    loopEnabledChanged = QtCore.Signal(bool)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)

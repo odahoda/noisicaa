@@ -24,9 +24,9 @@ import math
 import logging
 from typing import Any, List, Sequence, Iterator
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtWidgets
 
 logger = logging.getLogger(__name__)
 

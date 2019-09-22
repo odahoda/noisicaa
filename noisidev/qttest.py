@@ -23,7 +23,7 @@
 import asyncio
 import logging
 
-from PyQt5 import QtWidgets
+from PySide2 import QtWidgets
 import quamash
 
 from noisicaa import constants

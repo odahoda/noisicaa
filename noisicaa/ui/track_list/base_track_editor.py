@@ -25,10 +25,10 @@ import logging
 import typing
 from typing import Any
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa import audioproc
 from noisicaa import core
@@ -51,8 +51,8 @@ class BaseTrackEditor(
         core.AutoCleanupMixin,
         slots.SlotContainer,
         QtWidgets.QWidget):
-    sizeChanged = QtCore.pyqtSignal(QtCore.QSize)
-    currentToolChanged = QtCore.pyqtSignal(tools.ToolType)
+    sizeChanged = QtCore.Signal(QtCore.QSize)
+    currentToolChanged = QtCore.Signal(object)  # type: should be tools.ToolType
     playbackPosition, setPlaybackPosition, playbackPositionChanged = slots.slot(
         audioproc.MusicalTime, 'playbackPosition', default=audioproc.MusicalTime(-1, 1))
 

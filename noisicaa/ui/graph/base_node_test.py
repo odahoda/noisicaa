@@ -20,7 +20,7 @@
 #
 # @end:license
 
-from PyQt5 import QtCore
+from PySide2 import QtCore
 
 from noisidev import uitest
 from noisicaa import value_types

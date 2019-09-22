@@ -22,8 +22,8 @@
 
 import os.path
 
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa import constants
 

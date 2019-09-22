@@ -26,10 +26,10 @@ import logging
 import os.path
 from typing import Any, Optional, Callable, Iterable, BinaryIO, Tuple
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa import constants
 from noisicaa import music
@@ -67,7 +67,7 @@ def populateComboBox(
 
 
 class QValueSlider(QtWidgets.QWidget):
-    valueChanged = QtCore.pyqtSignal(int)
+    valueChanged = QtCore.Signal(int)
 
     def __init__(self, parent: QtWidgets.QWidget) -> None:
         super().__init__(parent)

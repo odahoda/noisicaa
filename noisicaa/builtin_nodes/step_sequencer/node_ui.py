@@ -25,10 +25,10 @@ import logging
 import math
 from typing import Any, Optional, Dict, List
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa import core
 from noisicaa import music

@@ -26,10 +26,10 @@ import pickle
 import uuid
 from typing import List
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa import constants
 from noisicaa.core import stats
@@ -38,7 +38,7 @@ from noisicaa.core import process_manager_pb2
 from . import ui_base
 
 class StatGraph(QtWidgets.QWidget):
-    clicked = QtCore.pyqtSignal()
+    clicked = QtCore.Signal()
 
     def __init__(self, *, parent):
         super().__init__(parent)
@@ -121,7 +121,7 @@ class StatGraph(QtWidgets.QWidget):
 
 
 class QTextEdit(QtWidgets.QTextEdit):
-    editingFinished = QtCore.pyqtSignal()
+    editingFinished = QtCore.Signal()
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -152,7 +152,7 @@ class QTextEdit(QtWidgets.QTextEdit):
 
 
 class StatMonitor(ui_base.AbstractStatMonitor):
-    visibilityChanged = QtCore.pyqtSignal(bool)
+    visibilityChanged = QtCore.Signal(bool)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

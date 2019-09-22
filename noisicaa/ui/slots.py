@@ -20,12 +20,13 @@
 #
 # @end:license
 
+import enum
 import functools
 import logging
 import operator
 from typing import cast, Any, Dict, Tuple, Type, Callable, TypeVar
 
-from PyQt5 import QtCore
+from PySide2 import QtCore
 
 from . import ui_base
 
@@ -50,7 +51,7 @@ def slot(
         *,
         default: T = None,
         equality: Callable = None
-) -> Tuple[Callable[[SlotContainer], T], Callable[[SlotContainer, T], None], QtCore.pyqtSignal]:
+) -> Tuple[Callable[[SlotContainer], T], Callable[[SlotContainer, T], None], QtCore.Signal]:
     assert isinstance(type, _type), type
     if equality is None:
         if type in (int, float, bool, str):
@@ -58,7 +59,7 @@ def slot(
         else:
             equality = operator.is_
 
-    signal = QtCore.pyqtSignal(type)
+    signal = QtCore.Signal(type if not issubclass(type, enum.Enum) else object)
 
     def getter(self: SlotContainer) -> T:
         return self._slots.get(name, default)
@@ -71,7 +72,8 @@ def slot(
         if not equality(value, current_value):
             logger.debug("Slot %s on %s set to %s", name, self, value)
             self._slots[name] = value
-            sig_inst = signal.__get__(cast(QtCore.QObject, self))
+            sig_name = signal[0].split('(')[0]
+            sig_inst = cast(QtCore.SignalInstance, getattr(self, sig_name))
             sig_inst.emit(value)
 
     return getter, setter, signal
@@ -82,7 +84,7 @@ class SlotConnectionManager(ui_base.ProjectMixin, object):
         super().__init__(**kwargs)
 
         self.__session_prefix = session_prefix
-        self.__connections = {}  # type: Dict[str, Tuple[QtCore.pyqtBoundSignal, QtCore.pyqtConnection]]
+        self.__connections = {}  # type: Dict[str, Tuple[QtCore.SignalInstance, QtCore.pyqtConnection]]
 
     def cleanup(self) -> None:
         while self.__connections:
@@ -93,7 +95,7 @@ class SlotConnectionManager(ui_base.ProjectMixin, object):
             self,
             name: str,
             setter: Callable[[T], None],
-            signal: QtCore.pyqtBoundSignal,
+            signal: QtCore.SignalInstance,
             default: T = None,
     ) -> None:
         value = self.get_session_value(self.__session_prefix + ':' + name, default)

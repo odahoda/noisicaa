@@ -29,10 +29,10 @@ import traceback
 import typing
 from typing import cast, Any, Optional, Callable, Generator
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa import constants
 from noisicaa.core import storage
@@ -86,7 +86,7 @@ class SetupProgressWidget(QtWidgets.QWidget):
 
 
 class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
-    currentPageChanged = QtCore.pyqtSignal(QtWidgets.QWidget)
+    currentPageChanged = QtCore.Signal(QtWidgets.QWidget)
 
     def __init__(self, parent: QtWidgets.QTabWidget, **kwargs: Any) -> None:
         super().__init__(parent=parent, **kwargs)
@@ -271,9 +271,9 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
 class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     # Could not figure out how to define a signal that takes either an instance
     # of a specific class or None.
-    currentProjectChanged = QtCore.pyqtSignal(object)
-    playingChanged = QtCore.pyqtSignal(bool)
-    loopEnabledChanged = QtCore.pyqtSignal(bool)
+    currentProjectChanged = QtCore.Signal(object)
+    playingChanged = QtCore.Signal(bool)
+    loopEnabledChanged = QtCore.Signal(bool)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)

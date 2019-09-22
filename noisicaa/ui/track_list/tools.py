@@ -27,10 +27,10 @@ import os.path
 import typing
 from typing import Any, List, Dict, Iterator, Type
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa import constants
 from noisicaa.ui import ui_base
@@ -102,7 +102,7 @@ class ToolType(enum.IntEnum):
 
 
 class ToolBase(ui_base.ProjectMixin, QtCore.QObject):
-    cursorChanged = QtCore.pyqtSignal(QtGui.QCursor)
+    cursorChanged = QtCore.Signal(QtGui.QCursor)
 
     def __init__(
             self, *,
@@ -164,8 +164,8 @@ class ToolBase(ui_base.ProjectMixin, QtCore.QObject):
 
 
 class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
-    toolTypeChanged = QtCore.pyqtSignal(ToolType)
-    currentToolChanged = QtCore.pyqtSignal(ToolBase)
+    toolTypeChanged = QtCore.Signal(object)  # TODO: should be ToolType
+    currentToolChanged = QtCore.Signal(ToolBase)
 
     def __init__(self, track: 'base_track_editor.BaseTrackEditor', **kwargs: Any) -> None:
         super().__init__(**kwargs)

@@ -23,8 +23,8 @@
 import logging
 from typing import Any, Optional, List
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtWidgets
 
 from noisicaa import core
 from noisicaa import value_types

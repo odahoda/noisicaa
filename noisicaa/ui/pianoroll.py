@@ -27,10 +27,10 @@ import fractions
 import logging
 from typing import Any, Optional, Dict, List, Set, Tuple, Callable, Generator, Iterator, Sequence
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 import sortedcontainers
 
 from noisicaa import core
@@ -49,7 +49,7 @@ class PlayNotes(object):
 
 
 class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
-    playNotes = QtCore.pyqtSignal(PlayNotes)
+    playNotes = QtCore.Signal(PlayNotes)
 
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
@@ -1040,7 +1040,7 @@ class ChangeVelocityState(State):
 
 
 class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
-    playNotes = QtCore.pyqtSignal(PlayNotes)
+    playNotes = QtCore.Signal(PlayNotes)
 
     duration, setDuration, durationChanged = slots.slot(
         audioproc.MusicalDuration, 'duration', default=audioproc.MusicalDuration(8, 4))
@@ -1050,10 +1050,10 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         UnfinishedNoteMode, 'unfinishedNoteMode', default=UnfinishedNoteMode.ToEnd)
     xOffset, setXOffset, xOffsetChanged = slots.slot(int, 'xOffset', default=0)
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
-    widthChanged = QtCore.pyqtSignal(int)
-    heightChanged = QtCore.pyqtSignal(int)
-    gridWidthChanged = QtCore.pyqtSignal(int)
-    gridHeightChanged = QtCore.pyqtSignal(int)
+    widthChanged = QtCore.Signal(int)
+    heightChanged = QtCore.Signal(int)
+    gridWidthChanged = QtCore.Signal(int)
+    gridHeightChanged = QtCore.Signal(int)
     gridXSize, setGridXSize, gridXSizeChanged = slots.slot(
         fractions.Fraction, 'gridXSize', default=fractions.Fraction(4*80))
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)

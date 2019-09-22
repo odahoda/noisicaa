@@ -25,10 +25,10 @@ import itertools
 import logging
 from typing import Any, Optional, Union, Dict, List, Type
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 
 class BaseMeasureEditor(ui_base.ProjectMixin, QtCore.QObject):
-    rectChanged = QtCore.pyqtSignal(QtCore.QRect)
+    rectChanged = QtCore.Signal(QtCore.QRect)
 
     def __init__(self, track_editor: base_track_editor.BaseTrackEditor, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -617,7 +617,7 @@ class ArrangeMeasuresTool(MeasuredTrackToolBase):
 
 
 class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):  # pylint: disable=abstract-method
-    hoveredMeasureChanged = QtCore.pyqtSignal(int)
+    hoveredMeasureChanged = QtCore.Signal(int)
 
     measure_editor_cls = None  # type: Type[MeasureEditor]
 

@@ -25,8 +25,8 @@ import logging
 import pathlib
 from typing import cast, Any, Optional, Iterator, List, Tuple
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
 
 from noisicaa import instrument_db
 from noisicaa import core

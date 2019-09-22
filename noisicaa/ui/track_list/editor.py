@@ -25,10 +25,10 @@ import functools
 import logging
 from typing import cast, Any, Dict, List
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
@@ -51,12 +51,12 @@ class Editor(
         ui_base.ProjectMixin,
         slots.SlotContainer,
         QtWidgets.QWidget):
-    maximumYOffsetChanged = QtCore.pyqtSignal(int)
-    yOffsetChanged = QtCore.pyqtSignal(int)
-    pageHeightChanged = QtCore.pyqtSignal(int)
+    maximumYOffsetChanged = QtCore.Signal(int)
+    yOffsetChanged = QtCore.Signal(int)
+    pageHeightChanged = QtCore.Signal(int)
 
-    currentToolBoxChanged = QtCore.pyqtSignal(tools.ToolBox)
-    currentTrackChanged = QtCore.pyqtSignal(object)
+    currentToolBoxChanged = QtCore.Signal(tools.ToolBox)
+    currentTrackChanged = QtCore.Signal(object)
     playbackPosition, setPlaybackPosition, playbackPositionChanged = slots.slot(
         audioproc.MusicalTime, 'playbackPosition', default=audioproc.MusicalTime(-1, 1))
 

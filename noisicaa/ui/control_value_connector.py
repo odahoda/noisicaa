@@ -23,7 +23,7 @@
 import logging
 from typing import Any, Callable
 
-from PyQt5 import QtCore
+from PySide2 import QtCore
 
 from noisicaa import core
 from noisicaa import value_types
@@ -77,7 +77,7 @@ class ControlValueConnector(
         self.__generation = change.new_value.generation
         self.setValue(change.new_value.value)
 
-    def connect(self, getter: QtCore.pyqtBoundSignal, setter: Callable[[float], None]) -> None:
+    def connect(self, getter: QtCore.SignalInstance, setter: Callable[[float], None]) -> None:
         getter.connect(self.setValue)
         setter(self.value())
         self.valueChanged.connect(setter)

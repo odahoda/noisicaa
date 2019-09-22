@@ -23,10 +23,10 @@
 import math
 from typing import Dict
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa import value_types
 
@@ -72,8 +72,8 @@ class PianoKey(QtWidgets.QGraphicsRectItem):
 
 
 class PianoWidget(QtWidgets.QGraphicsView):
-    noteOn = QtCore.pyqtSignal(value_types.Pitch)
-    noteOff = QtCore.pyqtSignal(value_types.Pitch)
+    noteOn = QtCore.Signal(value_types.Pitch)
+    noteOff = QtCore.Signal(value_types.Pitch)
 
     def __init__(self, parent: QtWidgets.QWidget) -> None:
         super().__init__(parent)

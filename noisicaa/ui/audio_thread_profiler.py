@@ -24,11 +24,11 @@ import logging
 import os.path
 from typing import Any
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtSvg
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtSvg
+from PySide2 import QtWidgets
 
 from noisicaa import constants
 from . import ui_base

@@ -3,18 +3,18 @@
 # Based on QLed by Rob Kent.
 # Original URL: https://code.google.com/p/gulon-soft/downloads/detail?name=QLed-1.2.tar.gz
 # Original License: MIT License
-# Adapted for Python3 and PyQt5.
+# Adapted for Python3 and PySide2.
 
 # Ignore formatting of 3rd party code for now.
 # pylint: skip-file
 
 from colorsys import rgb_to_hls, hls_to_rgb
-from PyQt5.QtGui import QPainter
-from PyQt5.QtWidgets import (
+from PySide2.QtGui import QPainter
+from PySide2.QtWidgets import (
     QApplication, QWidget, QGridLayout, QSizePolicy, QStyleOption)
-from PyQt5.QtCore import (
-    pyqtSignal, Qt, QSize, QTimer, QByteArray, QRectF, pyqtProperty)
-from PyQt5.QtSvg import QSvgRenderer
+from PySide2.QtCore import (
+    Signal, Qt, QSize, QTimer, QByteArray, QRectF, Property)
+from PySide2.QtSvg import QSvgRenderer
 
 class QLed(QWidget):
     Circle   = 1
@@ -276,7 +276,7 @@ class QLed(QWidget):
              Purple : (0x87, 0x00, 0x83),
              Blue   : (0x00, 0x03, 0x9a)}
 
-    clicked=pyqtSignal()
+    clicked=Signal()
 
     def __init__(self, parent=None, **kwargs):
         self.m_value=False
@@ -293,25 +293,25 @@ class QLed(QWidget):
     def setValue(self, value):
         self.m_value=value
         self.update()
-    value=pyqtProperty(bool, value, setValue)
+    value=Property(bool, value, setValue)
 
     def onColour(self): return self.m_onColour
     def setOnColour(self, newColour):
         self.m_onColour=newColour
         self.update()
-    onColour=pyqtProperty(int, onColour, setOnColour)
+    onColour=Property(int, onColour, setOnColour)
 
     def offColour(self): return self.m_offColour
     def setOffColour(self, newColour):
         self.m_offColour=newColour
         self.update()
-    offColour=pyqtProperty(int, offColour, setOffColour)
+    offColour=Property(int, offColour, setOffColour)
 
     def shape(self): return self.m_shape
     def setShape(self, newShape):
         self.m_shape=newShape
         self.update()
-    shape=pyqtProperty(int, shape, setShape)
+    shape=Property(int, shape, setShape)
 
     def sizeHint(self):
         if self.m_shape==QLed.Triangle: return QSize(64,48)

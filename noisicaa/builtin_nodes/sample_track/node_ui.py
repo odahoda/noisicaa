@@ -24,7 +24,7 @@ from typing import Any
 import logging
 import os.path
 
-from PyQt5 import QtSvg
+from PySide2 import QtSvg
 
 from noisicaa.constants import DATA_DIR
 from noisicaa.ui.graph import track_node

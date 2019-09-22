@@ -25,10 +25,10 @@ import os.path
 import time
 from typing import Any, List
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa import constants
 from noisicaa import core
@@ -36,7 +36,7 @@ from . import ui_base
 
 
 class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
-    visibilityChanged = QtCore.pyqtSignal(bool)
+    visibilityChanged = QtCore.Signal(bool)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)

@@ -23,7 +23,7 @@
 import logging
 from typing import Any, Optional
 
-from PyQt5 import QtWidgets
+from PySide2 import QtWidgets
 
 from noisicaa import music
 from noisicaa.ui import ui_base

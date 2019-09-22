@@ -23,9 +23,9 @@
 import logging
 from typing import cast, Any, Dict, List
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtWidgets
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc

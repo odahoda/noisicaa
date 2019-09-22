@@ -26,9 +26,9 @@ import time as time_lib
 import typing
 from typing import Any, Optional, Dict
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtWidgets
 
 from noisicaa import music
 from noisicaa.ui import ui_base
@@ -59,8 +59,8 @@ class Frame(QtWidgets.QFrame):
 
 
 class TrackListView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QSplitter):
-    playingChanged = QtCore.pyqtSignal(bool)
-    loopEnabledChanged = QtCore.pyqtSignal(bool)
+    playingChanged = QtCore.Signal(bool)
+    loopEnabledChanged = QtCore.Signal(bool)
 
     currentTrack, setCurrentTrack, currentTrackChanged = slots.slot(
         music.Track, 'currentTrack')

@@ -20,7 +20,7 @@
 #
 # @end:license
 
-from PyQt5 import QtWidgets
+from PySide2 import QtWidgets
 
 from noisidev import uitest
 from noisicaa import audioproc

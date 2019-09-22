@@ -3,7 +3,7 @@
 # @custom_license
 #
 # Taken from https://github.com/mojocorp/QProgressIndicator with minor modifications
-# (use PyQt5 instead of PySide).
+# (use PySide2 instead of PySide).
 #
 # Original license:
 #   Author: Jared P. Sutton <jpsutton@gmail.com>
@@ -16,10 +16,10 @@
 # pylint: skip-file
 
 import sys
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 class QProgressIndicator(QtWidgets.QWidget):
   m_angle = None
@@ -131,9 +131,9 @@ class QProgressIndicator(QtWidgets.QWidget):
       painter.restore()
 
   def setProperties (self):
-    self.delay = QtCore.pyqtProperty(int, self.animationDelay, self.setAnimationDelay)
-    self.displayedWhenStopped = QtCore.pyqtProperty(bool, self.isDisplayedWhenStopped, self.setDisplayedWhenStopped)
-    self.color = QtCore.pyqtProperty(QtGui.QColor, self.getColor, self.setColor)
+    self.delay = QtCore.Property(int, self.animationDelay, self.setAnimationDelay)
+    self.displayedWhenStopped = QtCore.Property(bool, self.isDisplayedWhenStopped, self.setDisplayedWhenStopped)
+    self.color = QtCore.Property(QtGui.QColor, self.getColor, self.setColor)
 
 
 def TestProgressIndicator ():

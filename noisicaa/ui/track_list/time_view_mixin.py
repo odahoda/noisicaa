@@ -24,8 +24,8 @@ import fractions
 import logging
 from typing import Any
 
-from PyQt5 import QtCore
-from PyQt5 import QtGui
+from PySide2 import QtCore
+from PySide2 import QtGui
 
 from noisicaa import audioproc
 from noisicaa.ui import ui_base
@@ -40,8 +40,8 @@ logger = logging.getLogger(__name__)
 # mypy: warn-unreachable=False
 
 class ScaledTimeMixin(ui_base.ProjectMixin):
-    scaleXChanged = QtCore.pyqtSignal(fractions.Fraction)
-    contentWidthChanged = QtCore.pyqtSignal(int)
+    scaleXChanged = QtCore.Signal(fractions.Fraction)
+    contentWidthChanged = QtCore.Signal(int)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -100,9 +100,9 @@ class ContinuousTimeMixin(ScaledTimeMixin):
 
 
 class TimeViewMixin(ScaledTimeMixin):
-    maximumXOffsetChanged = QtCore.pyqtSignal(int)
-    xOffsetChanged = QtCore.pyqtSignal(int)
-    pageWidthChanged = QtCore.pyqtSignal(int)
+    maximumXOffsetChanged = QtCore.Signal(int)
+    xOffsetChanged = QtCore.Signal(int)
+    pageWidthChanged = QtCore.Signal(int)
 
     def __init__(self, **kwargs: Any) -> None:
         assert isinstance(self, QtCore.QObject)

@@ -23,9 +23,9 @@
 import logging
 from typing import Any, Optional
 
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa.ui import flowlayout
 from noisicaa.ui import ui_base

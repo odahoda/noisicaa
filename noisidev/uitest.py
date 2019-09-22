@@ -26,10 +26,10 @@ import os.path
 import uuid
 from typing import cast, Any, Dict, Set
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa.constants import TEST_OPTS
 from noisicaa import runtime_settings as runtime_settings_lib

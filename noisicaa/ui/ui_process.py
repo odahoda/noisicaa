@@ -26,7 +26,7 @@ import logging
 import signal
 from typing import Any, Optional, Sequence
 
-from PyQt5 import QtWidgets
+from PySide2 import QtWidgets
 import quamash
 
 from noisicaa import core

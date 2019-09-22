@@ -23,8 +23,8 @@
 import logging
 from typing import Any, Callable, Generic, TypeVar
 
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa import core
 from noisicaa import music

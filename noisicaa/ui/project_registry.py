@@ -28,8 +28,8 @@ import time
 import urllib.parse
 from typing import cast, Any, List, Iterable, Iterator
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import music
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 class Item(QtCore.QObject):
-    contentsChanged = QtCore.pyqtSignal()
+    contentsChanged = QtCore.Signal()
 
     PathRole = 0x0100
 
@@ -176,7 +176,7 @@ class Project(ui_base.CommonMixin, Item):
 
 
 class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
-    contentsChanged = QtCore.pyqtSignal()
+    contentsChanged = QtCore.Signal()
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)

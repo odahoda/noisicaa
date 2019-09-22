@@ -26,9 +26,9 @@ import logging
 import os.path
 from typing import Any
 
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa import constants
 from noisicaa.ui import ui_base
@@ -42,8 +42,8 @@ class Tool(enum.Enum):
 
 
 class Toolbox(ui_base.ProjectMixin, QtWidgets.QWidget):
-    toolChanged = QtCore.pyqtSignal(Tool)
-    resetViewTriggered = QtCore.pyqtSignal()
+    toolChanged = QtCore.Signal(object)  # TODO: should be 'Tool'
+    resetViewTriggered = QtCore.Signal()
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)

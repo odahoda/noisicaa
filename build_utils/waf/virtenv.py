@@ -244,7 +244,7 @@ def configure(ctx):
     sys_mgr.check_package(RUNTIME, 'fluid-soundfont-gm')
 
     # Qt
-    pip_mgr.check_package(RUNTIME, 'PyQt5')
+    pip_mgr.check_package(RUNTIME, 'PySide2', version='>=5.13')
     # TODO: get my changes upstream and use regular quamash package from pip.
     pip_mgr.check_package(RUNTIME, 'Quamash', source='git+https://github.com/odahoda/quamash.git#egg=quamash')
     sys_mgr.check_package(BUILD, 'libqt4-dev')

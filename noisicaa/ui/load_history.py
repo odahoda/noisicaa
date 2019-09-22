@@ -23,8 +23,8 @@
 import math
 from typing import List
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtWidgets, QtGui
+from PySide2.QtCore import Qt
+from PySide2 import QtWidgets, QtGui
 
 
 class LoadHistoryWidget(QtWidgets.QWidget):

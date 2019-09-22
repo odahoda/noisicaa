@@ -24,10 +24,10 @@ import logging
 import os.path
 from typing import cast, Any, Optional, Iterator, Callable, Type, List, Dict, Set
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa import constants
 from noisicaa import value_types
@@ -56,7 +56,7 @@ node_cls_map.update(ui_registry.node_ui_cls_map)
 # Something is odd with the QWidgetAction class. The usual way to use the
 # ProjectMixin doesn't work here.
 class SelectNodeAction(QtWidgets.QWidgetAction, ui_base.ProjectMixin):
-    nodeSelected = QtCore.pyqtSignal(str)
+    nodeSelected = QtCore.Signal(str)
 
     def __init__(self, parent: QtCore.QObject, **kwargs: Any) -> None:
         super().__init__(parent, **kwargs)  # type: ignore
@@ -501,8 +501,8 @@ class MiniMap(slots.SlotContainer, QtWidgets.QWidget):
         QtCore.QRectF, 'contentRect')
     visibleCanvasRect, setVisibleCanvasRect, visibleCanvasRectChanged = slots.slot(
         QtCore.QRectF, 'visibleCanvasRect')
-    centerChanged = QtCore.pyqtSignal(QtCore.QPointF)
-    zoomStarted = QtCore.pyqtSignal(Zoom)
+    centerChanged = QtCore.Signal(QtCore.QPointF)
+    zoomStarted = QtCore.Signal(Zoom)
 
     def __init__(self, *, scene: Scene, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -730,7 +730,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
     visibleCanvasRect, setVisibleCanvasRect, visibleCanvasRectChanged = slots.slot(
         QtCore.QRectF, 'visibleCanvasRect')
 
-    zoomStarted = QtCore.pyqtSignal(Zoom)
+    zoomStarted = QtCore.Signal(Zoom)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)

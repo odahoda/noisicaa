@@ -26,8 +26,8 @@ import io
 import typing
 from typing import Any, Optional, Dict, Tuple, Callable, Awaitable
 
-from PyQt5 import QtCore
-from PyQt5 import QtWidgets
+from PySide2 import QtCore
+from PySide2 import QtWidgets
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
@@ -219,11 +219,11 @@ class AbstractProjectView(ProjectMixin, QtWidgets.QWidget):
 
 
 class AbstractPipelinePerfMonitor(CommonMixin, QtWidgets.QMainWindow):
-    visibilityChanged = None  # type: QtCore.pyqtSignal
+    visibilityChanged = None  # type: QtCore.Signal
 
 
 class AbstractStatMonitor(CommonMixin, QtWidgets.QMainWindow):
-    visibilityChanged = None  # type: QtCore.pyqtSignal
+    visibilityChanged = None  # type: QtCore.Signal
 
 
 class AbstractEditorApp(object):

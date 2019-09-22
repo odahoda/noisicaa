@@ -22,8 +22,8 @@
 
 import os.path
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
 
 from noisidev import uitest
 from noisicaa import instrument_db

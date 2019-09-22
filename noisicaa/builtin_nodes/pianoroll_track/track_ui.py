@@ -26,10 +26,10 @@ import logging
 import os.path
 from typing import Any, Dict, List, Set, Sequence, Tuple
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import constants
@@ -514,7 +514,7 @@ class EditVelocityTool(PianoRollToolMixin, tools.ToolBase):
 
 class SegmentEditor(
         slots.SlotContainer, core.AutoCleanupMixin, ui_base.ProjectMixin, QtWidgets.QWidget):
-    playNotes = QtCore.pyqtSignal(pianoroll.PlayNotes)
+    playNotes = QtCore.Signal(pianoroll.PlayNotes)
 
     xOffset, setXOffset, xOffsetChanged = slots.slot(int, 'xOffset', default=0)
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
