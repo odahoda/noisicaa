@@ -33,7 +33,6 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa import core
-from . import selection_set as selection_set_lib
 
 if typing.TYPE_CHECKING:
     from noisicaa import instrument_db as instrument_db_lib
@@ -127,17 +126,11 @@ class ProjectContext(CommonContext):
     def __init__(
             self, *,
             project_connection: 'project_registry_lib.Project',
-            selection_set: selection_set_lib.SelectionSet,
             project_view: 'AbstractProjectView',
             **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.__project_connection = project_connection
-        self.__selection_set = selection_set
         self.__project_view = project_view
-
-    @property
-    def selection_set(self) -> selection_set_lib.SelectionSet:
-        return self.__selection_set
 
     @property
     def project_view(self) -> 'AbstractProjectView':
@@ -170,10 +163,6 @@ class ProjectContext(CommonContext):
 
 class ProjectMixin(CommonMixin):
     _context = None  # type: ProjectContext
-
-    @property
-    def selection_set(self) -> selection_set_lib.SelectionSet:
-        return self._context.selection_set
 
     @property
     def project_connection(self) -> 'project_registry_lib.Project':

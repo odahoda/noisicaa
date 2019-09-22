@@ -242,12 +242,6 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
     def buildContextMenu(self, menu: QtWidgets.QMenu, evt: QtGui.QContextMenuEvent) -> None:
         super().buildContextMenu(menu, evt)
 
-        affected_segments = self.track.selection()
-        if not affected_segments:
-            segment = self.track.segmentAt(evt.pos().x())
-            if segment:
-                affected_segments.append(segment)
-
         menu.addSeparator()
 
         menu.addAction(self.app.clipboard.cut_action)
@@ -289,6 +283,11 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
 
         if self.track.insertTime() < audioproc.MusicalTime(0, 1):
             self.track.setInsertTime(self.track.xToTime(evt.pos().x()))
+
+        segment = self.track.segmentAt(evt.pos().x())
+        if segment is not None and not segment.selected():
+            self.track.clearSelection()
+            self.track.addToSelection(segment)
 
         super().contextMenuEvent(evt)
 
@@ -990,6 +989,9 @@ class PianoRollTrackEditor(
 
     def lastSelected(self) -> SegmentEditor:
         return self.__last_selected
+
+    def numSelected(self) -> int:
+        return len(self.__selection)
 
     def selection(self) -> List[SegmentEditor]:
         segments = []  # type: List[SegmentEditor]

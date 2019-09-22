@@ -65,7 +65,6 @@ def build(ctx):
                   mypy='disabled')
     ctx.py_module('render_dialog.py')
     ctx.py_test('render_dialog_test.py')
-    ctx.py_module('selection_set.py')
     ctx.py_module('session_helpers.py')
     ctx.py_module('settings_dialog.py')
     ctx.py_module('slots.py')

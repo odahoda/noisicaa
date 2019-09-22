@@ -39,7 +39,6 @@ from noisicaa import instrument_db
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa import editor_main_pb2
-from noisicaa.ui import selection_set
 from noisicaa.ui import ui_base
 from noisicaa.ui import clipboard
 from . import qttest
@@ -79,10 +78,6 @@ class TestContext(object):
     @property
     def project_client(self):
         return self.__testcase.project_client
-
-    @property
-    def selection_set(self):
-        return self.__testcase.selection_set
 
     def call_async(self, coroutine, callback=None):
         task = self.event_loop.create_task(coroutine)
@@ -420,8 +415,6 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         await self.node_db_client.setup()
         await self.node_db_client.connect(self.node_db_address)
 
-        self.selection_set = selection_set.SelectionSet()
-
         self.context = TestContext(testcase=self)
 
         self.clipboard = clipboard.Clipboard(qt_app=self.qt_app, context=self.context)
@@ -459,7 +452,6 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.app = None
         self.context = None
         self.widget_under_test = None
-        self.selection_set = None
 
     def setWidgetUnderTest(self, widget):
         self.widget_under_test = widget

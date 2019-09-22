@@ -69,9 +69,8 @@ class ScoreToolBase(measured_track_editor.MeasuredToolBase):
         super().buildContextMenu(menu, pos)
 
         affected_measure_editors = []  # type: List[ScoreMeasureEditor]
-        if not self.track.selection_set.empty():
-            affected_measure_editors.extend(
-                down_cast(ScoreMeasureEditor, seditor) for seditor in self.track.selection_set)
+        if self.track.numSelected() > 0:
+            affected_measure_editors.extend(self.track.selection())
         else:
             meditor = self.track.measureEditorAt(pos)
             if isinstance(meditor, ScoreMeasureEditor):

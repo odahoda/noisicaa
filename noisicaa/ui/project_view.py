@@ -37,7 +37,6 @@ from noisicaa import node_db
 from .graph import view as graph_view
 from . import ui_base
 from . import render_dialog
-from . import selection_set
 from . import project_registry
 from .track_list import view as track_list_view
 from . import player_state as player_state_lib
@@ -56,7 +55,6 @@ class ProjectView(ui_base.AbstractProjectView):
             context: ui_base.CommonContext,
             **kwargs: Any) -> None:
         context = ui_base.ProjectContext(
-            selection_set=selection_set.SelectionSet(),
             project_connection=project_connection,
             project_view=self,
             app=context.app)

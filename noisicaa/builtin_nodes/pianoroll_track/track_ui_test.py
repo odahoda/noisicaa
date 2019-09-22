@@ -188,8 +188,11 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
         with self._trackItem() as ti:
             self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
             menu = self.openContextMenu()
-            action = menu.findChild(QtWidgets.QAction, 'add-segment')
-            assert action is not None
+            for action in menu.actions():
+                if action.objectName() == 'add-segment':
+                    break
+            else:
+                raise AssertionError
             self.assertTrue(action.isEnabled())
             action.trigger()
 
@@ -203,8 +206,11 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
         with self._trackItem() as ti:
             self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
             menu = self.openContextMenu()
-            action = menu.findChild(QtWidgets.QAction, 'delete-segment')
-            assert action is not None
+            for action in menu.actions():
+                if action.objectName() == 'delete-segment':
+                    break
+            else:
+                raise AssertionError
             self.assertTrue(action.isEnabled())
             action.trigger()
 
@@ -218,8 +224,11 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
             ti.setPlaybackPosition(MT(3, 4))
             self.moveMouse(QtCore.QPoint(ti.timeToX(MT(3, 4)), ti.height() // 2))
             menu = self.openContextMenu()
-            action = menu.findChild(QtWidgets.QAction, 'split-segment')
-            assert action is not None
+            for action in menu.actions():
+                if action.objectName() == 'split-segment':
+                    break
+            else:
+                raise AssertionError
             self.assertTrue(action.isEnabled())
             action.trigger()
 
@@ -278,8 +287,11 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
 
         with self._trackItem() as ti:
             menu = self.openContextMenu()
-            action = menu.findChild(QtWidgets.QAction, 'select-all')
-            assert action is not None
+            for action in menu.actions():
+                if action.objectName() == 'select-all':
+                    break
+            else:
+                raise AssertionError
             self.assertTrue(action.isEnabled())
             action.trigger()
 
@@ -296,8 +308,11 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
             ti.addToSelection(ti.segments[0])
 
             menu = self.openContextMenu()
-            action = menu.findChild(QtWidgets.QAction, 'clear-selection')
-            assert action is not None
+            for action in menu.actions():
+                if action.objectName() == 'clear-selection':
+                    break
+            else:
+                raise AssertionError
             self.assertTrue(action.isEnabled())
             action.trigger()
 

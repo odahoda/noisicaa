@@ -342,10 +342,9 @@ class MeasuredTrackToolBase(clipboard.CopyableMixin, tools.ToolBase):  # pylint:
                 meditor.measure.time_signature = time_signature
 
     def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
-        affected_measure_editors = []  # type: List[Editor]
-        if not self.track.selection_set.empty():
-            affected_measure_editors.extend(
-                down_cast(MeasureEditor, seditor) for seditor in self.track.selection_set)
+        affected_measure_editors = []  # type: List[MeasureEditor]
+        if self.track.numSelected() > 0:
+            affected_measure_editors.extend(self.track.selection())
         else:
             meditor = self.track.measureEditorAt(pos)
             if isinstance(meditor, MeasureEditor):
