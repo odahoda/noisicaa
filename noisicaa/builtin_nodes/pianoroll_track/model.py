@@ -25,6 +25,7 @@ import functools
 import logging
 from typing import Any, Callable, Iterator, Dict, List, Set, Tuple
 
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
@@ -406,7 +407,9 @@ class PianoRollTrack(_model.PianoRollTrack):
                         rel_split_time, interval.end_event.midi_event.midi))
                     segment1.remove_event(interval.end_event)
 
-    def copy_segments(self, segment_refs: List[PianoRollSegmentRef]) -> clipboard_pb2.PianoRollSegments:
+    def copy_segments(
+            self, segment_refs: List[PianoRollSegmentRef]
+    ) -> clipboard_pb2.PianoRollSegments:
         data = clipboard_pb2.PianoRollSegments()
 
         time = min(segment_ref.time for segment_ref in segment_refs)
@@ -426,7 +429,9 @@ class PianoRollTrack(_model.PianoRollTrack):
 
         return data
 
-    def cut_segments(self, segment_refs: List[PianoRollSegmentRef]) -> clipboard_pb2.PianoRollSegments:
+    def cut_segments(
+            self, segment_refs: List[PianoRollSegmentRef]
+    ) -> clipboard_pb2.PianoRollSegments:
         data = self.copy_segments(segment_refs)
 
         for segment_ref in segment_refs:
@@ -435,26 +440,31 @@ class PianoRollTrack(_model.PianoRollTrack):
 
         return data
 
-    def paste_segments(self, data: clipboard_pb2.PianoRollSegments, time: audioproc.MusicalTime) -> List[PianoRollSegmentRef]:
+    def paste_segments(
+            self, data: clipboard_pb2.PianoRollSegments, time: audioproc.MusicalTime
+    ) -> List[PianoRollSegmentRef]:
         segment_map = {}  # type: Dict[int, PianoRollSegment]
 
         for serialized_segment in data.segments:
-            segment = self._pool.clone_tree(serialized_segment)
+            segment = down_cast(PianoRollSegment, self._pool.clone_tree(serialized_segment))
             self.segment_heap.append(segment)
             segment_map[serialized_segment.root] = segment
 
         segment_refs = []  # type: List[PianoRollSegmentRef]
         for serialized_segment_ref in data.segment_refs:
+            ref_time = audioproc.MusicalTime.from_proto(serialized_segment_ref.time)
             ref = self._pool.create(
                 PianoRollSegmentRef,
-                time=time + (audioproc.MusicalTime.from_proto(serialized_segment_ref.time) - audioproc.MusicalTime(0, 1)),
+                time=time + (ref_time - audioproc.MusicalTime(0, 1)),
                 segment=segment_map[serialized_segment_ref.segment])
             self.segments.append(ref)
             segment_refs.append(ref)
 
         return segment_refs
 
-    def link_segments(self, data: clipboard_pb2.PianoRollSegments, time: audioproc.MusicalTime) -> List[PianoRollSegmentRef]:
+    def link_segments(
+            self, data: clipboard_pb2.PianoRollSegments, time: audioproc.MusicalTime
+    ) -> List[PianoRollSegmentRef]:
         segment_map = {}  # type: Dict[int, PianoRollSegment]
 
         for segment in self.segment_heap:
@@ -463,9 +473,10 @@ class PianoRollTrack(_model.PianoRollTrack):
         segment_refs = []  # type: List[PianoRollSegmentRef]
         for serialized_segment_ref in data.segment_refs:
             assert serialized_segment_ref.segment in segment_map
+            ref_time = audioproc.MusicalTime.from_proto(serialized_segment_ref.time)
             ref = self._pool.create(
                 PianoRollSegmentRef,
-                time=time + (audioproc.MusicalTime.from_proto(serialized_segment_ref.time) - audioproc.MusicalTime(0, 1)),
+                time=time + (ref_time - audioproc.MusicalTime(0, 1)),
                 segment=segment_map[serialized_segment_ref.segment])
             self.segments.append(ref)
             segment_refs.append(ref)

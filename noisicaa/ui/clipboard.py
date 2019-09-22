@@ -45,8 +45,8 @@ class Clipboard(core.AutoCleanupMixin, ui_base.CommonMixin, QtCore.QObject):
         self.__qt_app = qt_app
         self.__qclipboard = self.__qt_app.clipboard()
 
-        self.__can_copy_conn = None  # type: QtCore.QMetaObject.Connection
-        self.__can_cut_conn = None  # type: QtCore.QMetaObject.Connection
+        self.__can_copy_conn = None  # type: QtCore.pyqtConnection
+        self.__can_cut_conn = None  # type: QtCore.pyqtConnection
 
         self.__widget = None  # type: CopyableMixin
         self.__contents = None  # type: music.ClipboardContents
@@ -71,11 +71,11 @@ class Clipboard(core.AutoCleanupMixin, ui_base.CommonMixin, QtCore.QObject):
     def setup(self) -> None:
         self.__qclipboardChanged()
         conn = self.__qclipboard.dataChanged.connect(self.__qclipboardChanged)
-        self.add_cleanup_function(lambda conn=conn: self.__qclipboard.dataChanged.disconnect(conn))
+        self.add_cleanup_function(lambda conn=conn: self.__qclipboard.dataChanged.disconnect(conn))  # type: ignore
 
         self.__focusChanged(None, self.__qt_app.focusWidget())
         conn = self.__qt_app.focusChanged.connect(self.__focusChanged)
-        self.add_cleanup_function(lambda conn=conn: self.__qt_app.focusChanged.disconnect(conn))
+        self.add_cleanup_function(lambda conn=conn: self.__qt_app.focusChanged.disconnect(conn))  # type: ignore
 
     def store(self, data: music.ClipboardContents) -> None:
         logger.error("Store in clipboard:\n%s", data)
@@ -177,6 +177,12 @@ class Clipboard(core.AutoCleanupMixin, ui_base.CommonMixin, QtCore.QObject):
         self.__widget.pasteAsLinkFromClipboard(self.__contents)
 
 
+# These mixins should be subclasses of QtCore.QObject, but PyQt5 doesn't support multiple
+# inheritance of QObjects.
+# I'm forcing mypy to treat these as QObject instance, by adding asserts. But that also triggers
+# "unreachable code" warnings.
+# mypy: warn-unreachable=False
+
 class CopyableMixin(slots.SlotContainer):
     canCut, setCanCut, canCutChanged = slots.slot(bool, 'canCut', default=False)
     canCopy, setCanCopy, canCopyChanged = slots.slot(bool, 'canCopy', default=False)
@@ -205,14 +211,18 @@ class CopyableDelegatorMixin(CopyableMixin):
         CopyableMixin, 'delegatedCopyable')
 
     def __init__(self, **kwargs: Any) -> None:
+        assert isinstance(self, QtCore.QObject)
+
         super().__init__(**kwargs)
 
-        self.__can_copy_conn = None  # type: QtCore.QMetaObject.Connection
-        self.__can_cut_conn = None  # type: QtCore.QMetaObject.Connection
+        self.__can_copy_conn = None  # type: QtCore.pyqtConnection
+        self.__can_cut_conn = None  # type: QtCore.pyqtConnection
 
         self.delegatedCopyableChanged.connect(self.__delegatedCopyableChanged)
 
     def __delegatedCopyableChanged(self, delegate: CopyableMixin) -> None:
+        assert isinstance(self, QtCore.QObject)
+
         if self.__can_copy_conn is not None:
             self.canCopyChanged.disconnect(self.__can_copy_conn)
             self.__can_copy_conn = None

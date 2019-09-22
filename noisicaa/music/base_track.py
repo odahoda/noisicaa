@@ -23,7 +23,7 @@
 import itertools
 import logging
 import random
-from typing import cast, Any, Optional, Iterator, Dict, List, Type
+from typing import cast, Any, Optional, Iterator, Dict, List, Set, Type
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
@@ -333,7 +333,9 @@ class MeasuredTrack(_model.MeasuredTrack, Track):  # pylint: disable=abstract-me
 
         return data
 
-    def paste_measures(self, data: base_track_pb2.Measures, first_index: int, last_index: int) -> None:
+    def paste_measures(
+            self, data: base_track_pb2.Measures, first_index: int, last_index: int
+    ) -> None:
         assert first_index <= last_index
         assert last_index < len(self.measure_list)
 
@@ -341,7 +343,8 @@ class MeasuredTrack(_model.MeasuredTrack, Track):  # pylint: disable=abstract-me
         for index, serialized_measure in enumerate(data.measures):
             measure_map[serialized_measure.root] = index
 
-        for serialized_ref, index in zip(itertools.cycle(data.refs), range(first_index, last_index + 1)):
+        for serialized_ref, index in zip(
+                itertools.cycle(data.refs), range(first_index, last_index + 1)):
             measure = self._pool.clone_tree(data.measures[measure_map[serialized_ref.measure]])
             self.measure_heap.append(measure)
 
@@ -350,13 +353,16 @@ class MeasuredTrack(_model.MeasuredTrack, Track):  # pylint: disable=abstract-me
 
         self.garbage_collect_measures()
 
-    def link_measures(self, data: base_track_pb2.Measures, first_index: int, last_index: int) -> None:
+    def link_measures(
+            self, data: base_track_pb2.Measures, first_index: int, last_index: int
+    ) -> None:
         assert first_index <= last_index
         assert last_index < len(self.measure_list)
 
         existing_measures = {measure.id: measure for measure in self.measure_heap}
 
-        for serialized_ref, index in zip(itertools.cycle(data.refs), range(first_index, last_index + 1)):
+        for serialized_ref, index in zip(
+                itertools.cycle(data.refs), range(first_index, last_index + 1)):
             assert serialized_ref.measure in existing_measures
             ref = self.measure_list[index]
             ref.measure = existing_measures[serialized_ref.measure]

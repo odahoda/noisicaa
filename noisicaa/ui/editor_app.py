@@ -24,12 +24,11 @@ import asyncio
 import functools
 import logging
 import os
-import pprint
 import sys
 import textwrap
 import traceback
 import types
-from typing import Any, Optional, Callable, Sequence, List, Type
+from typing import Optional, Callable, Sequence, List, Type
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

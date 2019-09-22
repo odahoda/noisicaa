@@ -30,7 +30,6 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import node_db
@@ -40,7 +39,6 @@ from . import render_dialog
 from . import project_registry
 from .track_list import view as track_list_view
 from . import player_state as player_state_lib
-from .track_list import measured_track_editor
 
 logger = logging.getLogger(__name__)
 

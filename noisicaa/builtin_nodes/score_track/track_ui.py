@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Any, List, Tuple
+from typing import cast, Any, List, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -70,7 +70,8 @@ class ScoreToolBase(measured_track_editor.MeasuredToolBase):
 
         affected_measure_editors = []  # type: List[ScoreMeasureEditor]
         if self.track.numSelected() > 0:
-            affected_measure_editors.extend(self.track.selection())
+            affected_measure_editors.extend(
+                cast(List[ScoreMeasureEditor], self.track.selection()))
         else:
             meditor = self.track.measureEditorAt(pos)
             if isinstance(meditor, ScoreMeasureEditor):

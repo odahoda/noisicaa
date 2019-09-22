@@ -508,6 +508,18 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         assert menu is not None
         return menu
 
+    def getMenuAction(self, menu, name):
+        for action in menu.actions():
+            if action.objectName() == name:
+                return action
+        raise AssertionError(name)
+
+    def triggerMenuAction(self, menu, name):
+        action = self.getMenuAction(menu, name)
+        self.assertTrue(action.isEnabled())
+        action.trigger()
+        self.processQtEvents()
+
 
 class ProjectMixin(
         unittest_mixins.ServerMixin,

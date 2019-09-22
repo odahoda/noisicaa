@@ -25,7 +25,8 @@ import enum
 import functools
 import fractions
 import logging
-from typing import Any, Optional, Dict, List, Set, Tuple, Callable, Generator, Iterator, Sequence
+from typing import (
+    Any, Optional, Dict, List, Set, Tuple, Callable, Generator, Iterator, Iterable, Sequence)
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -438,6 +439,7 @@ class TempInterval(AbstractInterval):
 
 class State(clipboard.CopyableMixin, QtCore.QObject):
     def __init__(self, *, grid: 'PianoRollGrid') -> None:
+        super().__init__()
         self.grid = grid
 
     def close(self) -> None:
@@ -922,12 +924,13 @@ class ResizeIntervalState(State):
 
 
 class MoveSelectionState(State):
-    def __init__(self, evt: QtGui.QMouseEvent, intervals: Set[Interval], **kwargs: Any) -> None:
+    def __init__(
+            self, evt: QtGui.QMouseEvent, intervals: Iterable[AbstractInterval], **kwargs: Any
+    ) -> None:
         super().__init__(**kwargs)
 
-        assert len(intervals) > 0
-
-        self.__intervals = intervals
+        self.__intervals = set(intervals)
+        assert len(self.__intervals) > 0
         self.click_pos = evt.pos()
         self.delta_pitch = 0
         self.delta_time = audioproc.MusicalDuration(0, 1)
@@ -1189,7 +1192,7 @@ class PianoRollGrid(clipboard.CopyableMixin, slots.SlotContainer, QtWidgets.QWid
         self.__sorted_events = sortedcontainers.SortedList()
 
         self.__selection = set()  # type: Set[int]
-        self.__floating_selection = set()  # type: Set[Interval]
+        self.__floating_selection = set()  # type: Set[AbstractInterval]
 
         self.__current_state = None  # type: State
 
@@ -1297,10 +1300,10 @@ class PianoRollGrid(clipboard.CopyableMixin, slots.SlotContainer, QtWidgets.QWid
         self.__floating_selection.clear()
         self.__selectionChanged()
 
-    def floatingSelection(self) -> Set[Interval]:
+    def floatingSelection(self) -> Set[AbstractInterval]:
         return set(self.__floating_selection)
 
-    def addToFloatingSelection(self, interval: Interval) -> None:
+    def addToFloatingSelection(self, interval: AbstractInterval) -> None:
         self.__floating_selection.add(interval)
         self.__selectionChanged()
 

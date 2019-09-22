@@ -23,7 +23,7 @@
 import fractions
 import itertools
 import logging
-from typing import Any, Optional, Union, Dict, List, Type
+from typing import Any, Optional, Union, Dict, List, Set, Type
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -588,7 +588,10 @@ class ArrangeMeasuresTool(MeasuredTrackToolBase):
         assert refs
 
         with self.project.apply_mutations('%s: paste measures(s)' % self.track.track.name):
-            self.track.track.paste_measures(measures_data, min(ref.index for ref in refs), max(ref.index for ref in refs))
+            self.track.track.paste_measures(
+                measures_data,
+                min(ref.index for ref in refs),
+                max(ref.index for ref in refs))
 
     def canPasteAsLink(self, data: music.ClipboardContents) -> bool:
         if self.track.numSelected() == 0:
@@ -606,7 +609,10 @@ class ArrangeMeasuresTool(MeasuredTrackToolBase):
         assert refs
 
         with self.project.apply_mutations('%s: paste measures(s)' % self.track.track.name):
-            self.track.track.link_measures(measures_data, min(ref.index for ref in refs), max(ref.index for ref in refs))
+            self.track.track.link_measures(
+                measures_data,
+                min(ref.index for ref in refs),
+                max(ref.index for ref in refs))
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
@@ -681,7 +687,7 @@ class MeasuredTrackEditor(  # pylint: disable=abstract-method
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
 
-        self.__selection = set()  # type: Set[MeasureEditor]
+        self.__selection = set()  # type: Set[int]
         self.__measure_editor_at_playback_pos = None  # type: BaseMeasureEditor
         self.__hover_measure_editor = None  # type: BaseMeasureEditor
 
@@ -748,7 +754,8 @@ class MeasuredTrackEditor(  # pylint: disable=abstract-method
     def selection(self) -> List[MeasureEditor]:
         measures = []  # type: List[MeasureEditor]
         for measure in self.__measure_editors:
-            if isinstance(measure, MeasureEditor) and measure.measure_reference.id in self.__selection:
+            if (isinstance(measure, MeasureEditor)
+                    and measure.measure_reference.id in self.__selection):
                 measures.append(measure)
         return measures
 

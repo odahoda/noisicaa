@@ -188,13 +188,7 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
         with self._trackItem() as ti:
             self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
             menu = self.openContextMenu()
-            for action in menu.actions():
-                if action.objectName() == 'add-segment':
-                    break
-            else:
-                raise AssertionError
-            self.assertTrue(action.isEnabled())
-            action.trigger()
+            self.triggerMenuAction(menu, 'add-segment')
 
             self.assertEqual(len(self.track.segments), 1)
             self.assertEqual(self.track.segments[0].time, MT(2, 4))
@@ -206,13 +200,7 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
         with self._trackItem() as ti:
             self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
             menu = self.openContextMenu()
-            for action in menu.actions():
-                if action.objectName() == 'delete-segment':
-                    break
-            else:
-                raise AssertionError
-            self.assertTrue(action.isEnabled())
-            action.trigger()
+            self.triggerMenuAction(menu, 'delete-segment')
 
             self.assertEqual(len(self.track.segments), 0)
 
@@ -224,13 +212,7 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
             ti.setPlaybackPosition(MT(3, 4))
             self.moveMouse(QtCore.QPoint(ti.timeToX(MT(3, 4)), ti.height() // 2))
             menu = self.openContextMenu()
-            for action in menu.actions():
-                if action.objectName() == 'split-segment':
-                    break
-            else:
-                raise AssertionError
-            self.assertTrue(action.isEnabled())
-            action.trigger()
+            self.triggerMenuAction(menu, 'split-segment')
 
             self.assertEqual(len(self.track.segments), 2)
             self.assertEqual(self.track.segments[0].time, MT(0, 4))
@@ -287,13 +269,7 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
 
         with self._trackItem() as ti:
             menu = self.openContextMenu()
-            for action in menu.actions():
-                if action.objectName() == 'select-all':
-                    break
-            else:
-                raise AssertionError
-            self.assertTrue(action.isEnabled())
-            action.trigger()
+            self.triggerMenuAction(menu, 'select-all')
 
             self.assertEqual(
                 {segment.segmentRef().id for segment in ti.selection()},
@@ -308,12 +284,6 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
             ti.addToSelection(ti.segments[0])
 
             menu = self.openContextMenu()
-            for action in menu.actions():
-                if action.objectName() == 'clear-selection':
-                    break
-            else:
-                raise AssertionError
-            self.assertTrue(action.isEnabled())
-            action.trigger()
+            self.triggerMenuAction(menu, 'clear-selection')
 
             self.assertEqual(len(ti.selection()), 0)

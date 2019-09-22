@@ -23,7 +23,7 @@
 import fractions
 import functools
 import logging
-from typing import cast, Any, Dict, List
+from typing import Any, Dict, List
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -40,7 +40,6 @@ from noisicaa.ui import player_state as player_state_lib
 from noisicaa.builtin_nodes import ui_registry
 from . import time_view_mixin
 from . import base_track_editor
-from . import measured_track_editor
 from . import tools
 
 logger = logging.getLogger(__name__)

@@ -21,10 +21,9 @@
 # @end:license
 
 import contextlib
-import itertools
 import logging
 import time
-from typing import cast, Any, Optional, Dict, Tuple, Iterator, Sequence, Generator, Type
+from typing import Any, Optional, Dict, Tuple, Iterator, Generator, Type
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa.core import storage
