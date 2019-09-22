@@ -37,6 +37,7 @@ from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
 from noisicaa.ui import ui_base
+from noisicaa.ui import clipboard
 from noisicaa.ui import pianoroll
 from noisicaa.ui import slots
 from noisicaa.ui import int_dial
@@ -45,6 +46,7 @@ from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
 from noisicaa.builtin_nodes.pianoroll import processor_messages
 from . import model
+from . import clipboard_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -78,39 +80,7 @@ class PianoRollToolMixin(tools.ToolBase):  # pylint: disable=abstract-method
         increase_button.setEnabled(tr.gridYSize() < tr.MAX_GRID_Y_SIZE)
         decrease_button.setEnabled(tr.gridYSize() > tr.MIN_GRID_Y_SIZE)
 
-    def __selectAll(self) -> None:
-        for segment in self.track.segments:
-            self.track.addToSelection(segment)
-
-    def __clearSelection(self) -> None:
-        self.track.clearSelection()
-
-    def __createSegment(self, time: audioproc.MusicalTime) -> None:
-        tr = self.track
-        with tr.project.apply_mutations('%s: Add segment' % tr.track.name):
-            tr.track.create_segment(
-                time, audioproc.MusicalDuration(16, 4))
-
-    def __deleteSegments(self, segments: List['SegmentEditor']) -> None:
-        tr = self.track
-        with tr.project.apply_mutations('%s: Remove segment(s)' % tr.track.name):
-            for segment in segments:
-                tr.track.remove_segment(segment.segmentRef())
-
-    def __splitSegment(self, segment: 'SegmentEditor', split_time: audioproc.MusicalTime) -> None:
-        assert segment.startTime() < split_time < segment.endTime()
-
-        tr = self.track
-        with tr.project.apply_mutations('%s: Split segment' % tr.track.name):
-            tr.track.split_segment(segment.segmentRef(), split_time)
-
     def buildContextMenu(self, menu: QtWidgets.QMenu, evt: QtGui.QContextMenuEvent) -> None:
-        affected_segments = self.track.selection()
-        if not affected_segments:
-            segment = self.track.segmentAt(evt.pos().x())
-            if segment:
-                affected_segments.append(segment)
-
         view_menu = menu.addMenu("View")
 
         increase_row_height_button = QtWidgets.QToolButton()
@@ -155,60 +125,6 @@ class PianoRollToolMixin(tools.ToolBase):  # pylint: disable=abstract-method
             current_channel_menu.addAction(
                 self.track.set_current_channel_actions[ch])
 
-        menu.addSeparator()
-
-        select_all_action = QtWidgets.QAction(menu)
-        select_all_action.setObjectName('select-all')
-        select_all_action.setText("Select All")
-        select_all_action.triggered.connect(self.__selectAll)
-        menu.addAction(select_all_action)
-
-        clear_selection_action = QtWidgets.QAction(menu)
-        clear_selection_action.setObjectName('clear-selection')
-        clear_selection_action.setText("Clear Selection")
-        clear_selection_action.triggered.connect(self.__clearSelection)
-        menu.addAction(clear_selection_action)
-
-        menu.addSeparator()
-
-        add_segment_action = QtWidgets.QAction(menu)
-        add_segment_action.setObjectName('add-segment')
-        add_segment_action.setText("Add Segment")
-        add_segment_action.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'list-add.svg')))
-        add_segment_action.triggered.connect(
-            functools.partial(self.__createSegment, self.track.xToTime(evt.pos().x())))
-        menu.addAction(add_segment_action)
-
-        delete_segment_action = QtWidgets.QAction(menu)
-        delete_segment_action.setObjectName('delete-segment')
-        delete_segment_action.setText(
-            "Delete Segment" if len(affected_segments) < 2 else "Delete Segments")
-        delete_segment_action.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'list-remove.svg')))
-        if affected_segments:
-            delete_segment_action.triggered.connect(
-                functools.partial(self.__deleteSegments, affected_segments))
-        else:
-            delete_segment_action.setEnabled(False)
-        menu.addAction(delete_segment_action)
-
-        playback_position = self.track.playbackPosition()
-        split_segment = self.track.segmentAtTime(playback_position)
-        if (split_segment is not None
-                and not split_segment.startTime() < playback_position < split_segment.endTime()):
-            split_segment = None
-        split_segment_action = QtWidgets.QAction(menu)
-        split_segment_action.setObjectName('split-segment')
-        split_segment_action.setText("Split Segment")
-        split_segment_action.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'pianoroll-split-segment.svg')))
-        if split_segment is not None:
-            split_segment_action.triggered.connect(
-                functools.partial(self.__splitSegment, split_segment, playback_position))
-        else:
-            split_segment_action.setEnabled(False)
-        menu.addAction(split_segment_action)
 
     def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
         menu = QtWidgets.QMenu(self.track)
@@ -233,6 +149,38 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
         self.__ref_time = None  # type: audioproc.MusicalTime
         self.__time = None  # type: audioproc.MusicalTime
 
+        self.__select_all_action = QtWidgets.QAction(self)
+        self.__select_all_action.setObjectName('select-all')
+        self.__select_all_action.setText("Select All")
+        self.__select_all_action.setShortcut('ctrl+a')
+        self.__select_all_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.__select_all_action.triggered.connect(self.__selectAll)
+
+        self.__clear_selection_action = QtWidgets.QAction(self)
+        self.__clear_selection_action.setObjectName('clear-selection')
+        self.__clear_selection_action.setText("Clear Selection")
+        self.__clear_selection_action.setShortcut('ctrl+shift+a')
+        self.__clear_selection_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.__clear_selection_action.triggered.connect(self.__clearSelection)
+
+        self.__add_segment_action = QtWidgets.QAction(self)
+        self.__add_segment_action.setObjectName('add-segment')
+        self.__add_segment_action.setText("Add Segment")
+        self.__add_segment_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'list-add.svg')))
+        self.__add_segment_action.setShortcut('ins')
+        self.__add_segment_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.__add_segment_action.triggered.connect(self.__createSegment)
+
+        self.__delete_segment_action = QtWidgets.QAction(self)
+        self.__delete_segment_action.setObjectName('delete-segment')
+        self.__delete_segment_action.setText("Delete Segment(s)")
+        self.__delete_segment_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'list-remove.svg')))
+        self.__delete_segment_action.setShortcut('del')
+        self.__delete_segment_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.__delete_segment_action.triggered.connect(self.__deleteSegments)
+
     def iconName(self) -> str:
         return 'pianoroll-arrange-segments'
 
@@ -243,15 +191,104 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
         segment.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         segment.setReadOnly(True)
 
+    def activated(self) -> None:
+        self.track.addAction(self.__select_all_action)
+        self.track.addAction(self.__clear_selection_action)
+        self.track.addAction(self.__add_segment_action)
+        self.track.addAction(self.__delete_segment_action)
+        super().activated()
+
     def deactivated(self) -> None:
+        self.track.removeAction(self.__select_all_action)
+        self.track.removeAction(self.__clear_selection_action)
+        self.track.removeAction(self.__add_segment_action)
+        self.track.removeAction(self.__delete_segment_action)
+        self.track.setInsertTime(audioproc.MusicalTime(-1, 1))
         self.track.clearSelection()
         self.track.unsetCursor()
         super().deactivated()
+
+    def __selectAll(self) -> None:
+        for segment in self.track.segments:
+            self.track.addToSelection(segment)
+
+    def __clearSelection(self) -> None:
+        self.track.clearSelection()
+
+    def __createSegment(self) -> None:
+        time = self.track.insertTime()
+        if time < audioproc.MusicalTime(0, 1):
+            time = audioproc.MusicalTime(0, 1)
+
+        tr = self.track
+        with tr.project.apply_mutations('%s: Add segment' % tr.track.name):
+            tr.track.create_segment(
+                time, audioproc.MusicalDuration(16, 4))
+
+    def __deleteSegments(self) -> None:
+        segments = self.track.selection()
+        tr = self.track
+        with tr.project.apply_mutations('%s: Remove segment(s)' % tr.track.name):
+            for segment in segments:
+                tr.track.remove_segment(segment.segmentRef())
+
+    def __splitSegment(self, segment: 'SegmentEditor', split_time: audioproc.MusicalTime) -> None:
+        assert segment.startTime() < split_time < segment.endTime()
+
+        tr = self.track
+        with tr.project.apply_mutations('%s: Split segment' % tr.track.name):
+            tr.track.split_segment(segment.segmentRef(), split_time)
+
+    def buildContextMenu(self, menu: QtWidgets.QMenu, evt: QtGui.QContextMenuEvent) -> None:
+        super().buildContextMenu(menu, evt)
+
+        menu.addSeparator()
+
+        menu.addAction(self.app.clipboard.cut_action)
+        menu.addAction(self.app.clipboard.copy_action)
+        menu.addAction(self.app.clipboard.paste_action)
+        menu.addAction(self.app.clipboard.paste_as_link_action)
+
+        menu.addSeparator()
+
+        menu.addAction(self.__select_all_action)
+        menu.addAction(self.__clear_selection_action)
+
+        menu.addSeparator()
+
+        menu.addAction(self.__add_segment_action)
+        menu.addAction(self.__delete_segment_action)
+
+        playback_position = self.track.playbackPosition()
+        split_segment = self.track.segmentAtTime(playback_position)
+        if (split_segment is not None
+                and not split_segment.startTime() < playback_position < split_segment.endTime()):
+            split_segment = None
+        split_segment_action = QtWidgets.QAction(menu)
+        split_segment_action.setObjectName('split-segment')
+        split_segment_action.setText("Split Segment")
+        split_segment_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'pianoroll-split-segment.svg')))
+        if split_segment is not None:
+            split_segment_action.triggered.connect(
+                functools.partial(self.__splitSegment, split_segment, playback_position))
+        else:
+            split_segment_action.setEnabled(False)
+        menu.addAction(split_segment_action)
 
     def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
         if self.__action is not None:
             evt.accept()
             return
+
+        if self.track.insertTime() < audioproc.MusicalTime(0, 1):
+            self.track.setInsertTime(self.track.xToTime(evt.pos().x()))
+
+        segment = self.track.segmentAt(evt.pos().x())
+        if segment is not None and not segment.selected():
+            self.track.clearSelection()
+            self.track.addToSelection(segment)
+
         super().contextMenuEvent(evt)
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
@@ -278,11 +315,12 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
                 self.track.clearSelection()
 
         if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
-            for seditor in self.track.segments:
+            for seditor in reversed(self.track.segments):
                 x1 = self.track.timeToX(seditor.startTime())
                 x2 = self.track.timeToX(seditor.endTime())
 
                 if abs(x2 - evt.pos().x()) < 4:
+                    self.track.setInsertTime(audioproc.MusicalTime(-1, 1))
                     self.track.clearSelection()
                     self.track.addToSelection(seditor)
                     self.__action = 'move-end'
@@ -293,6 +331,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
                     return
 
                 if abs(x1 - evt.pos().x()) < 4:
+                    self.track.setInsertTime(audioproc.MusicalTime(-1, 1))
                     self.track.clearSelection()
                     self.track.addToSelection(seditor)
                     self.__action = 'move-start'
@@ -303,6 +342,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
                     return
 
                 if x1 <= evt.pos().x() < x2:
+                    self.track.setInsertTime(audioproc.MusicalTime(-1, 1))
                     self.__action = 'drag'
                     if seditor.selected():
                         self.__drag_segments = self.track.selection()
@@ -313,6 +353,10 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
                     self.__time = self.__ref_time
                     evt.accept()
                     return
+
+            self.track.setInsertTime(self.track.xToTime(evt.pos().x()))
+            evt.accept()
+            return
 
         super().mousePressEvent(evt)
 
@@ -358,7 +402,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
             evt.accept()
             return
 
-        for seditor in self.track.segments:
+        for seditor in reversed(self.track.segments):
             x1 = self.track.timeToX(seditor.startTime())
             x2 = self.track.timeToX(seditor.endTime())
 
@@ -440,6 +484,7 @@ class ArrangeSegmentsTool(PianoRollToolMixin, tools.ToolBase):
             seditor = self.track.segmentAt(evt.pos().x())
             if seditor is not None:
                 self.track.setCurrentToolType(tools.ToolType.PIANOROLL_EDIT_EVENTS)
+                seditor.activate()
 
             evt.accept()
             return
@@ -676,12 +721,24 @@ class SegmentEditor(
     def setDuration(self, duration: audioproc.MusicalDuration) -> None:
         self.__grid.setDuration(duration)
 
+    def activate(self) -> None:
+        self.__grid.setFocus()
+
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         self.__grid.resize(self.width(), self.height())
         super().resizeEvent(evt)
 
 
+class InsertCursor(QtWidgets.QWidget):
+    def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
+        painter = QtGui.QPainter(self)
+        painter.fillRect(0, 0, 1, self.height(), QtGui.QColor(160, 160, 255))
+        painter.fillRect(1, 0, 1, self.height(), QtGui.QColor(0, 0, 255))
+        painter.fillRect(2, 0, 1, self.height(), QtGui.QColor(160, 160, 255))
+
+
 class PianoRollTrackEditor(
+        clipboard.CopyableMixin,
         time_view_mixin.ContinuousTimeMixin,
         base_track_editor.BaseTrackEditor):
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
@@ -692,12 +749,15 @@ class PianoRollTrackEditor(
         int, 'currentChannel', default=0)
     showVelocity, setShowVelocity, showVelocityChanged = slots.slot(
         bool, 'showVelocity', default=False)
+    insertTime, setInsertTime, insertTimeChanged = slots.slot(
+        audioproc.MusicalTime, 'insertTime', default=audioproc.MusicalTime(-1, 1))
 
     MIN_GRID_Y_SIZE = 2
     MAX_GRID_Y_SIZE = 64
 
     def __init__(self, **kwargs: Any) -> None:
         self.segments = []  # type: List[SegmentEditor]
+        self.__segment_map = {}  # type: Dict[int, SegmentEditor]
         self.__selection = set()  # type: Set[int]
         self.__last_selected = None  # type: SegmentEditor
 
@@ -758,6 +818,9 @@ class PianoRollTrackEditor(
         self.__velocity_group.setVisible(self.showVelocity())
         self.showVelocityChanged.connect(self.__velocity_group.setVisible)
 
+        self.__insert_cursor = InsertCursor(self)
+        self.updateInsertTime()
+
         for segment_ref in self.track.segments:
             self.__addSegment(len(self.segments), segment_ref)
         self.__listeners.add(self.track.segments_changed.add(self.__segmentsChanged))
@@ -770,6 +833,9 @@ class PianoRollTrackEditor(
         self.scaleXChanged.connect(lambda _: self.__repositionSegments())
         self.gridYSizeChanged.connect(lambda _: self.__updateYScrollbar())
         self.playbackPositionChanged.connect(lambda _: self.updatePlaybackPosition())
+        self.insertTimeChanged.connect(lambda _: self.updateInsertTime())
+        self.xOffsetChanged.connect(lambda _: self.updateInsertTime())
+        self.scaleXChanged.connect(lambda _: self.updateInsertTime())
 
         self.setCurrentChannel(
             self.get_session_value(self.__session_prefix + 'current-channel', 0))
@@ -817,6 +883,8 @@ class PianoRollTrackEditor(
             if segment.segmentRef().id in selected_ids:
                 segment.setSelected(True)
                 self.__selection.add(segment.segmentRef().id)
+        self.setCanCopy(bool(self.__selection))
+        self.setCanCut(bool(self.__selection))
 
     @property
     def track(self) -> model.PianoRollTrack:
@@ -832,7 +900,9 @@ class PianoRollTrackEditor(
 
     def __addSegment(self, insert_index: int, segment_ref: model.PianoRollSegmentRef) -> None:
         seditor = SegmentEditor(track_editor=self, segment_ref=segment_ref, context=self.context)
+        self.__segment_map[segment_ref.id] = seditor
         self.segments.insert(insert_index, seditor)
+
         seditor.setEnabled(self.isCurrent())
         seditor.setScaleX(self.scaleX())
         self.scaleXChanged.connect(seditor.setScaleX)
@@ -849,14 +919,18 @@ class PianoRollTrackEditor(
         seditor.setSelected(segment_ref.id in self.__selection)
         down_cast(PianoRollToolMixin, self.currentTool()).activateSegment(seditor)
 
+        for segment in self.segments:
+            segment.raise_()
+        self.__insert_cursor.raise_()
         self.__keys.raise_()
         self.__velocity_group.raise_()
         self.__y_scrollbar.raise_()
 
         self.update()
 
-    def __removeSegment(self, remove_index: int, point: QtCore.QPoint) -> None:
+    def __removeSegment(self, remove_index: int, segment_ref: model.PianoRollSegmentRef) -> None:
         seditor = self.segments.pop(remove_index)
+        del self.__segment_map[seditor.segmentRef().id]
         seditor.cleanup()
         seditor.hide()
         seditor.setParent(None)
@@ -886,34 +960,38 @@ class PianoRollTrackEditor(
         for segment in self.segments:
             segment.setEnabled(is_current)
 
+    def __selectionChanged(self) -> None:
+        self.set_session_value(
+            self.__session_prefix + 'selected-segments',
+            ','.join(str(segment_id) for segment_id in sorted(self.__selection)))
+        self.setCanCut(bool(self.__selection))
+        self.setCanCopy(bool(self.__selection))
+
     def addToSelection(self, segment: SegmentEditor) -> None:
         self.__selection.add(segment.segmentRef().id)
         self.__last_selected = segment
         segment.setSelected(True)
-        self.set_session_value(
-            self.__session_prefix + 'selected-segments',
-            ','.join(str(segment_id) for segment_id in sorted(self.__selection)))
+        self.__selectionChanged()
 
     def removeFromSelection(self, segment: SegmentEditor) -> None:
         self.__selection.discard(segment.segmentRef().id)
         if segment is self.__last_selected:
             self.__last_selected = None
         segment.setSelected(False)
-        self.set_session_value(
-            self.__session_prefix + 'selected-segments',
-            ','.join(str(segment_id) for segment_id in sorted(self.__selection)))
+        self.__selectionChanged()
 
     def clearSelection(self) -> None:
         for segment in self.selection():
             segment.setSelected(False)
         self.__selection.clear()
         self.__last_selected = None
-        self.set_session_value(
-            self.__session_prefix + 'selected-segments',
-            ','.join(str(segment_id) for segment_id in sorted(self.__selection)))
+        self.__selectionChanged()
 
     def lastSelected(self) -> SegmentEditor:
         return self.__last_selected
+
+    def numSelected(self) -> int:
+        return len(self.__selection)
 
     def selection(self) -> List[SegmentEditor]:
         segments = []  # type: List[SegmentEditor]
@@ -923,6 +1001,83 @@ class PianoRollTrackEditor(
 
         return segments
 
+    def copyToClipboard(self) -> music.ClipboardContents:
+        segments = self.selection()
+        assert len(segments) > 0
+
+        segment_data = self.track.copy_segments(
+            [segment.segmentRef() for segment in segments])
+
+        self.setInsertTime(max(segment.endTime() for segment in segments))
+
+        data = music.ClipboardContents()
+        data.Extensions[clipboard_pb2.pianoroll_segments].CopyFrom(segment_data)
+        return data
+
+    def cutToClipboard(self) -> music.ClipboardContents:
+        segments = self.selection()
+        assert len(segments) > 0
+
+        with self.project.apply_mutations('%s: cut segment(s)' % self.track.name):
+            segment_data = self.track.cut_segments(
+                [segment.segmentRef() for segment in segments])
+        self.clearSelection()
+
+        self.setInsertTime(min(segment.startTime() for segment in segments))
+
+        data = music.ClipboardContents()
+        data.Extensions[clipboard_pb2.pianoroll_segments].CopyFrom(segment_data)
+        return data
+
+    def canPaste(self, data: music.ClipboardContents) -> bool:
+        return data.HasExtension(clipboard_pb2.pianoroll_segments)
+
+    def pasteFromClipboard(self, data: music.ClipboardContents) -> None:
+        assert data.HasExtension(clipboard_pb2.pianoroll_segments)
+        segment_data = data.Extensions[clipboard_pb2.pianoroll_segments]
+
+        time = self.insertTime()
+        if time < audioproc.MusicalTime(0, 1):
+            time = audioproc.MusicalTime(0, 1)
+
+        with self.project.apply_mutations('%s: paste segment(s)' % self.track.name):
+            segments = self.track.paste_segments(segment_data, time)
+
+        self.setInsertTime(max(segment.end_time for segment in segments))
+
+        self.clearSelection()
+        for segment in segments:
+            self.addToSelection(self.__segment_map[segment.id])
+
+    def canPasteAsLink(self, data: music.ClipboardContents) -> bool:
+        if not data.HasExtension(clipboard_pb2.pianoroll_segments):
+            return False
+
+        existing_segments = {segment.id for segment in self.track.segment_heap}
+        segment_data = data.Extensions[clipboard_pb2.pianoroll_segments]
+        for serialized_ref in segment_data.segment_refs:
+            if serialized_ref.segment not in existing_segments:
+                return False
+
+        return True
+
+    def pasteAsLinkFromClipboard(self, data: music.ClipboardContents) -> None:
+        assert data.HasExtension(clipboard_pb2.pianoroll_segments)
+        segment_data = data.Extensions[clipboard_pb2.pianoroll_segments]
+
+        time = self.insertTime()
+        if time < audioproc.MusicalTime(0, 1):
+            time = audioproc.MusicalTime(0, 1)
+
+        with self.project.apply_mutations('%s: link segment(s)' % self.track.name):
+            segments = self.track.link_segments(segment_data, time)
+
+        self.setInsertTime(max(segment.end_time for segment in segments))
+
+        self.clearSelection()
+        for segment in segments:
+            self.addToSelection(self.__segment_map[segment.id])
+
     def updatePlaybackPosition(self) -> None:
         time = self.playbackPosition()
         for segment in self.segments:
@@ -930,6 +1085,20 @@ class PianoRollTrackEditor(
                 segment.setPlaybackPosition(time.relative_to(segment.startTime()))
             else:
                 segment.setPlaybackPosition(audioproc.MusicalTime(-1, 1))
+
+    def updateInsertTime(self) -> None:
+        time = self.insertTime()
+        if time < audioproc.MusicalTime(0, 1):
+            self.__insert_cursor.hide()
+            return
+
+        x = self.timeToX(time) - self.xOffset() - 1
+        if not -3 < x <= self.width():
+            self.__insert_cursor.hide()
+            return
+
+        self.__insert_cursor.setGeometry(x, 0, 3, self.height())
+        self.__insert_cursor.show()
 
     def gridStep(self) -> audioproc.MusicalDuration:
         for s in (64, 32, 16, 8, 4, 2):
@@ -967,7 +1136,7 @@ class PianoRollTrackEditor(
         return self.segmentAtTime(self.xToTime(x))
 
     def segmentAtTime(self, time: audioproc.MusicalTime) -> 'SegmentEditor':
-        for seditor in self.segments:
+        for seditor in reversed(self.segments):
             if seditor.startTime() <= time < seditor.endTime():
                 return seditor
         return None

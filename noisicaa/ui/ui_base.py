@@ -33,14 +33,14 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa import core
-from . import selection_set as selection_set_lib
 
 if typing.TYPE_CHECKING:
-    from . import device_list
     from noisicaa import instrument_db as instrument_db_lib
     from noisicaa import node_db as node_db_lib
     from noisicaa import runtime_settings as runtime_settings_lib
     from noisicaa import lv2
+    from . import clipboard
+    from . import device_list
     from . import instrument_list as instrument_list_lib
     from . import project_registry as project_registry_lib
     from . import editor_window
@@ -126,17 +126,11 @@ class ProjectContext(CommonContext):
     def __init__(
             self, *,
             project_connection: 'project_registry_lib.Project',
-            selection_set: selection_set_lib.SelectionSet,
             project_view: 'AbstractProjectView',
             **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.__project_connection = project_connection
-        self.__selection_set = selection_set
         self.__project_view = project_view
-
-    @property
-    def selection_set(self) -> selection_set_lib.SelectionSet:
-        return self.__selection_set
 
     @property
     def project_view(self) -> 'AbstractProjectView':
@@ -169,10 +163,6 @@ class ProjectContext(CommonContext):
 
 class ProjectMixin(CommonMixin):
     _context = None  # type: ProjectContext
-
-    @property
-    def selection_set(self) -> selection_set_lib.SelectionSet:
-        return self._context.selection_set
 
     @property
     def project_connection(self) -> 'project_registry_lib.Project':
@@ -255,17 +245,12 @@ class AbstractEditorApp(object):
     instrument_list = None  # type: instrument_list_lib.InstrumentList
     project_registry = None  # type: project_registry_lib.ProjectRegistry
     setup_complete = None  # type: asyncio.Event
+    clipboard = None  # type: clipboard.Clipboard
 
     def quit(self, exit_code: int = 0) -> None:
         raise NotImplementedError
 
     def crashWithMessage(self, title: str, msg: str) -> None:
-        raise NotImplementedError
-
-    def setClipboardContent(self, content: Any) -> None:
-        raise NotImplementedError
-
-    def clipboardContent(self) -> Any:
         raise NotImplementedError
 
     async def deleteWindow(self, win: 'editor_window.EditorWindow') -> None:

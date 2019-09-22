@@ -20,8 +20,6 @@
 #
 # @end:license
 
-from PyQt5 import QtGui
-
 from noisidev import uitest
 from noisicaa.ui import player_state
 from . import editor

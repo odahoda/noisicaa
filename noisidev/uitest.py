@@ -39,8 +39,8 @@ from noisicaa import instrument_db
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa import editor_main_pb2
-from noisicaa.ui import selection_set
 from noisicaa.ui import ui_base
+from noisicaa.ui import clipboard
 from . import qttest
 from . import unittest_mixins
 
@@ -78,10 +78,6 @@ class TestContext(object):
     @property
     def project_client(self):
         return self.__testcase.project_client
-
-    @property
-    def selection_set(self):
-        return self.__testcase.selection_set
 
     def call_async(self, coroutine, callback=None):
         task = self.event_loop.create_task(coroutine)
@@ -164,6 +160,7 @@ class MockApp(ui_base.AbstractEditorApp):  # pylint: disable=abstract-method
         self.default_style = None  # type: str
         self.qt_app = None  # type: QtWidgets.QApplication
         self.node_messages = None  # type: core.CallbackMap
+        self.clipboard = None  # type: clipboard.Clipboard
 
 
 class HIDState(object):
@@ -393,6 +390,7 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.app = None
         self.context = None
         self.widget_under_test = None
+        self.clipboard = None
 
     async def setup_testcase(self):
         self.hid_state = HIDState()
@@ -417,7 +415,10 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         await self.node_db_client.setup()
         await self.node_db_client.connect(self.node_db_address)
 
-        self.selection_set = selection_set.SelectionSet()
+        self.context = TestContext(testcase=self)
+
+        self.clipboard = clipboard.Clipboard(qt_app=self.qt_app, context=self.context)
+        self.clipboard.setup()
 
         self.app = MockApp()
         self.app.qt_app = self.qt_app
@@ -427,12 +428,14 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.app.node_db = self.node_db_client
         self.app.audioproc_client = MockAudioProcClient()
         self.app.node_messages = core.CallbackMap()
+        self.app.clipboard = self.clipboard
 
         self.session_data = {}  # type: Dict[str, Any]
 
-        self.context = TestContext(testcase=self)
-
     async def cleanup_testcase(self):
+        if self.clipboard is not None:
+            self.clipboard.cleanup()
+
         if self.node_db_client is not None:
             await self.node_db_client.disconnect()
             await self.node_db_client.cleanup()
@@ -449,7 +452,6 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.app = None
         self.context = None
         self.widget_under_test = None
-        self.selection_set = None
 
     def setWidgetUnderTest(self, widget):
         self.widget_under_test = widget
@@ -505,6 +507,18 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         menu = self.widget_under_test.findChild(QtWidgets.QMenu, 'context-menu')
         assert menu is not None
         return menu
+
+    def getMenuAction(self, menu, name):
+        for action in menu.actions():
+            if action.objectName() == name:
+                return action
+        raise AssertionError(name)
+
+    def triggerMenuAction(self, menu, name):
+        action = self.getMenuAction(menu, name)
+        self.assertTrue(action.isEnabled())
+        action.trigger()
+        self.processQtEvents()
 
 
 class ProjectMixin(

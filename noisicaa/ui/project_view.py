@@ -30,18 +30,15 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import node_db
 from .graph import view as graph_view
 from . import ui_base
 from . import render_dialog
-from . import selection_set
 from . import project_registry
 from .track_list import view as track_list_view
 from . import player_state as player_state_lib
-from .track_list import measured_track_editor
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +53,6 @@ class ProjectView(ui_base.AbstractProjectView):
             context: ui_base.CommonContext,
             **kwargs: Any) -> None:
         context = ui_base.ProjectContext(
-            selection_set=selection_set.SelectionSet(),
             project_connection=project_connection,
             project_view=self,
             app=context.app)
@@ -237,24 +233,6 @@ class ProjectView(ui_base.AbstractProjectView):
             self.project_client.update_player_state(
                 self.__player_id,
                 audioproc.PlayerState(loop_enabled=loop)))
-
-    def onClearSelection(self) -> None:
-        self.__editor.onClearSelection()
-
-    def onCopy(self) -> None:
-        if self.selection_set.empty():
-            return
-
-        data = []
-        items = [down_cast(measured_track_editor.MeasureEditor, item)
-                 for item in self.selection_set]
-        for item in sorted(items, key=lambda item: item.measure_reference.index):
-            data.append(item.getCopy())
-
-        self.app.setClipboardContent({'type': 'measures', 'data': data})
-
-    def onPaste(self, *, mode: str) -> None:
-        self.__track_list.onPaste(mode=mode)
 
     def onRender(self) -> None:
         dialog = render_dialog.RenderDialog(parent=self, context=self.context)

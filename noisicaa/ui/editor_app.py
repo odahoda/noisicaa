@@ -24,12 +24,11 @@ import asyncio
 import functools
 import logging
 import os
-import pprint
 import sys
 import textwrap
 import traceback
 import types
-from typing import Any, Optional, Callable, Sequence, List, Type
+from typing import Optional, Callable, Sequence, List, Type
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -45,6 +44,7 @@ from noisicaa import editor_main_pb2
 from noisicaa import runtime_settings as runtime_settings_lib
 from noisicaa import exceptions
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
+from . import clipboard
 from . import editor_window
 from . import audio_thread_profiler
 from . import device_list
@@ -134,7 +134,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.node_db = None  # type: node_db.NodeDBClient
         self.instrument_db = None  # type: instrument_db.InstrumentDBClient
         self.urid_mapper = None  # type: lv2.ProxyURIDMapper
-        self.__clipboard = None  # type: Any
+        self.clipboard = None  # type: clipboard.Clipboard
         self.__old_excepthook = None  # type: Callable[[Type[BaseException], BaseException, types.TracebackType], None]
         self.__windows = []  # type: List[editor_window.EditorWindow]
         self.__pipeline_perf_monitor = None  # type: pipeline_perf_monitor.PipelinePerfMonitor
@@ -164,6 +164,9 @@ class EditorApp(ui_base.AbstractEditorApp):
         if style_name:
             # TODO: something's wrong with the QtWidgets stubs...
             self.qt_app.setStyle(QtWidgets.QStyleFactory.create(style_name))  # type: ignore
+
+        self.clipboard = clipboard.Clipboard(qt_app=self.qt_app, context=self.context)
+        self.clipboard.setup()
 
         self.new_project_action = QtWidgets.QAction("New", self.qt_app)
         self.new_project_action.setShortcut(QtGui.QKeySequence.New)
@@ -412,6 +415,10 @@ class EditorApp(ui_base.AbstractEditorApp):
             await self.node_db.cleanup()
             self.node_db = None
 
+        if self.clipboard is not None:
+            self.clipboard.cleanup()
+            self.clipboard = None
+
         self.settings.sync()
         self.dumpSettings()
 
@@ -590,14 +597,6 @@ class EditorApp(ui_base.AbstractEditorApp):
     #         await self.project_client.undo()
     #         await self.project_client.restart_player_pipeline(self.__player_id)
     # pylint: enable=line-too-long
-
-    def setClipboardContent(self, content: Any) -> None:
-        logger.info(
-            "Setting clipboard contents to: %s", pprint.pformat(content))
-        self.__clipboard = content
-
-    def clipboardContent(self) -> Any:
-        return self.__clipboard
 
     def crashWithMessage(self, title: str, msg: str) -> None:
         logger.error('%s: %s', title, msg)

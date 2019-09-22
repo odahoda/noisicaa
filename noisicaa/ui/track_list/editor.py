@@ -23,7 +23,7 @@
 import fractions
 import functools
 import logging
-from typing import cast, Any, Dict, List
+from typing import Any, Dict, List
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -40,7 +40,6 @@ from noisicaa.ui import player_state as player_state_lib
 from noisicaa.builtin_nodes import ui_registry
 from . import time_view_mixin
 from . import base_track_editor
-from . import measured_track_editor
 from . import tools
 
 logger = logging.getLogger(__name__)
@@ -308,37 +307,6 @@ class Editor(
 
     def offset(self) -> QtCore.QPoint:
         return QtCore.QPoint(self.xOffset(), self.__y_offset)
-
-    def onClearSelection(self) -> None:
-        if self.selection_set.empty():
-            return
-
-        with self.project.apply_mutations('Clear selection'):
-            for mref in sorted(
-                    (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
-                     for measure_editor in self.selection_set),
-                    key=lambda mref: mref.index):
-                mref.clear_measure()
-
-    def onPaste(self, *, mode: str) -> None:
-        assert mode in ('overwrite', 'link')
-
-        if self.selection_set.empty():
-            return
-
-        clipboard = self.app.clipboardContent()
-        if clipboard['type'] == 'measures':
-            with self.project.apply_mutations('Paste measures'):
-                self.project.paste_measures(
-                    mode=mode,
-                    src_objs=[copy['data'] for copy in clipboard['data']],
-                    targets=sorted(
-                        (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
-                         for measure_editor in self.selection_set),
-                        key=lambda mref: mref.index))
-
-        else:
-            raise ValueError(clipboard['type'])
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)

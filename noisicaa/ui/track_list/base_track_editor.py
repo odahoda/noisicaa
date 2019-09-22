@@ -80,6 +80,8 @@ class BaseTrackEditor(
         self.__scaleXChanged(self.scaleX())
 
         self.__toolbox = self.createToolBox()
+        self.currentToolChanged.emit(self.__toolbox.currentToolType())
+        self.__toolbox.toolTypeChanged.connect(self.currentToolChanged.emit)
 
     @property
     def track(self) -> music.Track:

@@ -230,6 +230,7 @@ class BeatMeasureEditor(measured_track_editor.MeasureEditor):
 
 
 class BeatTrackEditor(measured_track_editor.MeasuredTrackEditor):
+    measure_type = 'beat'
     measure_editor_cls = BeatMeasureEditor
 
     def __init__(self, **kwargs: Any) -> None:

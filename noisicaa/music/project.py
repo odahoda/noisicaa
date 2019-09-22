@@ -21,10 +21,9 @@
 # @end:license
 
 import contextlib
-import itertools
 import logging
 import time
-from typing import cast, Any, Optional, Dict, Tuple, Iterator, Sequence, Generator, Type
+from typing import Any, Optional, Dict, Tuple, Iterator, Generator, Type
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa.core import storage
@@ -259,39 +258,6 @@ class BaseProject(_model.Project, model_base.ObjectBase):
         for mutation in connection.get_remove_mutations():
             self.handle_pipeline_mutation(mutation)
         del self.node_connections[connection.index]
-
-    def paste_measures(
-            self, *,
-            mode: str,
-            src_objs: Sequence[model_base_pb2.ObjectTree],
-            targets: Sequence[base_track.MeasureReference]
-    ) -> None:
-        affected_track_ids = set(obj.track.id for obj in targets)
-        assert len(affected_track_ids) == 1
-
-        if mode == 'link':
-            for target, src_proto in zip(targets, itertools.cycle(src_objs)):
-                src = down_cast(base_track.Measure, self._pool[src_proto.root])
-                assert src.is_child_of(target.track)
-                target.measure = src
-
-        elif mode == 'overwrite':
-            measure_map = {}  # type: Dict[int, base_track.Measure]
-            for target, src_proto in zip(targets, itertools.cycle(src_objs)):
-                try:
-                    measure = measure_map[src_proto.root]
-                except KeyError:
-                    measure = down_cast(base_track.Measure, self._pool.clone_tree(src_proto))
-                    measure_map[src_proto.root] = measure
-                    target.track.measure_heap.append(measure)
-
-                target.measure = measure
-
-        else:
-            raise ValueError(mode)
-
-        for track_id in affected_track_ids:
-            cast(base_track.MeasuredTrack, self._pool[track_id]).garbage_collect_measures()
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         for node in self.nodes:

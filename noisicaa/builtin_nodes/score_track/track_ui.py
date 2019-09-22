@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Any, List, Tuple
+from typing import cast, Any, List, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -69,9 +69,9 @@ class ScoreToolBase(measured_track_editor.MeasuredToolBase):
         super().buildContextMenu(menu, pos)
 
         affected_measure_editors = []  # type: List[ScoreMeasureEditor]
-        if not self.track.selection_set.empty():
+        if self.track.numSelected() > 0:
             affected_measure_editors.extend(
-                down_cast(ScoreMeasureEditor, seditor) for seditor in self.track.selection_set)
+                cast(List[ScoreMeasureEditor], self.track.selection()))
         else:
             meditor = self.track.measureEditorAt(pos)
             if isinstance(meditor, ScoreMeasureEditor):
@@ -1119,6 +1119,7 @@ class ScoreMeasureEditor(measured_track_editor.MeasureEditor):
 
 
 class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
+    measure_type = 'score'
     measure_editor_cls = ScoreMeasureEditor
 
     def __init__(self, **kwargs: Any) -> None:
