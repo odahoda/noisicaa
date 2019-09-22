@@ -79,6 +79,7 @@ class EditorAppTest(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
     async def cleanup_testcase(self):
         if self.app is not None:
             await self.app.cleanup()
+            self.app = None
 
         if self.process is not None:
             await self.process.cleanup()

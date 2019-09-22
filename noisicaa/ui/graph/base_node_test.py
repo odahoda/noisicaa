@@ -27,7 +27,7 @@ from noisicaa import value_types
 from . import base_node
 
 
-class NoteTest(uitest.ProjectMixin, uitest.UITestCase):
+class NodeTest(uitest.ProjectMixin, uitest.UITestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -46,6 +46,7 @@ class NoteTest(uitest.ProjectMixin, uitest.UITestCase):
     async def cleanup_testcase(self):
         if self.nitem is not None:
             self.nitem.cleanup()
+            self.nitem = None
 
     def _scaledSize(self, zoom):
         return QtCore.QSize(
