@@ -22,6 +22,7 @@
 
 import datetime
 import functools
+import json
 import logging
 import os.path
 import random
@@ -31,13 +32,16 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
+import fastjsonschema
 import humanize
 
 from noisicaa import constants
 from noisicaa import title_generator
+from noisicaa.music import loadtest_generator
 from . import project_registry as project_registry_lib
 from . import slots
 from . import ui_base
+from . import code_editor
 
 logger = logging.getLogger(__name__)
 
@@ -257,12 +261,9 @@ class FilterModel(QtCore.QSortFilterProxyModel):
         return all(word in item.name.lower() for word in self.__filter)
 
 
-class NewProjectDialog(ui_base.CommonMixin, QtWidgets.QDialog):
+class NewProjectDialogBase(ui_base.CommonMixin, QtWidgets.QDialog):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-
-        self.setWindowTitle("noisicaä - New Project")
-        self.setMinimumWidth(500)
 
         self.__create_button = QtWidgets.QPushButton(self)
         self.__create_button.setIcon(QtGui.QIcon(
@@ -304,19 +305,19 @@ class NewProjectDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         l4.addWidget(self.__prev_name)
         l4.addWidget(self.__next_name)
 
-        l3 = QtWidgets.QFormLayout()
-        l3.addRow("Name:", l4)
+        self._form_layout = QtWidgets.QFormLayout()
+        self._form_layout.addRow("Name:", l4)
 
-        l2 = QtWidgets.QHBoxLayout()
-        l2.addStretch(1)
-        l2.addWidget(self.__create_button)
-        l2.addWidget(self.__close_button)
+        self._buttons_layout = QtWidgets.QHBoxLayout()
+        self._buttons_layout.addStretch(1)
+        self._buttons_layout.addWidget(self.__create_button)
+        self._buttons_layout.addWidget(self.__close_button)
 
-        l1 = QtWidgets.QVBoxLayout()
-        l1.addLayout(l3)
-        l1.addWidget(self.__error)
-        l1.addLayout(l2)
-        self.setLayout(l1)
+        self._main_layout = QtWidgets.QVBoxLayout()
+        self._main_layout.addLayout(self._form_layout)
+        self._main_layout.addWidget(self.__error)
+        self._main_layout.addLayout(self._buttons_layout)
+        self.setLayout(self._main_layout)
 
     def projectDir(self) -> str:
         directory = '~/Music/Noisicaä'
@@ -333,6 +334,13 @@ class NewProjectDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         filename = filename.replace('/', '%2F')
         return os.path.join(self.projectDir(), filename)
 
+    def _setError(self, msg: str) -> None:
+        self.__error.setVisible(True)
+        self.__error.setText(msg)
+
+    def _clearError(self) -> None:
+        self.__error.setVisible(False)
+
     def __generateName(self) -> None:
         gen = title_generator.TitleGenerator(self.__name_seed)
         self.__name.setText(gen.generate())
@@ -347,19 +355,75 @@ class NewProjectDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
     def __nameChanged(self, text: str) -> None:
         self.__create_button.setEnabled(False)
-        self.__error.setVisible(True)
         if not text:
-            self.__error.setText("Enter a valid project name.")
+            self._setError("Enter a valid project name.")
         elif os.path.exists(self.projectPath()):
-            self.__error.setText("A project of this name already exists.")
+            self._setError("A project of this name already exists.")
         else:
             self.__create_button.setEnabled(True)
-            self.__error.setVisible(False)
+            self._clearError()
+
+
+class NewProjectDialog(NewProjectDialogBase):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.setWindowTitle("noisicaä - New Project")
+        self.setMinimumWidth(500)
+
+
+class NewLoadtestProjectDialog(NewProjectDialogBase):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.setWindowTitle("noisicaä - New Loadtest Project")
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(700)
+
+        json_to_text = functools.partial(json.dumps, indent=2, sort_keys=True)
+
+        self.__presets_menu = QtWidgets.QMenu(self)
+        for name, spec in sorted(loadtest_generator.PRESETS.items()):
+            action = QtWidgets.QAction(self)
+            action.setText(name)
+            action.triggered.connect(
+                lambda _, spec=spec: logger.error(spec) or self.__spec.setPlainText(json_to_text(spec)))
+            self.__presets_menu.addAction(action)
+
+        self.__presets_button = QtWidgets.QPushButton(self)
+        self.__presets_button.setText("Preset")
+        self.__presets_button.setMenu(self.__presets_menu)
+        self._buttons_layout.insertWidget(1, self.__presets_button)
+
+        self.__spec = code_editor.CodeEditor(self)
+        self.__spec.setPlainText(json_to_text(loadtest_generator.PRESETS['default']))
+        self.__spec.textChanged.connect(self.__specChanged)
+        self._main_layout.insertWidget(1, self.__spec)
+
+    def __specChanged(self) -> None:
+        spec_str = self.__spec.toPlainText()
+        if not spec_str.strip():
+            self._clearError()
+            return
+
+        try:
+            spec = json.loads(spec_str)
+            loadtest_generator.validate_spec(spec)
+        except fastjsonschema.JsonSchemaException as exc:
+            self._setError("Invalid spec: " + str(exc))
+        except json.JSONDecodeError as exc:
+            self._setError("Invalid JSON: " + str(exc))
+        else:
+            self._clearError()
+
+    def spec(self) -> Dict[str, Any]:
+        return json.loads(self.__spec.toPlainText())
 
 
 class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
     projectSelected = QtCore.pyqtSignal(project_registry_lib.Project)
     createProject = QtCore.pyqtSignal(str)
+    createLoadtestProject = QtCore.pyqtSignal(str, dict)
     debugProject = QtCore.pyqtSignal(project_registry_lib.Project)
 
     def __init__(self, **kwargs: Any) -> None:
@@ -414,10 +478,15 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__open_button.setText("Open")
         self.__open_button.clicked.connect(self.__openClicked)
 
+        self.__new_loadtest_project_action = QtWidgets.QAction("New loadtest project", self)
+        self.__new_loadtest_project_action.triggered.connect(self.__newLoadtestProjectClicked)
+
         self.__new_project_button = QtWidgets.QPushButton(self)
         self.__new_project_button.setIcon(QtGui.QIcon(
             os.path.join(constants.DATA_DIR, 'icons', 'document-new.svg')))
         self.__new_project_button.setText("New project")
+        self.__new_project_button.addAction(self.__new_loadtest_project_action)
+        self.__new_project_button.setContextMenuPolicy(Qt.ActionsContextMenu)
         self.__new_project_button.clicked.connect(self.__newProjectClicked)
 
         self.__delete_action = QtWidgets.QAction("Delete", self)
@@ -519,6 +588,18 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
             return
 
         self.createProject.emit(dialog.projectPath())
+
+    def __newLoadtestProjectClicked(self) -> None:
+        dialog = NewLoadtestProjectDialog(parent=self, context=self.context)
+        dialog.setModal(True)
+        dialog.finished.connect(functools.partial(self.__newLoadtestProjectDialogDone, dialog))
+        dialog.show()
+
+    def __newLoadtestProjectDialogDone(self, dialog: NewLoadtestProjectDialog, result: int) -> None:
+        if result != QtWidgets.QDialog.Accepted:
+            return
+
+        self.createLoadtestProject.emit(dialog.projectPath(), dialog.spec())
 
     def __deleteClicked(self) -> None:
         selected_projects = self.__list.selectedProjects()

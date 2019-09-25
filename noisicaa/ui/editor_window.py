@@ -27,7 +27,7 @@ import os.path
 import time
 import traceback
 import typing
-from typing import cast, Any, Optional, Callable, Generator
+from typing import cast, Any, Optional, Dict, Callable, Generator
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -140,6 +140,8 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
             lambda project: self.call_async(self.openProject(project)))
         dialog.createProject.connect(
             lambda path: self.call_async(self.createProject(path)))
+        dialog.createLoadtestProject.connect(
+            lambda path, spec: self.call_async(self.createLoadtestProject(path, spec)))
         dialog.debugProject.connect(
             lambda path: self.call_async(self.__debugProject(path)))
 
@@ -205,6 +207,26 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         await self.app.setup_complete.wait()
         try:
             await project.create()
+
+        except Exception as exc:  # pylint: disable=broad-except
+            self.__projectErrorDialog(
+                exc, "Failed to create project \"%s\"." % project.name)
+
+        else:
+            await self.app.project_registry.refresh()
+            view = project_view.ProjectView(project_connection=project, context=self.context)
+            view.setObjectName('project-view')
+            await view.setup()
+            self.__project_view = view
+            self.__setPage(project.name, view)
+
+    async def createLoadtestProject(self, path: str, spec: Dict[str, Any]) -> None:
+        project = project_registry_lib.Project(
+            path=path, context=self.context)
+        self.showLoadSpinner(project.name, "Creating project \"%s\"..." % project.name)
+        await self.app.setup_complete.wait()
+        try:
+            await project.create_loadtest(spec)
 
         except Exception as exc:  # pylint: disable=broad-except
             self.__projectErrorDialog(

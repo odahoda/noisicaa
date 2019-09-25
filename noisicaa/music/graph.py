@@ -306,15 +306,19 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
                     node_id=self.pipeline_node_id,
                     port_properties=self.get_port_properties(port.name).to_proto()))
 
-    def set_control_value(self, name: str, value: float, generation: int) -> None:
+    def set_control_value(self, name: str, value: float, generation: int = None) -> None:
         for idx, control_value in enumerate(self.control_values):
             if control_value.name == name:
-                if generation < control_value.generation:
+                if generation is None:
+                    generation = control_value.generation + 1
+                elif generation < control_value.generation:
                     return
                 self.control_values[idx] = value_types.ControlValue(
                     name=name, value=value, generation=generation)
                 break
         else:
+            if generation is None:
+                generation = 2
             self.control_values.append(value_types.ControlValue(
                 name=name, value=value, generation=generation))
 

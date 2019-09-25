@@ -26,7 +26,7 @@ import os.path
 import shutil
 import time
 import urllib.parse
-from typing import cast, Any, List, Iterable, Iterator
+from typing import cast, Any, Dict, List, Iterable, Iterator
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -152,6 +152,20 @@ class Project(ui_base.CommonMixin, Item):
         client = await self.__create_process()
         try:
             await client.create(self.path)
+        except:  # pylint: disable=bare-except
+            await client.cleanup()
+            raise
+        self.client = client
+        self.app.project_registry.addProject(self)
+        self.app.project_registry.updateOpenedProjects()
+        self.__mtime = time.time()
+        self.contentsChanged.emit()
+
+    async def create_loadtest(self, spec: Dict[str, Any]) -> None:
+        assert not self.isOpened()
+        client = await self.__create_process()
+        try:
+            await client.create_loadtest(self.path, spec)
         except:  # pylint: disable=bare-except
             await client.cleanup()
             raise

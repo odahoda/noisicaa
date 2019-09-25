@@ -31,6 +31,8 @@ def build(ctx):
             ctx.py_module('base_track_test.py')
     ctx.py_module('graph.py')
     ctx.py_test('graph_test.py')
+    ctx.py_module('loadtest_generator.py')
+    ctx.py_test('loadtest_generator_test.py')
     ctx.py_module('metadata.py')
     ctx.py_module('model_base.py')
     ctx.py_test('model_base_test.py')

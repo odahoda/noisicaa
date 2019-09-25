@@ -275,10 +275,10 @@ class MeasuredTrack(_model.MeasuredTrack, Track):  # pylint: disable=abstract-me
             duration += mref.measure.duration
         return duration
 
-    def append_measure(self) -> None:
-        self.insert_measure(-1)
+    def append_measure(self) -> Measure:
+        return self.insert_measure(-1)
 
-    def insert_measure(self, idx: int) -> None:
+    def insert_measure(self, idx: int) -> Measure:
         assert idx == -1 or (0 <= idx <= len(self.measure_list) - 1)
 
         if idx == -1:
@@ -294,6 +294,8 @@ class MeasuredTrack(_model.MeasuredTrack, Track):  # pylint: disable=abstract-me
         measure = self.create_empty_measure(ref)
         self.measure_heap.append(measure)
         self.measure_list.insert(idx, self._pool.create(MeasureReference, measure=measure))
+
+        return measure
 
     def garbage_collect_measures(self) -> None:
         ref_counts = {measure.id: 0 for measure in self.measure_heap}

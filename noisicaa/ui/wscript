@@ -25,6 +25,7 @@ def build(ctx):
     ctx.py_module('audio_thread_profiler.py')
     ctx.py_module('control_value_connector.py')
     ctx.py_module('base_dial.py')
+    ctx.py_module('code_editor.py')
     ctx.py_module('control_value_dial.py')
     ctx.py_module('int_dial.py')
     ctx.py_module('clipboard.py')
