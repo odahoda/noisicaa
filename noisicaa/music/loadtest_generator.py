@@ -45,11 +45,11 @@ def get_integer(spec: object) -> int:
     raise ValueError(spec)
 
 
-node_generators = {}  # type: Dict[str, NodeGenerator]
+node_generators = {}  # type: Dict[str, Type[NodeGenerator]]
 
 class NodeGeneratorMeta(type):
     def __new__(mcs, name: str, parents: Any, dct: Dict[str, Any]) -> Any:
-        gen = cast('NodeGenerator', super().__new__(mcs, name, parents, dct))
+        gen = cast(Type['NodeGenerator'], super().__new__(mcs, name, parents, dct))
         if gen.SPEC_TYPE is not None:
             gen.SPEC_SCHEMA['properties']['type'] = {
                 'type': 'string',
@@ -85,7 +85,7 @@ class ScoreTrackGenerator(NodeGenerator):
     SPEC_SCHEMA = {
         'properties': {
         },
-    }
+    }  # type: Dict[str, Any]
 
     instruments = None  # type: List[Tuple[str, str]]
 
@@ -102,7 +102,9 @@ class ScoreTrackGenerator(NodeGenerator):
                     None,
                     urllib.parse.quote(path),
                     None,
-                    urllib.parse.urlencode([('bank', str(preset.bank)), ('preset', str(preset.preset))], True),
+                    urllib.parse.urlencode(
+                        [('bank', str(preset.bank)), ('preset', str(preset.preset))],
+                        True),
                     None))
                 cls.instruments.append((preset.name, uri))
 
@@ -122,9 +124,13 @@ class ScoreTrackGenerator(NodeGenerator):
             mixer_node, 'out:right',
             self.master_mixer_node, 'in:right')
 
-        instr_node = self.project.create_node(
-            'builtin://instrument',
-            graph_pos=pos - value_types.Pos2F(400, 0))
+        from noisicaa.builtin_nodes.instrument import model as instrument
+
+        instr_node = cast(
+            instrument.Instrument,
+            self.project.create_node(
+                'builtin://instrument',
+                graph_pos=pos - value_types.Pos2F(400, 0)))
         instr_node.name, instr_node.instrument_uri = self.get_instrument()
         self.project.create_node_connection(
             instr_node, 'out:left',

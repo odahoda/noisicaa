@@ -64,6 +64,7 @@ def build(ctx):
     ctx.py_module('qprogressindicator.py',
                   # Ignore formatting of 3rd party code for now.
                   mypy='disabled')
+    ctx.py_module('qtyping.py')
     ctx.py_module('render_dialog.py')
     ctx.py_test('render_dialog_test.py')
     ctx.py_module('session_helpers.py')

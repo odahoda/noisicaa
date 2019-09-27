@@ -23,7 +23,8 @@
 import functools
 import logging
 import operator
-from typing import cast, Any, Dict, Tuple, Type, Callable, TypeVar
+import typing
+from typing import Any, Dict, Tuple, Type, Callable, TypeVar
 
 from PyQt5 import QtCore
 
@@ -32,11 +33,15 @@ from . import ui_base
 logger = logging.getLogger(__name__)
 
 
-# This should really be a subclass of QtCore.QObject, but PyQt5 doesn't support
-# multiple inheritance with QObjects.
-class SlotContainer(object):
+if typing.TYPE_CHECKING:
+    QObjectMixin = QtCore.QObject
+else:
+    QObjectMixin = object
+
+
+class SlotContainer(QObjectMixin):
     def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)  # type: ignore
+        super().__init__(**kwargs)
 
         self._slots = {}  # type: Dict[str, Any]
 
@@ -71,7 +76,7 @@ def slot(
         if not equality(value, current_value):
             logger.debug("Slot %s on %s set to %s", name, self, value)
             self._slots[name] = value
-            sig_inst = signal.__get__(cast(QtCore.QObject, self))
+            sig_inst = signal.__get__(self)
             sig_inst.emit(value)
 
     return getter, setter, signal

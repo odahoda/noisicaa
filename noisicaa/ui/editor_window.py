@@ -439,9 +439,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._set_bpm_action.setStatusTip("Set the project's beats per second")
         self._set_bpm_action.triggered.connect(self.onSetBPM)
 
-        self._dump_project_action = QtWidgets.QAction("Dump Project", self)
-        self._dump_project_action.triggered.connect(self.dumpProject)
-
         self._player_move_to_start_action = QtWidgets.QAction("Move to start", self)
         self._player_move_to_start_action.setIcon(QtGui.QIcon(
             os.path.join(constants.DATA_DIR, 'icons', 'media-skip-backward.svg')))
@@ -516,7 +513,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         if self.app.runtime_settings.dev_mode:
             menu_bar.addSeparator()
             self._dev_menu = menu_bar.addMenu("Dev")
-            self._dev_menu.addAction(self._dump_project_action)
             self._dev_menu.addAction(self.app.restart_action)
             self._dev_menu.addAction(self.app.restart_clean_action)
             self._dev_menu.addAction(self.app.crash_action)
@@ -585,10 +581,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
     def setInfoMessage(self, msg: str) -> None:
         self.statusbar.showMessage(msg)
-
-    def dumpProject(self) -> None:
-        view = self.__project_tabs.currentWidget()
-        self.call_async(view.project_client.dump())
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         logger.info("CloseEvent received")

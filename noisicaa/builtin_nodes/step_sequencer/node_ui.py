@@ -395,7 +395,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWid
     def __channelMinValueChanged(
             self,
             channel: model.StepSequencerChannel,
-            widget: control_value_dial.ControlValueDial,
+            widget: QtWidgets.QLineEdit,
             change: music.PropertyValueChange[float]
     ) -> None:
         widget.setText(fmt_value(channel.min_value))
@@ -403,7 +403,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWid
     def __channelMinValueEdited(
             self,
             channel: model.StepSequencerChannel,
-            widget: control_value_dial.ControlValueDial,
+            widget: QtWidgets.QLineEdit
     ) -> None:
         state, _, _ = widget.validator().validate(widget.text(), 0)
         if state == QtGui.QValidator.Acceptable:
@@ -416,7 +416,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWid
     def __channelMaxValueChanged(
             self,
             channel: model.StepSequencerChannel,
-            widget: control_value_dial.ControlValueDial,
+            widget: QtWidgets.QLineEdit,
             change: music.PropertyValueChange[float]
     ) -> None:
         widget.setText(fmt_value(channel.max_value))
@@ -424,7 +424,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWid
     def __channelMaxValueEdited(
             self,
             channel: model.StepSequencerChannel,
-            widget: control_value_dial.ControlValueDial,
+            widget: QtWidgets.QLineEdit
     ) -> None:
         state, _, _ = widget.validator().validate(widget.text(), 0)
         if state == QtGui.QValidator.Acceptable:
@@ -437,7 +437,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWid
     def __channelLogScaleChanged(
             self,
             channel: model.StepSequencerChannel,
-            widget: control_value_dial.ControlValueDial,
+            widget: QtWidgets.QCheckBox,
             change: music.PropertyValueChange[bool]
     ) -> None:
         widget.setChecked(channel.log_scale)
@@ -445,7 +445,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWid
     def __channelLogScaleEdited(
             self,
             channel: model.StepSequencerChannel,
-            widget: control_value_dial.ControlValueDial,
+            widget: QtWidgets.QCheckBox,
             value: bool
     ) -> None:
         if value != channel.log_scale:

@@ -237,6 +237,7 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
 
             for idx, project in enumerate(self.__root.childItems):
                 if project.path == path:
+                    assert isinstance(project, Project)
                     self.beginRemoveRows(QtCore.QModelIndex(), idx, idx)
                     del self.__root.childItems[idx]
                     for i, item in enumerate(self.__root.childItems[idx:], idx):
@@ -311,7 +312,7 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
         if item is self.__root:
             return QtCore.QModelIndex()
 
-        return self.createIndex(item.parent().index, 0, item.parent())
+        return self.createIndex(cast(Item, item.parent()).index, 0, item.parent())
 
     def columnCount(self, parent: QtCore.QModelIndex = QtCore.QModelIndex()) -> int:
         return 1

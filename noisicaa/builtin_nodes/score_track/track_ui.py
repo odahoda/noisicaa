@@ -683,6 +683,10 @@ class ScoreMeasureEditor(measured_track_editor.MeasureEditor):
             lambda _: self.updateGhost(self.__mouse_pos))
 
     @property
+    def track_editor(self) -> 'ScoreTrackEditor':
+        return down_cast(ScoreTrackEditor, super().track_editor)
+
+    @property
     def track(self) -> model.ScoreTrack:
         return down_cast(model.ScoreTrack, super().track)
 

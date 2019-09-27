@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 class BaseMeasureEditor(ui_base.ProjectMixin, QtCore.QObject):
     rectChanged = QtCore.pyqtSignal(QtCore.QRect)
 
-    def __init__(self, track_editor: base_track_editor.BaseTrackEditor, **kwargs: Any) -> None:
+    def __init__(self, track_editor: 'MeasuredTrackEditor', **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__top_left = QtCore.QPoint()
@@ -63,7 +63,7 @@ class BaseMeasureEditor(ui_base.ProjectMixin, QtCore.QObject):
         pass
 
     @property
-    def track_editor(self) -> base_track_editor.BaseTrackEditor:
+    def track_editor(self) -> 'MeasuredTrackEditor':
         return self.__track_editor
 
     @property
@@ -124,6 +124,9 @@ class BaseMeasureEditor(ui_base.ProjectMixin, QtCore.QObject):
         pass
 
     def purgePaintCaches(self) -> None:
+        pass
+
+    def invalidatePaintCache(self, *layers: str) -> None:
         pass
 
     def paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
@@ -823,14 +826,6 @@ class MeasuredTrackEditor(  # pylint: disable=abstract-method
             p += QtCore.QPoint(measure_editor.width(), 0)
 
         return None
-
-    def onInsertMeasure(self) -> None:
-        with self.project.apply_mutations('%s: Insert measure' % self.track.name):
-            self.track.insert_measure(self.measure_reference.index)
-
-    def onRemoveMeasure(self) -> None:
-        with self.project.apply_mutations('%s: Remove measure' % self.track.name):
-            self.track.remove_measure(self.measure_reference.index)
 
     def setHoverMeasureEditor(
             self, measure_editor: Optional[BaseMeasureEditor],

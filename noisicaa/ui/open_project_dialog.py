@@ -26,7 +26,7 @@ import json
 import logging
 import os.path
 import random
-from typing import Any, Dict, List
+from typing import cast, Any, Dict, List
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -102,7 +102,7 @@ class ItemDelegate(QtWidgets.QAbstractItemDelegate):
         self.__widgets = {}  # type: Dict[str, QtWidgets.QWidget]
 
     def __getWidget(self, index: QtCore.QModelIndex) -> QtWidgets.QWidget:
-        item = index.model().item(index)
+        item = cast(AbstractRegistryModel, index.model()).item(index)
         if item is None:
             logger.error("Index without item: %d,%d", index.row(), index.column())
             path = '<invalid>'
@@ -127,7 +127,7 @@ class ItemDelegate(QtWidgets.QAbstractItemDelegate):
             option: QtWidgets.QStyleOptionViewItem,
             index: QtCore.QModelIndex
     ) -> None:
-        widget = self.__getWidget(index)
+        widget = cast(ProjectItem, self.__getWidget(index))
         widget.resize(option.rect.size())
         widget.updateContents()
         if option.state & QtWidgets.QStyle.State_Selected:
@@ -170,7 +170,7 @@ class ProjectListView(QtWidgets.QListView):
         self.__update_timer.start()
 
     def __doubleClicked(self, index: QtCore.QModelIndex) -> None:
-        item = self.model().item(index)
+        item = cast(AbstractRegistryModel, self.model()).item(index)
         self.itemDoubleClicked.emit(item)
 
     def selectionChanged(
@@ -180,14 +180,19 @@ class ProjectListView(QtWidgets.QListView):
     def selectedProjects(self) -> List[project_registry_lib.Project]:
         projects = []
         for index in self.selectedIndexes():
-            item = self.model().item(index)
+            item = cast(AbstractRegistryModel, self.model()).item(index)
             if isinstance(item, project_registry_lib.Project):
                 projects.append(item)
 
         return projects
 
 
-class FlatProjectListModel(QtCore.QAbstractProxyModel):
+class AbstractRegistryModel(object):
+    def item(self, index: QtCore.QModelIndex = QtCore.QModelIndex()) -> project_registry_lib.Item:
+        raise NotImplementedError
+
+
+class FlatProjectListModel(AbstractRegistryModel, QtCore.QAbstractProxyModel):
     def __init__(self, project_registry: project_registry_lib.ProjectRegistry) -> None:
         super().__init__()
 
@@ -232,14 +237,14 @@ class FlatProjectListModel(QtCore.QAbstractProxyModel):
         return QtCore.QModelIndex()
 
 
-class FilterModel(QtCore.QSortFilterProxyModel):
+class FilterModel(AbstractRegistryModel, QtCore.QSortFilterProxyModel):
     def __init__(self) -> None:
         super().__init__()
 
         self.__filter = []  # type: List[str]
 
     def item(self, index: QtCore.QModelIndex = QtCore.QModelIndex()) -> project_registry_lib.Item:
-        source_model = self.sourceModel()
+        source_model = cast(AbstractRegistryModel, self.sourceModel())
         return source_model.item(self.mapToSource(index))
 
     def setFilterWords(self, text: str) -> None:
@@ -254,9 +259,9 @@ class FilterModel(QtCore.QSortFilterProxyModel):
         if not self.__filter:
             return True
 
-        model = self.sourceModel()
+        model = cast(AbstractRegistryModel, self.sourceModel())
         parent_item = model.item(parent)
-        item = parent_item.children[row]
+        item = cast(project_registry_lib.Project, parent_item.childItems[row])
 
         return all(word in item.name.lower() for word in self.__filter)
 
@@ -387,7 +392,7 @@ class NewLoadtestProjectDialog(NewProjectDialogBase):
             action = QtWidgets.QAction(self)
             action.setText(name)
             action.triggered.connect(
-                lambda _, spec=spec: logger.error(spec) or self.__spec.setPlainText(json_to_text(spec)))
+                lambda _, spec=spec: self.__spec.setPlainText(json_to_text(spec)))
             self.__presets_menu.addAction(action)
 
         self.__presets_button = QtWidgets.QPushButton(self)

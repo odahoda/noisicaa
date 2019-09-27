@@ -35,7 +35,7 @@ from . import base_dial
 logger = logging.getLogger(__name__)
 
 
-class IntDial(base_dial.BaseDial):
+class IntDial(base_dial.BaseDial[int]):
     value, setValue, valueChanged = slots.slot(int, 'value', default=0)
     default, setDefault, defaultChanged = slots.slot(int, 'default', default=0)
     minimum, setMinimum, minimumChanged = slots.slot(int, 'minimum', default=0)
@@ -54,7 +54,7 @@ class IntDial(base_dial.BaseDial):
         self.__drag_pos = None  # type: QtCore.QPoint
         self.__drag_start_value = None  # type: int
 
-    def normalize(self, value: base_dial.T) -> float:
+    def normalize(self, value: int) -> float:
         try:
             value = max(self.minimum(), min(value, self.maximum()))
             return (value - self.minimum()) / (self.maximum() - self.minimum())

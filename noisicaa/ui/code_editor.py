@@ -20,8 +20,6 @@
 #
 # @end:license
 
-from typing import Any
-
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
@@ -29,7 +27,7 @@ from PyQt5 import QtWidgets
 
 
 class LineNumberArea(QtWidgets.QWidget):
-    def __init__(self, editor: 'CodeEditor', **kwargs: Any) -> None:
+    def __init__(self, editor: 'CodeEditor') -> None:
         super().__init__(editor)
 
         self.__code_editor = editor
@@ -42,8 +40,8 @@ class LineNumberArea(QtWidgets.QWidget):
 
 
 class CodeEditor(QtWidgets.QPlainTextEdit):
-    def __init__(self, parent: QtWidgets.QWidget = None, **kwargs: Any) -> None:
-        super().__init__(parent, **kwargs)
+    def __init__(self, parent: QtWidgets.QWidget = None) -> None:
+        super().__init__(parent)
 
         font = QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.FixedFont)
         font.setPointSizeF(self.font().pointSizeF())
