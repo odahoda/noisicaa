@@ -74,19 +74,12 @@ class Editor(
         self.setFocusPolicy(Qt.StrongFocus)
         self.setMinimumHeight(0)
 
-        self.__viewport = QtWidgets.QWidget(self)
-        self.__viewport.move(0, 0)
-
-        self.__viewport_layout = QtWidgets.QVBoxLayout()
-        self.__viewport_layout.setContentsMargins(0, 0, 0, 0)
-        self.__viewport_layout.setSpacing(3)
-        self.__viewport.setLayout(self.__viewport_layout)
-
         self.__listeners = core.ListenerMap[str]()
         self.add_cleanup_function(self.__listeners.cleanup)
 
         self.initObjectList(self.project, 'nodes')
 
+        self.__content_height = 0
         self.updateTracks()
         self.objectListChanged.connect(self.updateTracks)
 
@@ -136,10 +129,6 @@ class Editor(
         if self.__current_track is not None:
             track_editor = self.objectWrapperById(self.__current_track.id)
             track_editor.setIsCurrent(False)
-            if self.__current_track.visible:
-                self.update(
-                    0, track_editor.y() - self.yOffset(),
-                    self.width(), track_editor.height())
             self.__current_track = None
 
         if track is not None:
@@ -147,17 +136,13 @@ class Editor(
             track_editor.setIsCurrent(True)
             self.__current_track = track
 
-            if self.__current_track.visible:
-                self.update(
-                    0, track_editor.y() - self.yOffset(),
-                    self.width(), track_editor.height())
-
             if track_editor.track.visible and self.isVisible():
+                track_y = track_editor.y() + self.yOffset()
                 yoffset = self.yOffset()
-                if track_editor.y() + track_editor.height() > yoffset + self.height():
-                    yoffset = track_editor.y() + track_editor.height() - self.height()
-                if track_editor.y() < yoffset:
-                    yoffset = track_editor.y()
+                if track_y + track_editor.height() > yoffset + self.height():
+                    yoffset = track_y + track_editor.height() - self.height()
+                if track_y < yoffset:
+                    yoffset = track_y
                 self.setYOffset(yoffset)
 
         self.currentTrackChanged.emit(self.__current_track)
@@ -192,22 +177,18 @@ class Editor(
         del self.__listeners['track:%s:visible' % track_editor.track.id]
 
     def updateTracks(self) -> None:
-        while self.__viewport_layout.count() > 0:
-            self.__viewport_layout.takeAt(0)
-
+        y = 0
         for track_editor in self.objectWrappers():
             track_editor.setVisible(track_editor.track.visible)
             if not track_editor.track.visible:
                 continue
-            self.__viewport_layout.addWidget(track_editor)
+            track_editor.setGeometry(0, y - self.yOffset(), self.width(), track_editor.height())
+            y += track_editor.height()
 
-        self.__viewport.adjustSize()
-        self.__viewport.resize(self.width(), self.__viewport.height())
-
-        self.maximumYOffsetChanged.emit(
-            max(0, self.__viewport.height() - self.height()))
-
-        self.update()
+        if y != self.__content_height:
+            self.__content_height = y
+            self.maximumYOffsetChanged.emit(
+                max(0, self.__content_height - self.height()))
 
     def __onCurrentTrackChanged(self, track: music.Track) -> None:
         if track is not None:
@@ -261,7 +242,7 @@ class Editor(
             self.setCursor(QtGui.QCursor(Qt.ArrowCursor))
 
     def maximumYOffset(self) -> int:
-        return max(0, self.__viewport.height() - self.height())
+        return max(0, self.__content_height - self.height())
 
     def pageHeight(self) -> int:
         return self.height()
@@ -276,7 +257,7 @@ class Editor(
         self.__y_offset = offset
         self.yOffsetChanged.emit(self.__y_offset)
 
-        self.__viewport.move(0, -self.__y_offset)
+        self.updateTracks()
 
     def offset(self) -> QtCore.QPoint:
         return QtCore.QPoint(self.xOffset(), self.__y_offset)
@@ -284,11 +265,11 @@ class Editor(
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)
 
-        self.__viewport.resize(self.width(), self.__viewport.height())
-
         self.maximumYOffsetChanged.emit(
-            max(0, self.__viewport.height() - self.height()))
+            max(0, self.__content_height - self.height()))
         self.pageHeightChanged.emit(self.height())
+
+        self.updateTracks()
 
     def wheelEvent(self, evt: QtGui.QWheelEvent) -> None:
         if evt.modifiers() == Qt.ShiftModifier:

@@ -22,7 +22,7 @@
 
 import logging
 import typing
-from typing import Any, List, TypeVar
+from typing import Any, Dict, List, TypeVar
 
 from PyQt5 import QtCore
 
@@ -101,7 +101,7 @@ class ObjectListManager(QGeneric[OBJECT, WRAPPER], core.AutoCleanupMixin, QObjec
             if self._filterObject(change.new_value):
                 self.__addObject(change.index, change.new_value)
             else:
-                logger.error("Ignoring object %s (index=%d)", change.new_value, index)
+                logger.error("Ignoring object %s (index=%d)", change.new_value, change.index)
 
         elif isinstance(change, music.PropertyListDelete):
             if change.old_value.id in self.__id_map:
