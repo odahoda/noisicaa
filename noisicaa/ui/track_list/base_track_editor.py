@@ -57,6 +57,7 @@ class BaseTrackEditor(
     currentToolChanged = QtCore.pyqtSignal(tools.ToolType)
     playbackPosition, setPlaybackPosition, playbackPositionChanged = slots.slot(
         audioproc.MusicalTime, 'playbackPosition', default=audioproc.MusicalTime(-1, 1))
+    isCurrent, setIsCurrent, isCurrentChanged = slots.slot(bool, 'isCurrent', default=False)
 
     def __init__(
             self, *,
@@ -75,8 +76,10 @@ class BaseTrackEditor(
         self.__player_state = player_state
         self.__editor = editor
 
-        self.__is_current = False
         self._bg_color = QtGui.QColor(255, 255, 255)
+
+        self.isCurrentChanged.connect(self.__isCurrentChanged)
+        self.__isCurrentChanged(self.isCurrent())
 
         self.scaleXChanged.connect(self.__scaleXChanged)
         self.__scaleXChanged(self.scaleX())
@@ -109,16 +112,8 @@ class BaseTrackEditor(
     def updateSize(self) -> None:
         pass
 
-    def isCurrent(self) -> bool:
-        return self.__is_current
-
-    def setIsCurrent(self, is_current: bool) -> None:
-        if is_current == self.__is_current:
-            return
-
-        self.__is_current = is_current
-
-        if self.__is_current:
+    def __isCurrentChanged(self, is_current: bool) -> None:
+        if is_current:
             self._bg_color = QtGui.QColor(240, 240, 255)
         else:
             self._bg_color = QtGui.QColor(255, 255, 255)

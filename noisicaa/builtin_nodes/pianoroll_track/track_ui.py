@@ -773,6 +773,8 @@ class PianoRollTrackEditor(
         self.__hover_pitch = -1
 
         self.__keys = pianoroll.PianoKeys(parent=self)
+        self.__keys.setVisible(self.isCurrent())
+        self.isCurrentChanged.connect(self.__keys.setVisible)
         self.__keys.setPlayable(True)
         self.__keys.setPlaybackChannel(self.currentChannel())
         self.currentChannelChanged.connect(self.__keys.setPlaybackChannel)
