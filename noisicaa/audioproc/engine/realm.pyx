@@ -233,7 +233,11 @@ cdef class PyRealm(object):
                     node.set_session_value(node_key, session_value)
 
     def send_node_message(self, msg):
-        node = self.__graph.find_node(msg.node_id)
+        try:
+            node = self.__graph.find_node(msg.node_id)
+        except KeyError:
+            logger.warning("Node message to unknown node:\n%s", msg)
+            return
         assert isinstance(node, graph.ProcessorNode), type(node).__name__
         proc = node.processor
 
