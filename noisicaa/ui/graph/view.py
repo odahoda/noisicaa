@@ -50,7 +50,7 @@ class Frame(QtWidgets.QFrame):
 
 class GraphView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QWidget):
     currentTrack, setCurrentTrack, currentTrackChanged = slots.slot(
-        music.Track, 'currentTrack')
+        music.Track, 'currentTrack', allow_none=True)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)

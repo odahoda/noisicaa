@@ -23,19 +23,19 @@
 import fractions
 import functools
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
 from noisicaa.ui import slots
 from noisicaa.ui import ui_base
+from noisicaa.ui import object_list_manager
 from noisicaa.ui import player_state as player_state_lib
 from noisicaa.builtin_nodes import ui_registry
 from . import time_view_mixin
@@ -46,9 +46,11 @@ logger = logging.getLogger(__name__)
 
 
 class Editor(
+        object_list_manager.ObjectListManager[music.Track, base_track_editor.BaseTrackEditor],
         time_view_mixin.TimeViewMixin,
         ui_base.ProjectMixin,
         slots.SlotContainer,
+        core.AutoCleanupMixin,
         QtWidgets.QWidget):
     maximumYOffsetChanged = QtCore.pyqtSignal(int)
     yOffsetChanged = QtCore.pyqtSignal(int)
@@ -64,7 +66,6 @@ class Editor(
 
         self.__current_tool_box = None  # type: tools.ToolBox
         self.__current_tool = None  # type: tools.ToolBase
-        self.__current_track_editor = None  # type: base_track_editor.BaseTrackEditor
         self.__y_offset = 0
 
         super().__init__(**kwargs)
@@ -82,18 +83,16 @@ class Editor(
         self.__viewport.setLayout(self.__viewport_layout)
 
         self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
+
+        self.initObjectList(self.project, 'nodes')
+
+        self.updateTracks()
+        self.objectListChanged.connect(self.updateTracks)
 
         self.__current_track = None  # type: music.Track
-        self.__tracks = []  # type: List[base_track_editor.BaseTrackEditor]
-        self.__track_map = {}  # type: Dict[int, base_track_editor.BaseTrackEditor]
 
-        for node in self.project.nodes:
-            self.__addNode(node)
-
-        self.__listeners['project:nodes'] = self.project.nodes_changed.add(
-            self.__onNodesChanged)
-
-        for idx, track_editor in enumerate(self.__tracks):
+        for idx, track_editor in enumerate(self.objectWrappers()):
             if idx == 0:
                 self.__onCurrentTrackChanged(track_editor.track)
 
@@ -115,12 +114,6 @@ class Editor(
             functools.partial(self.__setScaleX, fractions.Fraction(3, 2)))
         self.addAction(self.__decrease_scale_x_action)
 
-    def cleanup(self) -> None:
-        for track_editor in list(self.__tracks):
-            self.__removeNode(track_editor.track)
-
-        self.__listeners.cleanup()
-
     def __setScaleX(self, factor: fractions.Fraction) -> None:
         new_scale_x = self.scaleX() * factor
         new_scale_x = max(fractions.Fraction(5, 1), new_scale_x)
@@ -141,7 +134,7 @@ class Editor(
             return
 
         if self.__current_track is not None:
-            track_editor = self.__track_map[self.__current_track.id]
+            track_editor = self.objectWrapperById(self.__current_track.id)
             track_editor.setIsCurrent(False)
             if self.__current_track.visible:
                 self.update(
@@ -150,7 +143,7 @@ class Editor(
             self.__current_track = None
 
         if track is not None:
-            track_editor = self.__track_map[track.id]
+            track_editor = self.objectWrapperById(track.id)
             track_editor.setIsCurrent(True)
             self.__current_track = track
 
@@ -169,42 +162,14 @@ class Editor(
 
         self.currentTrackChanged.emit(self.__current_track)
 
-    def __addNode(self, node: music.BaseNode) -> None:
-        if isinstance(node, music.Track):
-            track_editor = self.createTrack(node)
-            self.__tracks.append(track_editor)
-            self.__track_map[node.id] = track_editor
-            self.__listeners['track:%s:visible' % node.id] = node.visible_changed.add(
-                lambda *_: self.updateTracks())
-            self.updateTracks()
+    def _filterObject(self, obj: music.ObjectBase) -> bool:
+        return isinstance(obj, music.Track)
 
-    def __removeNode(self, node: music.BaseNode) -> None:
-        if isinstance(node, music.Track):
-            del self.__listeners['track:%s:visible' % node.id]
-
-            track_editor = self.__track_map.pop(node.id)
-            for idx in range(len(self.__tracks)):
-                if self.__tracks[idx] is track_editor:
-                    del self.__tracks[idx]
-                    break
-
-            track_editor.cleanup()
-            self.updateTracks()
-
-    def __onNodesChanged(
-            self, change: music.PropertyListChange[music.BaseNode]) -> None:
-        if isinstance(change, music.PropertyListInsert):
-            self.__addNode(change.new_value)
-
-        elif isinstance(change, music.PropertyListDelete):
-            self.__removeNode(change.old_value)
-
-        else:  # pragma: no cover
-            raise TypeError(type(change))
-
-    def createTrack(self, track: music.Track) -> base_track_editor.BaseTrackEditor:
+    def _createObjectWrapper(self, track: music.Track) -> base_track_editor.BaseTrackEditor:
         track_editor_cls = ui_registry.track_editor_cls_map[type(track).__name__]
         track_editor = track_editor_cls(
+            object_list_manager=self,
+            wrapped_object=track,
             track=track,
             player_state=self.__player_state,
             editor=self,
@@ -213,13 +178,24 @@ class Editor(
         self.scaleXChanged.connect(track_editor.setScaleX)
         self.playbackPositionChanged.connect(track_editor.setPlaybackPosition)
         track_editor.setXOffset(self.xOffset())
+
+        self.__listeners['track:%s:visible' % track.id] = track.visible_changed.add(
+            lambda *_: self.updateTracks())
+
         return track_editor
+
+    def _deleteObjectWrapper(self, track_editor: base_track_editor.BaseTrackEditor) -> None:
+        if track_editor.track is self.__current_track:
+            self.setCurrentTrack(None)
+        track_editor.hide()
+        track_editor.cleanup()
+        del self.__listeners['track:%s:visible' % track_editor.track.id]
 
     def updateTracks(self) -> None:
         while self.__viewport_layout.count() > 0:
             self.__viewport_layout.takeAt(0)
 
-        for track_editor in self.__tracks:
+        for track_editor in self.objectWrappers():
             track_editor.setVisible(track_editor.track.visible)
             if not track_editor.track.visible:
                 continue
@@ -235,13 +211,10 @@ class Editor(
 
     def __onCurrentTrackChanged(self, track: music.Track) -> None:
         if track is not None:
-            track_editor = down_cast(base_track_editor.BaseTrackEditor, self.__track_map[track.id])
-            self.__current_track_editor = track_editor
-
+            track_editor = self.objectWrapperById(track.id)
             self.setCurrentToolBox(track_editor.toolBox())
 
         else:
-            self.__current_track_editor = None
             self.setCurrentToolBox(None)
 
     def currentToolBox(self) -> tools.ToolBox:

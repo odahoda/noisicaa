@@ -63,7 +63,7 @@ class TrackListView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QSplitt
     loopEnabledChanged = QtCore.pyqtSignal(bool)
 
     currentTrack, setCurrentTrack, currentTrackChanged = slots.slot(
-        music.Track, 'currentTrack')
+        music.Track, 'currentTrack', allow_none=True)
 
     def __init__(
             self, *,

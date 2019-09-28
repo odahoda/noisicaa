@@ -35,6 +35,7 @@ from noisicaa import core
 from noisicaa import music
 from noisicaa.ui import slots
 from noisicaa.ui import ui_base
+from noisicaa.ui import object_list_manager
 from noisicaa.ui import player_state as player_state_lib
 from . import time_view_mixin
 from . import tools
@@ -46,6 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 class BaseTrackEditor(
+        object_list_manager.ObjectWrapper[music.Track, 'editor_lib.Editor'],
         time_view_mixin.TimeViewMixin,
         ui_base.ProjectMixin,
         core.AutoCleanupMixin,

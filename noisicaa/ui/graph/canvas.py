@@ -246,7 +246,7 @@ class DraggedConnection(QtWidgets.QGraphicsPathItem):
 
 class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene):
     currentTrack, setCurrentTrack, currentTrackChanged = slots.slot(
-        music.Track, 'currentTrack')
+        music.Track, 'currentTrack', allow_none=True)
 
     contentRect, setContentRect, contentRectChanged = slots.slot(
         QtCore.QRectF, 'contentRect')
@@ -725,7 +725,7 @@ class ChangeConnection(State):
 
 class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView):
     currentTrack, setCurrentTrack, currentTrackChanged = slots.slot(
-        music.Track, 'currentTrack')
+        music.Track, 'currentTrack', allow_none=True)
 
     visibleCanvasRect, setVisibleCanvasRect, visibleCanvasRectChanged = slots.slot(
         QtCore.QRectF, 'visibleCanvasRect')

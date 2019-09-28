@@ -43,6 +43,7 @@ def build(ctx):
     ctx.py_module('misc.py')
     ctx.py_module('mute_button.py')
     ctx.py_module('object_list_editor.py')
+    ctx.py_module('object_list_manager.py')
     ctx.py_module('open_project_dialog.py')
     ctx.py_test('open_project_dialog_test.py')
     ctx.py_module('piano.py')

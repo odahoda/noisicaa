@@ -54,7 +54,8 @@ def slot(
         name: str,
         *,
         default: T = None,
-        equality: Callable = None
+        equality: Callable = None,
+        allow_none: bool = False
 ) -> Tuple[Callable[[SlotContainer], T], Callable[[SlotContainer, T], None], QtCore.pyqtSignal]:
     assert isinstance(type, _type), type
     if equality is None:
@@ -63,13 +64,18 @@ def slot(
         else:
             equality = operator.is_
 
-    signal = QtCore.pyqtSignal(type)
+    # Create the signal with generic 'object' type, to bypass Qt's typechecking, which is too
+    # restrictive for my taste. E.g. it doesn't accept None otherwise. Instead we're doing our own
+    # typechecking in the setter method.
+    signal = QtCore.pyqtSignal(object)
 
     def getter(self: SlotContainer) -> T:
         return self._slots.get(name, default)
 
     def setter(self: SlotContainer, value: T) -> None:
-        if not isinstance(value, type):
+        if value is None and allow_none:
+            pass
+        elif not isinstance(value, type):
             raise TypeError("Expected %s, got %s" % (type.__name__, _type(value).__name__))
 
         current_value = self._slots.get(name, default)
