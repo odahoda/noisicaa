@@ -100,8 +100,6 @@ class ObjectListManager(QGeneric[OBJECT, WRAPPER], core.AutoCleanupMixin, QObjec
         if isinstance(change, music.PropertyListInsert):
             if self._filterObject(change.new_value):
                 self.__addObject(change.index, change.new_value)
-            else:
-                logger.error("Ignoring object %s (index=%d)", change.new_value, change.index)
 
         elif isinstance(change, music.PropertyListDelete):
             if change.old_value.id in self.__id_map:
@@ -111,7 +109,6 @@ class ObjectListManager(QGeneric[OBJECT, WRAPPER], core.AutoCleanupMixin, QObjec
             raise TypeError(type(change))
 
     def __addObject(self, index: int, obj: OBJECT) -> None:
-        logger.error("Adding object %s (index=%d)", obj, index)
         wrapper = self._createObjectWrapper(obj)
 
         self.__id_map[obj.id] = wrapper

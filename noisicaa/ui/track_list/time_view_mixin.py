@@ -30,6 +30,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
+from noisicaa.ui import slots
 from noisicaa.ui import ui_base
 
 logger = logging.getLogger(__name__)
@@ -89,12 +90,15 @@ class ScaledTimeMixin(ui_base.ProjectMixin, QObjectMixin):
         self.scaleXChanged.emit(self.__scale_x)
 
 
-class ContinuousTimeMixin(ScaledTimeMixin):
+class ContinuousTimeMixin(ScaledTimeMixin, slots.SlotContainer):
+    additionalXOffset, setAdditionalXOffset, additionalXOffsetChanged = slots.slot(
+        int, 'additionalXOffset', default=0)
+
     def timeToX(self, time: audioproc.MusicalTime) -> int:
-        return self.leftMargin() + int(self.scaleX() * time.fraction)
+        return self.leftMargin() + self.additionalXOffset() + int(self.scaleX() * time.fraction)
 
     def xToTime(self, x: int) -> audioproc.MusicalTime:
-        x -= self.leftMargin()
+        x -= self.leftMargin() + self.additionalXOffset()
         if x <= 0:
             return audioproc.MusicalTime(0, 1)
 

@@ -301,7 +301,7 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
 
         self.playbackPositionChanged.connect(self.__playbackPositionChanged)
 
-        self.setFixedHeight(120)
+        self.setDefaultHeight(120)
 
     @property
     def track(self) -> model.SampleTrack:

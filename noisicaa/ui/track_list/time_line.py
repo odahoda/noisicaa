@@ -70,6 +70,7 @@ class TimeLine(
         self.__duration_listener = self.project.duration_changed.add(self.onDurationChanged)
 
         self.scaleXChanged.connect(lambda _: self.update())
+        self.additionalXOffsetChanged.connect(lambda _: self.update())
 
     def setPlayerID(self, player_id: str) -> None:
         self.__player_id = player_id

@@ -86,6 +86,7 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
         self.__active_keys = set()  # type: Set[int]
 
         self.yOffsetChanged.connect(lambda _: self.update())
+        self.gridYSizeChanged.connect(lambda _: self.update())
 
     def gridHeight(self) -> int:
         return 128 * self.gridYSize() + 1

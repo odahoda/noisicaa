@@ -278,7 +278,7 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
 
         self.__listeners.add(self.track.points_changed.add(self.onPointsChanged))
 
-        self.setFixedHeight(120)
+        self.setDefaultHeight(120)
 
         self.scaleXChanged.connect(self.__onScaleXChanged)
         self.playbackPositionChanged.connect(self.__playbackPositionChanged)

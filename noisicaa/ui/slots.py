@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import fractions
 import functools
 import logging
 import operator
@@ -59,7 +60,7 @@ def slot(
 ) -> Tuple[Callable[[SlotContainer], T], Callable[[SlotContainer, T], None], QtCore.pyqtSignal]:
     assert isinstance(type, _type), type
     if equality is None:
-        if type in (int, float, bool, str):
+        if type in (int, float, bool, str, fractions.Fraction):
             equality = operator.eq
         else:
             equality = operator.is_

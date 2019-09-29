@@ -1130,7 +1130,7 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
         super().__init__(**kwargs)
         self.__play_last_pitch = None  # type: value_types.Pitch
 
-        self.setFixedHeight(240)
+        self.setDefaultHeight(240)
 
     def createToolBox(self) -> ScoreToolBox:
         return ScoreToolBox(track=self, context=self.context)
