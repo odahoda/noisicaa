@@ -956,6 +956,23 @@ class ListMixin(object):
             [('delete', 1, value_or_id(e4)),
              ('delete', 0, value_or_id(e3))])
 
+    def test_move(self):
+        lst = self.create_list()
+        e1, e2, e3, e4, e5 = self.create_elements()
+        lst.extend([e1, e2, e3, e4, e5])
+
+        lst.move(0, 4)
+        self.assertEqual(lst, [e2, e3, e4, e5, e1])
+
+        lst.move(3, 4)
+        self.assertEqual(lst, [e2, e3, e4, e1, e5])
+
+        lst.move(4, 1)
+        self.assertEqual(lst, [e2, e5, e3, e4, e1])
+
+        lst.move(4, 3)
+        self.assertEqual(lst, [e2, e5, e3, e1, e4])
+
     def test_slice(self):
         lst = self.create_list()
         e1, e2, e3, e4, e5 = self.create_elements()

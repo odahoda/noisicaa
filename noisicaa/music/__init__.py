@@ -36,7 +36,7 @@ from .model_base import (
     PropertyChange,
     PropertyValueChange,
     PropertyListChange,
-    PropertyListInsert, PropertyListDelete, PropertyListSet,
+    PropertyListInsert, PropertyListDelete, PropertyListSet, PropertyListMove,
 
     Pool,
 )

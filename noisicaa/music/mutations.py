@@ -141,6 +141,11 @@ class MutationList(object):
                 _assert_equal(lst[op.list_set.index], old_value)
                 lst.set(op.list_set.index, new_value)
 
+            elif op_type == 'list_move':
+                o = self.__pool[op.list_move.obj_id]
+                lst = getattr(o, op.list_move.prop_name)
+                lst.move(op.list_move.old_index, op.list_move.new_index)
+
             elif op_type == 'add_object':
                 self.__pool.deserialize(op.add_object.object)
 
@@ -187,6 +192,11 @@ class MutationList(object):
                 lst = getattr(o, op.list_set.prop_name)
                 _assert_equal(lst[op.list_set.index], new_value)
                 lst.set(op.list_set.index, old_value)
+
+            elif op_type == 'list_move':
+                o = self.__pool[op.list_move.obj_id]
+                lst = getattr(o, op.list_move.prop_name)
+                lst.move(op.list_move.new_index, op.list_move.old_index)
 
             elif op_type == 'add_object':
                 o = self.__pool[op.add_object.object.id]
@@ -273,6 +283,14 @@ class MutationCollector(object):
                     index=change.index,
                     old_slot=old_slot_id,
                     new_slot=new_slot_id)))
+
+        elif isinstance(change, model_base.PropertyListMove):
+            self.__add_operation(mutations_pb2.MutationList.Op(
+                list_move=mutations_pb2.MutationList.ListMove(
+                    obj_id=change.obj.id,
+                    prop_name=change.prop_name,
+                    old_index=change.old_index,
+                    new_index=change.new_index)))
 
         elif isinstance(change, model_base.ObjectAdded):
             self.__add_operation(mutations_pb2.MutationList.Op(
