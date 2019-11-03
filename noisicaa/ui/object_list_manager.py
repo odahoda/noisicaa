@@ -105,6 +105,10 @@ class ObjectListManager(QGeneric[OBJECT, WRAPPER], core.AutoCleanupMixin, QObjec
             if change.old_value.id in self.__id_map:
                 self.__removeObject(change.old_value)
 
+        elif isinstance(change, music.PropertyListMove):
+            self.__wrappers.sort(key=lambda w: w.wrappedObject().index)
+            self.objectListChanged.emit()
+
         else:  # pragma: no cover
             raise TypeError(type(change))
 

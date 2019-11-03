@@ -290,6 +290,10 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
         elif isinstance(change, music.PropertyListDelete):
             self.__removeNode(change.old_value, change.index)
 
+        elif isinstance(change, music.PropertyListMove):
+            item = self.__nodes.pop(change.old_index)
+            self.__nodes.insert(change.new_index, item)
+
         else:  # pragma: no cover
             raise TypeError(type(change))
 
