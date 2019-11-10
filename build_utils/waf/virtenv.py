@@ -328,9 +328,9 @@ def check_virtual_env(ctx):
                 system_site_packages=False,
                 with_pip=True)
             env_builder.create(venvdir)
-        except Exception as exc:  # pylint: disable=broad-except
+        except BaseException as exc:  # pylint: disable=broad-except
             shutil.rmtree(venvdir)
-            ctx.fatal("Failed to create virtual env: %s" % exc)
+            ctx.fatal("Failed to create virtual env: %s: %s" % (type(exc).__name__, exc))
 
         # Always update PIP to something more recent than what ensurepip has installed. We need at
         # least 9.0 for 'pip list --format=json' to work.
