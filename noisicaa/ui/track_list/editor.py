@@ -178,8 +178,30 @@ class TrackHandle(slots.SlotContainer, QtWidgets.QWidget):
             painter.end()
 
 
+class TrackLabel(slots.SlotContainer, QtWidgets.QLabel):
+    isCurrent, setIsCurrent, isCurrentChanged = slots.slot(bool, 'isCurrent', default=False)
+
+    def __init__(self, parent: QtWidgets.QWidget) -> None:
+        super().__init__(parent=parent)
+
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
+        self.setFrameStyle(QtWidgets.QFrame.Panel | QtWidgets.QFrame.Raised)
+        self.setBackgroundRole(QtGui.QPalette.Window)
+        self.setAutoFillBackground(True)
+
+        self.isCurrentChanged.connect(
+            lambda current: self.setBackgroundRole(QtGui.QPalette.Highlight if current else QtGui.QPalette.Window))
+
+        font = QtGui.QFont(self.font())
+        font.setPointSizeF(0.8 * font.pointSizeF())
+        self.setFont(font)
+
+
 class TrackContainer(
-        object_list_manager.ObjectWrapper[music.Track, 'Editor'], QtCore.QObject):
+        object_list_manager.ObjectWrapper[music.Track, 'Editor'],
+        ui_base.ProjectMixin,
+        QtCore.QObject):
     visibilityChanged = QtCore.pyqtSignal(bool)
 
     def __init__(
@@ -219,11 +241,21 @@ class TrackContainer(
 
         self.top_separator = TrackSeparator(editor, None)
         self.separator = TrackSeparator(editor, self)
+        self.label = TrackLabel(editor)
+        self.label.setText(self.track.name)
+        self.__listeners['name'] = self.track.name_changed.add(
+            lambda change: self.label.setText(change.new_value))
 
         self.handle = TrackHandle(editor=editor, container=self)
 
+        self.__hide_label_under_mouse = False
+        self.__hide_label_small_track = False
+        self.__global_mouse_move_conn = self.app.globalMousePosChanged.connect(self.__globalMouseMove)
+
     def cleanup(self) -> None:
         self.__listeners.cleanup()
+
+        self.app.globalMousePosChanged.disconnect(self.__global_mouse_move_conn)
 
         self.track_editor.hide()
         self.track_editor.cleanup()
@@ -233,6 +265,15 @@ class TrackContainer(
 
         self.handle.setParent(None)
         self.handle.hide()
+
+        self.label.setParent(None)
+        self.label.hide()
+
+    def __globalMouseMove(self, pos: QtCore.QPoint) -> None:
+        pos = self.label.mapFromGlobal(pos)
+        rect = self.label.rect().adjusted(-10, -10, 10, 10)
+        self.__hide_label_under_mouse = rect.contains(pos)
+        self.label.setVisible(not self.__hide_label_under_mouse and not self.__hide_label_small_track)
 
     def setTrackGeometry(
             self, rect: QtCore.QRect, sidebar_width: int, separator_height: int, show_top_sep: bool
@@ -245,21 +286,33 @@ class TrackContainer(
                 rect.x(), rect.y() - separator_height, rect.width(), separator_height)
         else:
             self.top_separator.setVisible(False)
+
+        self.handle.setVisible(True)
         self.handle.setGeometry(rect.x(), rect.y(), handle_width, rect.height())
+
+        self.track_editor.setVisible(True)
         self.track_editor.setGeometry(
             rect.x() + handle_width, rect.y(), rect.width() - handle_width, rect.height())
+
+        self.__hide_label_small_track = (rect.height() < self.label.height() + 4)
+        self.label.move(rect.x() + handle_width + 4, rect.y() + 2)
+        self.label.setVisible(not self.__hide_label_under_mouse and not self.__hide_label_small_track)
+
+        self.separator.setVisible(True)
         self.separator.setGeometry(
             rect.x(), rect.y() + rect.height(), rect.width(), separator_height)
 
-    def setVisible(self, visible: bool) -> None:
-        self.handle.setVisible(visible)
-        self.track_editor.setVisible(visible)
-        self.top_separator.setVisible(visible)
-        self.separator.setVisible(visible)
+    def hide(self) -> None:
+        self.handle.setVisible(False)
+        self.track_editor.setVisible(False)
+        self.label.setVisible(False)
+        self.top_separator.setVisible(False)
+        self.separator.setVisible(False)
 
     def setIsCurrent(self, is_current: bool) -> None:
         self.handle.setIsCurrent(is_current)
         self.track_editor.setIsCurrent(is_current)
+        self.label.setIsCurrent(is_current)
 
     def setHeight(self, height: fractions.Fraction) -> None:
         self.height = height
@@ -268,6 +321,7 @@ class TrackContainer(
     def raise_(self) -> None:
         self.handle.raise_()
         self.track_editor.raise_()
+        self.label.raise_()
         self.top_separator.raise_()
         self.separator.raise_()
 
@@ -453,7 +507,8 @@ class Editor(
         container = TrackContainer(
             editor=self,
             track=track,
-            player_state=self.__player_state)
+            player_state=self.__player_state,
+            context=self.context)
         container.visibilityChanged.connect(lambda _: self.__updateTracks())
         return container
 
@@ -470,8 +525,8 @@ class Editor(
 
         content_height = 0
         for container in self.objectWrappers():
-            container.setVisible(container.track.visible)
             if not container.track.visible:
+                container.hide()
                 continue
 
             if not tracks:
