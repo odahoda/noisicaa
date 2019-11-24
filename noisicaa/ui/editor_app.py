@@ -433,7 +433,7 @@ class EditorApp(ui_base.AbstractEditorApp):
 
     def eventFilter(self, target: QtCore.QObject, evt: QtCore.QEvent) -> bool:
         if evt.type() == QtCore.QEvent.MouseMove:
-            assert isinstance(evt, QtGui.QMouseEvent)
+            assert isinstance(evt, QtGui.QMouseEvent), evt
             assert isinstance(target, (QtWidgets.QWidget, QtGui.QWindow)), target
             self.globalMousePosChanged.emit(target.mapToGlobal(evt.pos()))
         return super().eventFilter(target, evt)

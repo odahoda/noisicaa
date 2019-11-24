@@ -915,7 +915,8 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
 
         menu = QtWidgets.QMenu()
 
-        click_node = self.__scene.nodeAt(self.mapToScene(event.pos()))
+        scene_pos = self.mapToScene(event.pos())
+        click_node = self.__scene.nodeAt(scene_pos)
         if click_node is not None:
             click_node.buildContextMenu(menu)
 
@@ -926,7 +927,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             # signal fires.
             insert_node_action.nodeSelected.connect(lambda _: menu.close())
             insert_node_action.nodeSelected.connect(
-                lambda uri: self.__scene.insertNode(uri, self.mapToScene(event.pos())))
+                lambda uri: self.__scene.insertNode(uri, scene_pos))
             insert_node_menu.addAction(insert_node_action)
 
             menu.addSeparator()
@@ -934,7 +935,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             menu.addAction(self.__select_all_action)
 
         if not menu.isEmpty():
-            menu.exec_(event.globalPos())
+            menu.popup(event.globalPos())
             event.accept()
 
     def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
