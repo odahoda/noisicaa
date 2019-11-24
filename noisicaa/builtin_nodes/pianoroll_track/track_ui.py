@@ -1109,12 +1109,6 @@ class PianoRollTrackEditor(
         self.__insert_cursor.setGeometry(x, 0, 3, self.height())
         self.__insert_cursor.show()
 
-    def gridStep(self) -> audioproc.MusicalDuration:
-        for s in (64, 32, 16, 8, 4, 2):
-            if self.scaleX() / s > 96:
-                return audioproc.MusicalDuration(1, s)
-        return audioproc.MusicalDuration(1, 1)
-
     def gridHeight(self) -> int:
         return 128 * self.effectiveGridYSize() + 1
 
@@ -1127,7 +1121,7 @@ class PianoRollTrackEditor(
             max(0, min(self.gridHeight() - self.height(),
                        int(pos * self.gridHeight() - self.height() / 2))))
 
-    def __updateShowKeys(self):
+    def __updateShowKeys(self) -> None:
         self.setShowKeys(self.isCurrent() and self.effectiveGridYSize() > 3)
 
     def repositionSegment(
@@ -1232,34 +1226,7 @@ class PianoRollTrackEditor(
         super().wheelEvent(evt)
 
     def _paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
-        painter.setPen(Qt.black)
-
-        beat_time = audioproc.MusicalTime()
-        beat_num = 0
-        while beat_time < self.projectEndTime():
-            x = self.timeToX(beat_time)
-
-            if beat_num == 0:
-                painter.fillRect(x, 0, 2, self.height(), Qt.black)
-            else:
-                if beat_time % audioproc.MusicalTime(1, 4) == audioproc.MusicalTime(0, 1):
-                    c = QtGui.QColor(160, 160, 160)
-                elif beat_time % audioproc.MusicalTime(1, 8) == audioproc.MusicalTime(0, 1):
-                    c = QtGui.QColor(185, 185, 185)
-                elif beat_time % audioproc.MusicalTime(1, 16) == audioproc.MusicalTime(0, 1):
-                    c = QtGui.QColor(210, 210, 210)
-                elif beat_time % audioproc.MusicalTime(1, 32) == audioproc.MusicalTime(0, 1):
-                    c = QtGui.QColor(225, 225, 225)
-                else:
-                    c = QtGui.QColor(240, 240, 240)
-
-                painter.fillRect(x, 0, 1, self.height(), c)
-
-            beat_time += self.gridStep()
-            beat_num += 1
-
-        x = self.timeToX(self.projectEndTime())
-        painter.fillRect(x, 0, 2, self.height(), Qt.black)
+        self.renderTimeGrid(painter, paint_rect)
 
     def playNotes(self, play_notes: pianoroll.PlayNotes) -> None:
         if self.playerState().playerID():

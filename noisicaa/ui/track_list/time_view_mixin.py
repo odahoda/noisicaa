@@ -25,6 +25,7 @@ import logging
 import typing
 from typing import Any
 
+from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
@@ -94,6 +95,22 @@ class ContinuousTimeMixin(ScaledTimeMixin, slots.SlotContainer):
     additionalXOffset, setAdditionalXOffset, additionalXOffsetChanged = slots.slot(
         int, 'additionalXOffset', default=0)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.__grid_step = audioproc.MusicalDuration(1, 1)
+
+        self.scaleXChanged.connect(self.__scaleXChanged)
+        self.__scaleXChanged(self.scaleX())
+
+    def __scaleXChanged(self, scale_x: fractions.Fraction) -> None:
+        for s in (64, 32, 16, 8, 4, 2):
+            if scale_x / s > 96:
+                self.__grid_step = audioproc.MusicalDuration(1, s)
+                break
+        else:
+            self.__grid_step = audioproc.MusicalDuration(1, 1)
+
     def timeToX(self, time: audioproc.MusicalTime) -> int:
         return self.leftMargin() + self.additionalXOffset() + int(self.scaleX() * time.fraction)
 
@@ -103,6 +120,48 @@ class ContinuousTimeMixin(ScaledTimeMixin, slots.SlotContainer):
             return audioproc.MusicalTime(0, 1)
 
         return audioproc.MusicalTime(x / self.scaleX())
+
+    def gridStep(self) -> audioproc.MusicalDuration:
+        return self.__grid_step
+
+    def renderTimeGrid(self, painter: QtGui.QPainter, rect: QtCore.QRect, *, show_numbers=False) -> None:
+        grid_step = self.gridStep()
+
+        tick_num = int(self.xToTime(rect.x()) / grid_step)
+        tick_time = (grid_step * tick_num).as_time()
+        while tick_time < self.projectEndTime():
+            x = self.timeToX(tick_time)
+            if x > rect.right():
+                break
+
+            if tick_num == 0:
+                painter.fillRect(x, rect.y(), 2, rect.height(), Qt.black)
+            else:
+                if tick_time % audioproc.MusicalTime(1, 1) == audioproc.MusicalTime(0, 1):
+                    c = QtGui.QColor(0, 0, 0)
+                elif tick_time % audioproc.MusicalTime(1, 4) == audioproc.MusicalTime(0, 1):
+                    c = QtGui.QColor(160, 160, 160)
+                elif tick_time % audioproc.MusicalTime(1, 8) == audioproc.MusicalTime(0, 1):
+                    c = QtGui.QColor(185, 185, 185)
+                elif tick_time % audioproc.MusicalTime(1, 16) == audioproc.MusicalTime(0, 1):
+                    c = QtGui.QColor(210, 210, 210)
+                elif tick_time % audioproc.MusicalTime(1, 32) == audioproc.MusicalTime(0, 1):
+                    c = QtGui.QColor(225, 225, 225)
+                else:
+                    c = QtGui.QColor(240, 240, 240)
+
+                painter.fillRect(x, rect.y(), 1, rect.height(), c)
+
+            if show_numbers and tick_time % audioproc.MusicalTime(1, 1) == audioproc.MusicalTime(0, 1):
+                beat_num = int(tick_time / audioproc.MusicalTime(1, 4))
+                painter.setPen(Qt.black)
+                painter.drawText(x + 5, 12, '%d' % (beat_num + 1))
+
+            tick_time += grid_step
+            tick_num += 1
+
+        x = self.timeToX(self.projectEndTime())
+        painter.fillRect(x, rect.y(), 2, rect.height(), Qt.black)
 
 
 class TimeViewMixin(ScaledTimeMixin, QWidgetMixin):

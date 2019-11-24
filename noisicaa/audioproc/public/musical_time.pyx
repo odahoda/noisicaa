@@ -46,14 +46,14 @@ cdef class PyMusicalDuration(object):
         if len(args) == 0:
             self._duration = MusicalDuration()
         elif len(args) == 2:
-            self._duration = MusicalDuration(<int>args[0], <int>args[1])
+            self._duration = MusicalDuration(<int64_t>args[0], <int64_t>args[1])
         elif len(args) == 1:
             if isinstance(args[0], PyMusicalDuration):
                 self._duration = (<PyMusicalDuration>args[0])._duration
             elif isinstance(args[0], fractions.Fraction):
-                self._duration = MusicalDuration(<int>args[0].numerator, <int>args[0].denominator)
+                self._duration = MusicalDuration(<int64_t>args[0].numerator, <int64_t>args[0].denominator)
             elif isinstance(args[0], int):
-                self._duration = MusicalDuration(<int>args[0])
+                self._duration = MusicalDuration(<int64_t>args[0])
             else:
                 raise TypeError(repr(args[0]))
         else:
@@ -161,14 +161,14 @@ cdef class PyMusicalTime(object):
         if len(args) == 0:
             self._time = MusicalTime()
         elif len(args) == 2:
-            self._time = MusicalTime(<int>args[0], <int>args[1])
+            self._time = MusicalTime(<int64_t>args[0], <int64_t>args[1])
         elif len(args) == 1:
             if isinstance(args[0], PyMusicalTime):
                 self._time = (<PyMusicalTime>args[0])._time
             elif isinstance(args[0], fractions.Fraction):
-                self._time = MusicalTime(<int>args[0].numerator, <int>args[0].denominator)
+                self._time = MusicalTime(<int64_t>args[0].numerator, <int64_t>args[0].denominator)
             elif isinstance(args[0], int):
-                self._time = MusicalTime(<int>args[0])
+                self._time = MusicalTime(<int64_t>args[0])
             else:
                 raise TypeError(repr(args[0]))
         else:

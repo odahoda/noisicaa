@@ -390,23 +390,7 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
         super().mouseDoubleClickEvent(evt)
 
     def _paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
-        painter.setPen(Qt.black)
-
-        beat_time = audioproc.MusicalTime()
-        beat_num = 0
-        while beat_time < self.projectEndTime():
-            x = self.timeToX(beat_time)
-
-            if beat_num == 0:
-                painter.fillRect(x, 0, 2, self.height(), Qt.black)
-            else:
-                painter.fillRect(x, 0, 1, self.height(), QtGui.QColor(160, 160, 160))
-
-            beat_time += audioproc.MusicalDuration(1, 4)
-            beat_num += 1
-
-        x = self.timeToX(self.projectEndTime())
-        painter.fillRect(x, 0, 2, self.height(), Qt.black)
+        self.renderTimeGrid(painter, paint_rect)
 
         points = self.points[:]
 
