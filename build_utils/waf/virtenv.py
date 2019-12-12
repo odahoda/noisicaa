@@ -194,6 +194,7 @@ def configure(ctx):
     sys_mgr.check_package(DEV, 'gdb')
     sys_mgr.check_package(DEV, 'xvfb')
     sys_mgr.check_package(DEV, 'intltool')
+    sys_mgr.check_package(DEV, 'libboost-dev', version='>=1.65')
 
     # git is needed to fetch PIP packages from 'git+https://...' sources.
     sys_mgr.check_package(BUILD, 'git')

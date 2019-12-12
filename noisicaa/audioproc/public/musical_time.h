@@ -27,50 +27,39 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <boost/rational.hpp>
 #include <noisicaa/audioproc/public/musical_time.pb.h>
 
 namespace noisicaa {
 
 class Fraction {
 public:
-  Fraction()
-    : _numerator(0),
-      _denominator(1) {}
-  Fraction(int64_t n, int64_t d)
-    : _numerator(n),
-      _denominator(d) {
-    assert(d > 0);
-    reduce();
-  }
-  Fraction(const Fraction& t)
-    : _numerator(t.numerator()),
-      _denominator(t.denominator()) {
-    reduce();
-  }
+  Fraction() : _r(0) {}
+  Fraction(int64_t n, int64_t d) : _r(n, d) {}
+  Fraction(const Fraction& t) : _r(t._r) {}
 
-  int64_t numerator() const { return _numerator; }
-  int64_t denominator() const { return _denominator; }
-  double to_double() const { return (double)_numerator / _denominator; }
-  float to_float() const { return (float)_numerator / _denominator; }
+  int64_t numerator() const { return _r.numerator(); }
+  int64_t denominator() const { return _r.denominator(); }
+  double to_double() const { return (double)_r.numerator() / _r.denominator(); }
+  float to_float() const { return (float)_r.numerator() / _r.denominator(); }
 
 protected:
   void set(int64_t n, int64_t d) {
-    assert(d > 0);
-    _numerator = n;
-    _denominator = d;
+    _r.assign(n, d);
   }
   int cmp(int64_t n, int64_t d) const;
-  void add(int64_t n, int64_t d);
-  void sub(int64_t n, int64_t d);
-  void mul(int64_t n, int64_t d);
-  void div(int64_t n, int64_t d);
+  void add(int64_t n, int64_t d) {_r += boost::rational<int64_t>(n, d); }
+  void add(const Fraction& t) { _r += t._r; }
+  void sub(int64_t n, int64_t d) { _r -= boost::rational<int64_t>(n, d); }
+  void sub(const Fraction& t) { _r -= t._r; }
+  void mul(int64_t n, int64_t d) { _r *= boost::rational<int64_t>(n, d); }
+  void mul(const Fraction& t) { _r *= t._r; }
+  void div(int64_t n, int64_t d) { _r /= boost::rational<int64_t>(n, d); }
+  void div(const Fraction& t) { _r /= t._r; }
   void mod(int64_t n, int64_t d);
 
 private:
-  int64_t _numerator;
-  int64_t _denominator;
-
-  void reduce();
+  boost::rational<int64_t> _r;
 };
 
 class MusicalDuration : public Fraction {
@@ -88,10 +77,10 @@ public:
 
   void set(const MusicalDuration& t) { Fraction::set(t.numerator(), t.denominator()); }
   int cmp(const MusicalDuration& t) const { return Fraction::cmp(t.numerator(), t.denominator()); }
-  void add(const MusicalDuration& t) { Fraction::add(t.numerator(), t.denominator()); }
-  void sub(const MusicalDuration& t) { Fraction::sub(t.numerator(), t.denominator()); }
-  void mul(const Fraction& t) { Fraction::mul(t.numerator(), t.denominator()); }
-  void div(const Fraction& t) { Fraction::div(t.numerator(), t.denominator()); }
+  void add(const MusicalDuration& t) { Fraction::add(t); }
+  void sub(const MusicalDuration& t) { Fraction::sub(t); }
+  void mul(const Fraction& t) { Fraction::mul(t); }
+  void div(const Fraction& t) { Fraction::div(t); }
 
   MusicalDuration& operator+=(const MusicalDuration& t) { add(t); return *this; }
   MusicalDuration& operator-=(const MusicalDuration& t) { sub(t); return *this; }
@@ -150,10 +139,10 @@ public:
 
   void set(const MusicalTime& t) { Fraction::set(t.numerator(), t.denominator()); }
   int cmp(const MusicalTime& t) const { return Fraction::cmp(t.numerator(), t.denominator()); }
-  void add(const MusicalDuration& t) { Fraction::add(t.numerator(), t.denominator()); }
-  void sub(const MusicalDuration& t) { Fraction::sub(t.numerator(), t.denominator()); }
-  void mul(const Fraction& t) { Fraction::mul(t.numerator(), t.denominator()); }
-  void div(const Fraction& t) { Fraction::div(t.numerator(), t.denominator()); }
+  void add(const MusicalDuration& t) { Fraction::add(t); }
+  void sub(const MusicalDuration& t) { Fraction::sub(t); }
+  void mul(const Fraction& t) { Fraction::mul(t); }
+  void div(const Fraction& t) { Fraction::div(t); }
   void mod(const Fraction& t) { Fraction::mod(t.numerator(), t.denominator()); }
 
   MusicalTime& operator+=(const MusicalDuration& t) { add(t); return *this; }
