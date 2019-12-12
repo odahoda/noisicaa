@@ -22,81 +22,18 @@
 
 #include "noisicaa/audioproc/public/musical_time.h"
 
-namespace {
-
-int64_t gcd(int64_t a, int64_t b) {
-  assert(a > 0);
-  assert(b > 0);
-  while ( a != 0 ) {
-    int64_t c = a;
-    a = b % a;
-    b = c;
-  }
-  return b;
-}
-
-}
-
 namespace noisicaa {
-
-void Fraction::reduce() {
-  assert(_denominator != 0);
-
-  if (_numerator == 0) {
-    _denominator = 1;
-    return;
-  }
-
-  if (_denominator < 0) {
-    _numerator = -_numerator;
-    _denominator = -_denominator;
-  }
-
-  int64_t c = gcd(abs(_numerator), _denominator);
-  _numerator /= c;
-  _denominator /= c;
-}
-
-void Fraction::add(int64_t n, int64_t d) {
-  assert(d > 0);
-  _numerator = _numerator * d + _denominator * n;
-  _denominator = _denominator * d;
-  reduce();
-}
-
-void Fraction::sub(int64_t n, int64_t d) {
-  assert(d > 0);
-  _numerator = _numerator * d - _denominator * n;
-  _denominator = _denominator * d;
-  reduce();
-}
-
-void Fraction::mul(int64_t n, int64_t d) {
-  assert(d != 0);
-  _numerator *= n;
-  _denominator *= d;
-  reduce();
-}
-
-void Fraction::div(int64_t n, int64_t d) {
-  assert(n != 0);
-  _numerator *= d;
-  _denominator *= n;
-  reduce();
-}
 
 void Fraction::mod(int64_t n, int64_t d) {
   assert(n != 0);
-  int64_t t = _denominator;
-  int64_t a = (n * _denominator);
-  _numerator = ((_numerator * d) % a + a) % a;
-  _denominator = t * d;
-  reduce();
+  int64_t t = _r.denominator();
+  int64_t a = (n * _r.denominator());
+  _r.assign(((_r.numerator() * d) % a + a) % a, t * d);
 }
 
 int Fraction::cmp(int64_t n, int64_t d) const {
   assert(d > 0);
-  int64_t c = _numerator * d - _denominator * n;
+  int64_t c = _r.numerator() * d - _r.denominator() * n;
   if (c > 0) { return 1; }
   if (c < 0) { return -1; }
   return 0;
