@@ -701,6 +701,7 @@ class CSoundBuilder(ThirdPartyBuilder):
             ['cmake',
              '-DBUILD_PYTHON_INTERFACE=0',
              '-DBUILD_LINEAR_ALGEBRA_OPCODES=0',
+             '-DBUILD_STK_OPCODES=0',
              '-DCMAKE_INSTALL_PREFIX=' + self._ctx.env.VIRTUAL_ENV,
              os.path.abspath(src_path)
             ],
