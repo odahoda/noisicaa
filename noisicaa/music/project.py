@@ -118,7 +118,7 @@ class BaseProject(_model.Project, model_base.ObjectBase):
 
     @property
     def duration(self) -> audioproc.MusicalDuration:
-        return audioproc.MusicalDuration(2 * 120, 4)  # 2min * 120bpm
+        return audioproc.MusicalDuration(10 * 120, 4)  # 10min * 120bpm
 
     @property
     def attached_to_project(self) -> bool:
