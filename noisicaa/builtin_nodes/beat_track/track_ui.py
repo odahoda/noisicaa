@@ -125,6 +125,10 @@ class BeatMeasureEditor(measured_track_editor.MeasureEditor):
         self.__ghost_time = None  # type: audioproc.MusicalDuration
 
     @property
+    def track_editor(self) -> 'BeatTrackEditor':
+        return down_cast(BeatTrackEditor, super().track_editor)
+
+    @property
     def track(self) -> model.BeatTrack:
         return down_cast(model.BeatTrack, super().track)
 
@@ -238,7 +242,7 @@ class BeatTrackEditor(measured_track_editor.MeasuredTrackEditor):
 
         self.__play_last_pitch = None  # type: value_types.Pitch
 
-        self.setFixedHeight(60)
+        self.setDefaultHeight(60)
 
     @property
     def track(self) -> model.BeatTrack:

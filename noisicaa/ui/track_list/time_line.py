@@ -70,6 +70,7 @@ class TimeLine(
         self.__duration_listener = self.project.duration_changed.add(self.onDurationChanged)
 
         self.scaleXChanged.connect(lambda _: self.update())
+        self.additionalXOffsetChanged.connect(lambda _: self.update())
 
     def setPlayerID(self, player_id: str) -> None:
         self.__player_id = player_id
@@ -186,28 +187,9 @@ class TimeLine(
         try:
             painter.fillRect(evt.rect(), Qt.white)
 
-            painter.setPen(Qt.black)
             painter.translate(-self.xOffset(), 0)
 
-            # beat markers
-            beat_time = audioproc.MusicalTime()
-            beat_num = 0
-            while beat_time < self.projectEndTime():
-                x = self.timeToX(beat_time)
-
-                if beat_num == 0:
-                    painter.fillRect(x, 0, 2, self.height(), Qt.black)
-                else:
-                    painter.fillRect(x, 0, 1, self.height(), Qt.black)
-
-                if beat_num % 4 == 0:
-                    painter.drawText(x + 5, 12, '%d' % (beat_num + 1))
-
-                beat_time += audioproc.MusicalDuration(1, 4)
-                beat_num += 1
-
-            x = self.timeToX(self.projectEndTime())
-            painter.fillRect(x, 0, 2, self.height(), Qt.black)
+            self.renderTimeGrid(painter, evt.rect().translated(self.xOffset(), 0), show_numbers=True)
 
             # loop markers
             loop_start_time = self.__player_state.loopStartTime()

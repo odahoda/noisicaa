@@ -118,7 +118,7 @@ class BaseProject(_model.Project, model_base.ObjectBase):
 
     @property
     def duration(self) -> audioproc.MusicalDuration:
-        return audioproc.MusicalDuration(2 * 120, 4)  # 2min * 120bpm
+        return audioproc.MusicalDuration(10 * 120, 4)  # 10min * 120bpm
 
     @property
     def attached_to_project(self) -> bool:
@@ -179,15 +179,14 @@ class BaseProject(_model.Project, model_base.ObjectBase):
             graph_pos: value_types.Pos2F = value_types.Pos2F(0, 0),
             graph_size: value_types.SizeF = value_types.SizeF(200, 100),
             graph_color: value_types.Color = value_types.Color(0.8, 0.8, 0.8),
+            **kwargs: Any
     ) -> graph.BaseNode:
         node_desc = self.get_node_description(uri)
 
-        kwargs = {
-            'name': name or node_desc.display_name,
-            'graph_pos': graph_pos,
-            'graph_size': graph_size,
-            'graph_color': graph_color,
-        }
+        kwargs['name'] = name or node_desc.display_name
+        kwargs['graph_pos'] = graph_pos
+        kwargs['graph_size'] = graph_size
+        kwargs['graph_color'] = graph_color
 
         # Defered import to work around cyclic import.
         from noisicaa.builtin_nodes import model_registry

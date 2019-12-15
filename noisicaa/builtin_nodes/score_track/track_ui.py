@@ -683,6 +683,10 @@ class ScoreMeasureEditor(measured_track_editor.MeasureEditor):
             lambda _: self.updateGhost(self.__mouse_pos))
 
     @property
+    def track_editor(self) -> 'ScoreTrackEditor':
+        return down_cast(ScoreTrackEditor, super().track_editor)
+
+    @property
     def track(self) -> model.ScoreTrack:
         return down_cast(model.ScoreTrack, super().track)
 
@@ -1126,7 +1130,7 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
         super().__init__(**kwargs)
         self.__play_last_pitch = None  # type: value_types.Pitch
 
-        self.setFixedHeight(240)
+        self.setDefaultHeight(240)
 
     def createToolBox(self) -> ScoreToolBox:
         return ScoreToolBox(track=self, context=self.context)

@@ -63,7 +63,7 @@ class TrackListView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QSplitt
     loopEnabledChanged = QtCore.pyqtSignal(bool)
 
     currentTrack, setCurrentTrack, currentTrackChanged = slots.slot(
-        music.Track, 'currentTrack')
+        music.Track, 'currentTrack', allow_none=True)
 
     def __init__(
             self, *,
@@ -103,6 +103,9 @@ class TrackListView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QSplitt
         self.__time_line.setScaleX(self.__editor.scaleX())
         self.__time_line.setXOffset(self.__editor.xOffset())
         self.__editor.scaleXChanged.connect(self.__time_line.setScaleX)
+
+        self.__time_line.setAdditionalXOffset(self.__editor.sidebarWidth())
+        self.__editor.sidebarWidthChanged.connect(self.__time_line.setAdditionalXOffset)
 
         scroll_x = QtWidgets.QScrollBar(orientation=Qt.Horizontal, parent=self)
         scroll_x.setRange(0, self.__editor.maximumXOffset())

@@ -115,7 +115,7 @@ class InstrumentList(ui_base.CommonMixin, QtCore.QAbstractItemModel):
 
     def setup(self) -> None:
         for description in self.app.instrument_db.instruments:
-            self.__addInstrument(description)
+            self.addInstrument(description)
 
         self.__instrument_mutation_listener = self.app.instrument_db.mutation_handlers.add(
             self.__handleInstrumentMutation)

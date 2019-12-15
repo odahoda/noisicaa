@@ -55,6 +55,11 @@ class BaseTrackEditor(
     currentToolChanged = QtCore.pyqtSignal(tools.ToolType)
     playbackPosition, setPlaybackPosition, playbackPositionChanged = slots.slot(
         audioproc.MusicalTime, 'playbackPosition', default=audioproc.MusicalTime(-1, 1))
+    isCurrent, setIsCurrent, isCurrentChanged = slots.slot(bool, 'isCurrent', default=False)
+    defaultHeight, setDefaultHeight, defaultHeightChanged = slots.slot(
+        int, 'defaultHeight', default=200)
+    zoom, setZoom, zoomChanged = slots.slot(
+        fractions.Fraction, 'zoom', default=fractions.Fraction(1, 1))
 
     def __init__(
             self, *,
@@ -65,19 +70,27 @@ class BaseTrackEditor(
     ) -> None:
         self.__auto_scroll = True
 
-        super().__init__(parent=editor, **kwargs)
+        super().__init__(
+            parent=editor,
+            **kwargs)
 
         self.setMouseTracking(True)
+        self.setMinimumHeight(10)
+        self.setMaximumHeight(1000)
 
         self.__track = track
         self.__player_state = player_state
         self.__editor = editor
+        self.__zoom = fractions.Fraction(1, 1)
 
-        self.__is_current = False
         self._bg_color = QtGui.QColor(255, 255, 255)
 
-        self.scaleXChanged.connect(self.__scaleXChanged)
-        self.__scaleXChanged(self.scaleX())
+        self.isCurrentChanged.connect(self.__isCurrentChanged)
+        self.__isCurrentChanged(self.isCurrent())
+
+        self.scaleXChanged.connect(lambda _: self.__scaleChanged())
+        self.zoomChanged.connect(lambda _: self.__scaleChanged())
+        self.__scaleChanged()
 
         self.__toolbox = self.createToolBox()
         self.currentToolChanged.emit(self.__toolbox.currentToolType())
@@ -96,7 +109,7 @@ class BaseTrackEditor(
             self.scroll(dx, 0)
         return dx
 
-    def __scaleXChanged(self, scale_x: fractions.Fraction) -> None:
+    def __scaleChanged(self) -> None:
         self.updateSize()
         self.purgePaintCaches()
         self.update()
@@ -107,16 +120,8 @@ class BaseTrackEditor(
     def updateSize(self) -> None:
         pass
 
-    def isCurrent(self) -> bool:
-        return self.__is_current
-
-    def setIsCurrent(self, is_current: bool) -> None:
-        if is_current == self.__is_current:
-            return
-
-        self.__is_current = is_current
-
-        if self.__is_current:
+    def __isCurrentChanged(self, is_current: bool) -> None:
+        if is_current:
             self._bg_color = QtGui.QColor(240, 240, 255)
         else:
             self._bg_color = QtGui.QColor(255, 255, 255)

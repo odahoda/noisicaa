@@ -25,6 +25,7 @@ def build(ctx):
     ctx.py_module('audio_thread_profiler.py')
     ctx.py_module('control_value_connector.py')
     ctx.py_module('base_dial.py')
+    ctx.py_module('code_editor.py')
     ctx.py_module('control_value_dial.py')
     ctx.py_module('int_dial.py')
     ctx.py_module('clipboard.py')
@@ -42,6 +43,7 @@ def build(ctx):
     ctx.py_module('misc.py')
     ctx.py_module('mute_button.py')
     ctx.py_module('object_list_editor.py')
+    ctx.py_module('object_list_manager.py')
     ctx.py_module('open_project_dialog.py')
     ctx.py_test('open_project_dialog_test.py')
     ctx.py_module('piano.py')
@@ -63,6 +65,7 @@ def build(ctx):
     ctx.py_module('qprogressindicator.py',
                   # Ignore formatting of 3rd party code for now.
                   mypy='disabled')
+    ctx.py_module('qtyping.py')
     ctx.py_module('render_dialog.py')
     ctx.py_test('render_dialog_test.py')
     ctx.py_module('session_helpers.py')

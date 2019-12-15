@@ -22,24 +22,30 @@
 
 import fractions
 import logging
+import typing
 from typing import Any
 
+from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
+from noisicaa.ui import slots
 from noisicaa.ui import ui_base
 
 logger = logging.getLogger(__name__)
 
 
-# These mixins should be subclasses of QtCore.QObject, but PyQt5 doesn't support multiple
-# inheritance of QObjects.
-# I'm forcing mypy to treat these as QObject instance, by adding asserts. But that also triggers
-# "unreachable code" warnings.
-# mypy: warn-unreachable=False
+if typing.TYPE_CHECKING:
+    QObjectMixin = QtCore.QObject
+    QWidgetMixin = QtWidgets.QWidget
+else:
+    QObjectMixin = object
+    QWidgetMixin = object
 
-class ScaledTimeMixin(ui_base.ProjectMixin):
+
+class ScaledTimeMixin(ui_base.ProjectMixin, QObjectMixin):
     scaleXChanged = QtCore.pyqtSignal(fractions.Fraction)
     contentWidthChanged = QtCore.pyqtSignal(int)
 
@@ -67,7 +73,6 @@ class ScaledTimeMixin(ui_base.ProjectMixin):
         return self.__content_width
 
     def setContentWidth(self, width: int) -> None:
-        assert isinstance(self, QtCore.QObject)
         if width == self.__content_width:
             return
 
@@ -78,7 +83,6 @@ class ScaledTimeMixin(ui_base.ProjectMixin):
         return self.__scale_x
 
     def setScaleX(self, scale_x: fractions.Fraction) -> None:
-        assert isinstance(self, QtCore.QObject)
         if scale_x == self.__scale_x:
             return
 
@@ -87,25 +91,85 @@ class ScaledTimeMixin(ui_base.ProjectMixin):
         self.scaleXChanged.emit(self.__scale_x)
 
 
-class ContinuousTimeMixin(ScaledTimeMixin):
+class ContinuousTimeMixin(ScaledTimeMixin, slots.SlotContainer):
+    additionalXOffset, setAdditionalXOffset, additionalXOffsetChanged = slots.slot(
+        int, 'additionalXOffset', default=0)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.__grid_step = audioproc.MusicalDuration(1, 1)
+
+        self.scaleXChanged.connect(self.__scaleXChanged)
+        self.__scaleXChanged(self.scaleX())
+
+    def __scaleXChanged(self, scale_x: fractions.Fraction) -> None:
+        for s in (64, 32, 16, 8, 4, 2):
+            if scale_x / s > 96:
+                self.__grid_step = audioproc.MusicalDuration(1, s)
+                break
+        else:
+            self.__grid_step = audioproc.MusicalDuration(1, 1)
+
     def timeToX(self, time: audioproc.MusicalTime) -> int:
-        return self.leftMargin() + int(self.scaleX() * time.fraction)
+        return self.leftMargin() + self.additionalXOffset() + int(self.scaleX() * time.fraction)
 
     def xToTime(self, x: int) -> audioproc.MusicalTime:
-        x -= self.leftMargin()
+        x -= self.leftMargin() + self.additionalXOffset()
         if x <= 0:
             return audioproc.MusicalTime(0, 1)
 
         return audioproc.MusicalTime(x / self.scaleX())
 
+    def gridStep(self) -> audioproc.MusicalDuration:
+        return self.__grid_step
 
-class TimeViewMixin(ScaledTimeMixin):
+    def renderTimeGrid(self, painter: QtGui.QPainter, rect: QtCore.QRect, *, show_numbers=False) -> None:
+        grid_step = self.gridStep()
+
+        tick_num = int(self.xToTime(rect.x()) / grid_step)
+        tick_time = (grid_step * tick_num).as_time()
+        while tick_time < self.projectEndTime():
+            x = self.timeToX(tick_time)
+            if x > rect.right():
+                break
+
+            if tick_num == 0:
+                painter.fillRect(x, rect.y(), 2, rect.height(), Qt.black)
+            else:
+                if tick_time % audioproc.MusicalTime(1, 1) == audioproc.MusicalTime(0, 1):
+                    c = QtGui.QColor(0, 0, 0)
+                elif tick_time % audioproc.MusicalTime(1, 4) == audioproc.MusicalTime(0, 1):
+                    c = QtGui.QColor(160, 160, 160)
+                elif tick_time % audioproc.MusicalTime(1, 8) == audioproc.MusicalTime(0, 1):
+                    c = QtGui.QColor(185, 185, 185)
+                elif tick_time % audioproc.MusicalTime(1, 16) == audioproc.MusicalTime(0, 1):
+                    c = QtGui.QColor(210, 210, 210)
+                elif tick_time % audioproc.MusicalTime(1, 32) == audioproc.MusicalTime(0, 1):
+                    c = QtGui.QColor(225, 225, 225)
+                else:
+                    c = QtGui.QColor(240, 240, 240)
+
+                painter.fillRect(x, rect.y(), 1, rect.height(), c)
+
+            if show_numbers and tick_time % audioproc.MusicalTime(1, 1) == audioproc.MusicalTime(0, 1):
+                beat_num = int(tick_time / audioproc.MusicalTime(1, 4))
+                painter.setPen(Qt.black)
+                painter.drawText(x + 5, 12, '%d' % (beat_num + 1))
+
+            tick_time += grid_step
+            tick_num += 1
+
+        x = self.timeToX(self.projectEndTime())
+        painter.fillRect(x, rect.y(), 2, rect.height(), Qt.black)
+
+
+class TimeViewMixin(ScaledTimeMixin, QWidgetMixin):
     maximumXOffsetChanged = QtCore.pyqtSignal(int)
     xOffsetChanged = QtCore.pyqtSignal(int)
     pageWidthChanged = QtCore.pyqtSignal(int)
 
     def __init__(self, **kwargs: Any) -> None:
-        assert isinstance(self, QtCore.QObject)
         super().__init__(**kwargs)
 
         # pixels per beat
@@ -117,23 +181,19 @@ class TimeViewMixin(ScaledTimeMixin):
         self.__contentWidthChanged(self.contentWidth())
 
     def __contentWidthChanged(self, width: int) -> None:
-        assert isinstance(self, QtCore.QObject)
         self.maximumXOffsetChanged.emit(self.maximumXOffset())
         self.setXOffset(min(self.xOffset(), self.maximumXOffset()))
 
     def maximumXOffset(self) -> int:
-        assert isinstance(self, QtCore.QObject)
         return max(0, self.contentWidth() - self.width())
 
     def pageWidth(self) -> int:
-        assert isinstance(self, QtCore.QObject)
         return self.width()
 
     def xOffset(self) -> int:
-        return self.__x_offset  # type: ignore
+        return self.__x_offset
 
     def setXOffset(self, offset: int) -> int:
-        assert isinstance(self, QtCore.QObject)
         offset = max(0, min(offset, self.maximumXOffset()))
         if offset == self.__x_offset:
             return 0
@@ -144,7 +204,6 @@ class TimeViewMixin(ScaledTimeMixin):
         return dx
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
-        assert isinstance(self, QtCore.QObject)
         super().resizeEvent(evt)
 
         self.maximumXOffsetChanged.emit(self.maximumXOffset())

@@ -216,7 +216,9 @@ class AbstractStatMonitor(CommonMixin, QtWidgets.QMainWindow):
     visibilityChanged = None  # type: QtCore.pyqtSignal
 
 
-class AbstractEditorApp(object):
+class AbstractEditorApp(QtCore.QObject):
+    globalMousePosChanged = None  # type: QtCore.pyqtSignal
+
     new_project_action = None  # type: QtWidgets.QAction
     open_project_action = None  # type: QtWidgets.QAction
     restart_action = None  # type: QtWidgets.QAction

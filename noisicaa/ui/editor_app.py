@@ -88,6 +88,8 @@ class QApplication(QtWidgets.QApplication):
 
 
 class EditorApp(ui_base.AbstractEditorApp):
+    globalMousePosChanged = QtCore.pyqtSignal(QtCore.QPoint)
+
     def __init__(
             self, *,
             qt_app: QtWidgets.QApplication,
@@ -236,6 +238,8 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.quit_action.setStatusTip("Quit the application")
         self.quit_action.triggered.connect(self.quit)
 
+        self.qt_app.installEventFilter(self)
+
         logger.info("Creating initial window...")
         win = await self.createWindow()
         tab_page = win.addProjectTab()
@@ -355,6 +359,8 @@ class EditorApp(ui_base.AbstractEditorApp):
     async def cleanup(self) -> None:
         logger.info("Cleanup app...")
 
+        self.qt_app.removeEventFilter(self)
+
         if self.__stat_monitor is not None:
             self.__stat_monitor.storeState()
             self.__stat_monitor = None
@@ -424,6 +430,13 @@ class EditorApp(ui_base.AbstractEditorApp):
 
         logger.info("Remove custom excepthook.")
         sys.excepthook = self.__old_excepthook  # type: ignore
+
+    def eventFilter(self, target: QtCore.QObject, evt: QtCore.QEvent) -> bool:
+        if evt.type() == QtCore.QEvent.MouseMove:
+            assert isinstance(evt, QtGui.QMouseEvent), evt
+            assert isinstance(target, (QtWidgets.QWidget, QtGui.QWindow)), target
+            self.globalMousePosChanged.emit(target.mapToGlobal(evt.pos()))
+        return super().eventFilter(target, evt)
 
     async def createWindow(self) -> editor_window.EditorWindow:
         win = editor_window.EditorWindow(context=self.context)

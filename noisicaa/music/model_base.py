@@ -146,6 +146,16 @@ class PropertyListSet(Generic[VALUE], PropertyListChange[VALUE]):
         return self._fmt(index=self.index, old=self.old_value, new=self.new_value)
 
 
+class PropertyListMove(Generic[VALUE], PropertyListChange[VALUE]):
+    def __init__(self, obj: 'ObjectBase', prop_name: str, old_index: int, new_index: int) -> None:
+        super().__init__(obj, prop_name)
+        self.old_index = old_index
+        self.new_index = new_index
+
+    def __str__(self) -> str:
+        return self._fmt(old_index=self.old_index, new_index=self.new_index)
+
+
 class BaseList(Generic[VALUE], MutableSequence[VALUE]):
     def __init__(
             self, instance: 'ObjectBase', prop_name: str, pb: protobuf_containers.BaseContainer
@@ -181,6 +191,13 @@ class BaseList(Generic[VALUE], MutableSequence[VALUE]):
     def clear(self) -> None:
         for idx in range(len(self._pb) - 1, -1, -1):
             self.delete(idx)
+
+    def move(self, old_index: int, new_index: int) -> None:
+        if old_index == new_index:
+            return
+        obj = self.get(old_index)
+        self.delete(old_index)
+        self.insert(new_index, obj)
 
     def __iter__(self) -> Iterator[VALUE]:
         for idx in range(len(self._pb)):
@@ -384,6 +401,22 @@ class ObjectList(Generic[OBJECT], BaseList[OBJECT]):
         if not self._instance.in_setup:
             self._instance.property_changed(
                 PropertyListDelete(self._instance, self._prop_name, idx, old_child))
+
+    def move(self, old_index: int, new_index: int) -> None:
+        if new_index == old_index:
+            return
+        obj_id = self._pb[old_index]
+        del self._pb[old_index]
+        self._pb.insert(new_index, obj_id)
+        if new_index > old_index:
+            for i in range(old_index, new_index + 1):
+                self.__pool[self._pb[i]].set_index(i)
+        else:
+            for i in range(new_index, old_index + 1):
+                self.__pool[self._pb[i]].set_index(i)
+        if not self._instance.in_setup:
+            self._instance.property_changed(
+                PropertyListMove(self._instance, self._prop_name, old_index, new_index))
 
 
 class PropertyBase(object):

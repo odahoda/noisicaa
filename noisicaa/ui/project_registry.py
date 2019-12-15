@@ -26,7 +26,7 @@ import os.path
 import shutil
 import time
 import urllib.parse
-from typing import cast, Any, List, Iterable, Iterator
+from typing import cast, Any, Dict, List, Iterable, Iterator
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -161,6 +161,20 @@ class Project(ui_base.CommonMixin, Item):
         self.__mtime = time.time()
         self.contentsChanged.emit()
 
+    async def create_loadtest(self, spec: Dict[str, Any]) -> None:
+        assert not self.isOpened()
+        client = await self.__create_process()
+        try:
+            await client.create_loadtest(self.path, spec)
+        except:  # pylint: disable=bare-except
+            await client.cleanup()
+            raise
+        self.client = client
+        self.app.project_registry.addProject(self)
+        self.app.project_registry.updateOpenedProjects()
+        self.__mtime = time.time()
+        self.contentsChanged.emit()
+
     async def close(self) -> None:
         if self.client is not None:
             await self.client.close()
@@ -223,6 +237,7 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
 
             for idx, project in enumerate(self.__root.childItems):
                 if project.path == path:
+                    assert isinstance(project, Project)
                     self.beginRemoveRows(QtCore.QModelIndex(), idx, idx)
                     del self.__root.childItems[idx]
                     for i, item in enumerate(self.__root.childItems[idx:], idx):
@@ -297,7 +312,7 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
         if item is self.__root:
             return QtCore.QModelIndex()
 
-        return self.createIndex(item.parent().index, 0, item.parent())
+        return self.createIndex(cast(Item, item.parent()).index, 0, item.parent())
 
     def columnCount(self, parent: QtCore.QModelIndex = QtCore.QModelIndex()) -> int:
         return 1

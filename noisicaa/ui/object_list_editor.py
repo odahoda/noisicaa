@@ -23,7 +23,7 @@
 import functools
 import logging
 import os.path
-from typing import Any, Dict, List, Set, Sequence, Iterator, Callable, Generic, TypeVar
+from typing import cast, Any, Dict, List, Set, Sequence, Iterator, Callable, Generic, TypeVar
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -205,14 +205,14 @@ class ObjectListDelegate(QtWidgets.QItemDelegate):
             index: QtCore.QModelIndex
     ) -> QtWidgets.QWidget:
         col_spec = self.__columns[index.column()]
-        obj = index.model().object(index.row())
+        obj = cast(ObjectListModel, index.model()).object(index.row())
         editor = col_spec.createEditor(obj, self, parent, option, index)
         editor.setObjectName('attribute_editor')
         return editor
 
     def setEditorData(self, editor: QtWidgets.QWidget, index: QtCore.QModelIndex) -> None:
         col_spec = self.__columns[index.column()]
-        obj = index.model().object(index.row())
+        obj = cast(ObjectListModel, index.model()).object(index.row())
         col_spec.updateEditor(obj, editor)
 
     def setModelData(
@@ -221,6 +221,7 @@ class ObjectListDelegate(QtWidgets.QItemDelegate):
             model: QtCore.QAbstractItemModel,
             index: QtCore.QModelIndex
     ) -> None:
+        assert isinstance(model, ObjectListModel)
         col_spec = self.__columns[index.column()]
         obj = model.object(index.row())
         value = col_spec.editorValue(obj, editor)

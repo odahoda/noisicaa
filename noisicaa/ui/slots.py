@@ -20,10 +20,12 @@
 #
 # @end:license
 
+import fractions
 import functools
 import logging
 import operator
-from typing import cast, Any, Dict, Tuple, Type, Callable, TypeVar
+import typing
+from typing import Any, Dict, Tuple, Type, Callable, TypeVar
 
 from PyQt5 import QtCore
 
@@ -32,11 +34,15 @@ from . import ui_base
 logger = logging.getLogger(__name__)
 
 
-# This should really be a subclass of QtCore.QObject, but PyQt5 doesn't support
-# multiple inheritance with QObjects.
-class SlotContainer(object):
+if typing.TYPE_CHECKING:
+    QObjectMixin = QtCore.QObject
+else:
+    QObjectMixin = object
+
+
+class SlotContainer(QObjectMixin):
     def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)  # type: ignore
+        super().__init__(**kwargs)
 
         self._slots = {}  # type: Dict[str, Any]
 
@@ -49,29 +55,35 @@ def slot(
         name: str,
         *,
         default: T = None,
-        equality: Callable = None
+        equality: Callable = None,
+        allow_none: bool = False
 ) -> Tuple[Callable[[SlotContainer], T], Callable[[SlotContainer, T], None], QtCore.pyqtSignal]:
     assert isinstance(type, _type), type
     if equality is None:
-        if type in (int, float, bool, str):
+        if type in (int, float, bool, str, fractions.Fraction):
             equality = operator.eq
         else:
             equality = operator.is_
 
-    signal = QtCore.pyqtSignal(type)
+    # Create the signal with generic 'object' type, to bypass Qt's typechecking, which is too
+    # restrictive for my taste. E.g. it doesn't accept None otherwise. Instead we're doing our own
+    # typechecking in the setter method.
+    signal = QtCore.pyqtSignal(object)
 
     def getter(self: SlotContainer) -> T:
         return self._slots.get(name, default)
 
     def setter(self: SlotContainer, value: T) -> None:
-        if not isinstance(value, type):
+        if value is None and allow_none:
+            pass
+        elif not isinstance(value, type):
             raise TypeError("Expected %s, got %s" % (type.__name__, _type(value).__name__))
 
         current_value = self._slots.get(name, default)
         if not equality(value, current_value):
             logger.debug("Slot %s on %s set to %s", name, self, value)
             self._slots[name] = value
-            sig_inst = signal.__get__(cast(QtCore.QObject, self))
+            sig_inst = signal.__get__(self)
             sig_inst.emit(value)
 
     return getter, setter, signal

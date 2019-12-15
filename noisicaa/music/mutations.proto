@@ -67,6 +67,13 @@ message MutationList {
     optional uint32 new_slot = 5;
   }
 
+  message ListMove {
+    optional uint64 obj_id = 1;
+    optional string prop_name = 2;
+    optional uint32 old_index = 3;
+    optional uint32 new_index = 4;
+  }
+
   message AddObject {
     optional ObjectBase object = 1;
   }
@@ -81,6 +88,7 @@ message MutationList {
       ListInsert list_insert = 2;
       ListDelete list_delete = 3;
       ListSet list_set = 6;
+      ListMove list_move = 7;
       AddObject add_object = 4;
       RemoveObject remove_object = 5;
     }

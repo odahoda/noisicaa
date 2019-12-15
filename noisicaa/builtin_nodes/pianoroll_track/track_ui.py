@@ -609,6 +609,8 @@ class SegmentEditor(
         self.yOffsetChanged.connect(self.__grid.setYOffset)
         self.__grid.setGridXSize(self.scaleX())
         self.scaleXChanged.connect(self.__grid.setGridXSize)
+        self.__grid.setGridYSize(self.gridYSize())
+        self.gridYSizeChanged.connect(self.__grid.setGridYSize)
         self.__grid.setReadOnly(self.readOnly())
         self.readOnlyChanged.connect(self.__grid.setReadOnly)
         self.__grid.setEditMode(self.editMode())
@@ -633,8 +635,6 @@ class SegmentEditor(
             self.__grid_to_obj_map[event_id] = event
             self.__obj_to_grid_map[event.id] = event_id
         self.__listeners.add(self.__segment.events_changed.add(self.__eventsChanged))
-
-        self.gridYSizeChanged.connect(self.__gridYSizeChanged)
 
     def __selectedChanged(self, selected: bool) -> None:
         if selected:
@@ -700,9 +700,6 @@ class SegmentEditor(
         finally:
             self.__ignore_model_mutations = False
 
-    def __gridYSizeChanged(self, size: int) -> None:
-        self.__grid.setGridYSize(size)
-
     def segmentRef(self) -> model.PianoRollSegmentRef:
         return self.__segment_ref
 
@@ -743,10 +740,14 @@ class PianoRollTrackEditor(
         base_track_editor.BaseTrackEditor):
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
     gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
+    effectiveGridYSize, setEffectiveGridYSize, effectiveGridYSizeChanged = slots.slot(
+        int, 'effectiveGridYSize', default=15)
     hoverPitch, setHoverPitch, hoverPitchChanged = slots.slot(int, 'hoverPitch', default=-1)
     snapToGrid, setSnapToGrid, snapToGridChanged = slots.slot(bool, 'snapToGrid', default=True)
     currentChannel, setCurrentChannel, currentChannelChanged = slots.slot(
         int, 'currentChannel', default=0)
+    showKeys, setShowKeys, showKeysChanged = slots.slot(
+        bool, 'showVelocity', default=False)
     showVelocity, setShowVelocity, showVelocityChanged = slots.slot(
         bool, 'showVelocity', default=False)
     insertTime, setInsertTime, insertTimeChanged = slots.slot(
@@ -773,16 +774,18 @@ class PianoRollTrackEditor(
         self.__hover_pitch = -1
 
         self.__keys = pianoroll.PianoKeys(parent=self)
+        self.__keys.setVisible(self.showKeys())
+        self.showKeysChanged.connect(self.__keys.setVisible)
         self.__keys.setPlayable(True)
         self.__keys.setPlaybackChannel(self.currentChannel())
         self.currentChannelChanged.connect(self.__keys.setPlaybackChannel)
         self.__keys.playNotes.connect(self.playNotes)
         self.__keys.setScrollable(True)
+        self.__keys.setGridYSize(self.effectiveGridYSize())
+        self.effectiveGridYSizeChanged.connect(self.__keys.setGridYSize)
         self.__keys.setYOffset(self.yOffset())
         self.__keys.yOffsetChanged.connect(self.setYOffset)
         self.yOffsetChanged.connect(self.__keys.setYOffset)
-        self.__keys.setGridYSize(self.gridYSize())
-        self.gridYSizeChanged.connect(self.__keys.setGridYSize)
         self.hoverPitchChanged.connect(self.__hoverPitchChanged)
 
         self.__y_scrollbar = QtWidgets.QScrollBar(orientation=Qt.Vertical, parent=self)
@@ -826,16 +829,23 @@ class PianoRollTrackEditor(
         self.__listeners.add(self.track.segments_changed.add(self.__segmentsChanged))
 
         self.setAutoScroll(False)
-        self.setFixedHeight(240)
+        self.setDefaultHeight(240)
 
+        self.isCurrentChanged.connect(self.__isCurrentChanged)
+        self.isCurrentChanged.connect(lambda _: self.__updateShowKeys())
         self.xOffsetChanged.connect(lambda _: self.__repositionSegments())
         self.xOffsetChanged.connect(lambda _: self.update())
         self.scaleXChanged.connect(lambda _: self.__repositionSegments())
-        self.gridYSizeChanged.connect(lambda _: self.__updateYScrollbar())
+        self.effectiveGridYSizeChanged.connect(lambda _: self.__updateYScrollbar())
+        self.effectiveGridYSizeChanged.connect(lambda _: self.__updateShowKeys())
         self.playbackPositionChanged.connect(lambda _: self.updatePlaybackPosition())
         self.insertTimeChanged.connect(lambda _: self.updateInsertTime())
         self.xOffsetChanged.connect(lambda _: self.updateInsertTime())
         self.scaleXChanged.connect(lambda _: self.updateInsertTime())
+        self.gridYSizeChanged.connect(lambda _: self.__updateEffectiveGridSize())
+        self.zoomChanged.connect(lambda _: self.__updateEffectiveGridSize())
+        self.__updateEffectiveGridSize()
+        self.__updateShowKeys()
 
         self.setCurrentChannel(
             self.get_session_value(self.__session_prefix + 'current-channel', 0))
@@ -908,8 +918,8 @@ class PianoRollTrackEditor(
         self.scaleXChanged.connect(seditor.setScaleX)
         seditor.setYOffset(self.yOffset())
         self.yOffsetChanged.connect(seditor.setYOffset)
-        seditor.setGridYSize(self.gridYSize())
-        self.gridYSizeChanged.connect(seditor.setGridYSize)
+        seditor.setGridYSize(self.effectiveGridYSize())
+        self.effectiveGridYSizeChanged.connect(seditor.setGridYSize)
         seditor.setCurrentChannel(self.currentChannel())
         self.currentChannelChanged.connect(seditor.setCurrentChannel)
         seditor.setInsertVelocity(self.__velocity.value())
@@ -955,8 +965,7 @@ class PianoRollTrackEditor(
         if self.__hover_pitch >= 0:
             self.__keys.noteOn(self.__hover_pitch)
 
-    def setIsCurrent(self, is_current: bool) -> None:
-        super().setIsCurrent(is_current)
+    def __isCurrentChanged(self, is_current: bool) -> None:
         for segment in self.segments:
             segment.setEnabled(is_current)
 
@@ -1100,14 +1109,20 @@ class PianoRollTrackEditor(
         self.__insert_cursor.setGeometry(x, 0, 3, self.height())
         self.__insert_cursor.show()
 
-    def gridStep(self) -> audioproc.MusicalDuration:
-        for s in (64, 32, 16, 8, 4, 2):
-            if self.scaleX() / s > 96:
-                return audioproc.MusicalDuration(1, s)
-        return audioproc.MusicalDuration(1, 1)
-
     def gridHeight(self) -> int:
-        return 128 * self.gridYSize() + 1
+        return 128 * self.effectiveGridYSize() + 1
+
+    def __updateEffectiveGridSize(self) -> None:
+        grid_y_size = max(1, int(self.zoom() * self.gridYSize()))
+
+        pos = (self.yOffset() + self.height() / 2) / self.gridHeight()
+        self.setEffectiveGridYSize(grid_y_size)
+        self.setYOffset(
+            max(0, min(self.gridHeight() - self.height(),
+                       int(pos * self.gridHeight() - self.height() / 2))))
+
+    def __updateShowKeys(self) -> None:
+        self.setShowKeys(self.isCurrent() and self.effectiveGridYSize() > 3)
 
     def repositionSegment(
             self,
@@ -1166,6 +1181,11 @@ class PianoRollTrackEditor(
 
         self.__velocity_group.move(self.__keys.width(), 0)
 
+        pos = self.yOffset() + evt.oldSize().height() // 2
+        self.setYOffset(max(0, min(
+            max(0, self.gridHeight() - self.height()),
+            pos - evt.size().height() // 2)))
+
         self.__y_scrollbar.move(self.width() - self.__y_scrollbar.width(), 0)
         self.__y_scrollbar.resize(self.__y_scrollbar.width(), self.height())
 
@@ -1193,9 +1213,9 @@ class PianoRollTrackEditor(
         if evt.modifiers() == Qt.NoModifier:
             offset = self.yOffset()
             if evt.angleDelta().y() > 0:
-                offset -= 3 * self.gridYSize()
+                offset -= 3 * self.effectiveGridYSize()
             elif evt.angleDelta().y() < 0:
-                offset += 3 * self.gridYSize()
+                offset += 3 * self.effectiveGridYSize()
             offset = min(self.gridHeight() - self.height(), offset)
             offset = max(0, offset)
             if offset != self.yOffset():
@@ -1206,34 +1226,7 @@ class PianoRollTrackEditor(
         super().wheelEvent(evt)
 
     def _paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
-        painter.setPen(Qt.black)
-
-        beat_time = audioproc.MusicalTime()
-        beat_num = 0
-        while beat_time < self.projectEndTime():
-            x = self.timeToX(beat_time)
-
-            if beat_num == 0:
-                painter.fillRect(x, 0, 2, self.height(), Qt.black)
-            else:
-                if beat_time % audioproc.MusicalTime(1, 4) == audioproc.MusicalTime(0, 1):
-                    c = QtGui.QColor(160, 160, 160)
-                elif beat_time % audioproc.MusicalTime(1, 8) == audioproc.MusicalTime(0, 1):
-                    c = QtGui.QColor(185, 185, 185)
-                elif beat_time % audioproc.MusicalTime(1, 16) == audioproc.MusicalTime(0, 1):
-                    c = QtGui.QColor(210, 210, 210)
-                elif beat_time % audioproc.MusicalTime(1, 32) == audioproc.MusicalTime(0, 1):
-                    c = QtGui.QColor(225, 225, 225)
-                else:
-                    c = QtGui.QColor(240, 240, 240)
-
-                painter.fillRect(x, 0, 1, self.height(), c)
-
-            beat_time += self.gridStep()
-            beat_num += 1
-
-        x = self.timeToX(self.projectEndTime())
-        painter.fillRect(x, 0, 2, self.height(), Qt.black)
+        self.renderTimeGrid(painter, paint_rect)
 
     def playNotes(self, play_notes: pianoroll.PlayNotes) -> None:
         if self.playerState().playerID():

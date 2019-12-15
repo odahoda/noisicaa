@@ -23,32 +23,315 @@
 import fractions
 import functools
 import logging
-from typing import Any, Dict, List
+from typing import Any, List, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
 from noisicaa.ui import slots
 from noisicaa.ui import ui_base
+from noisicaa.ui import object_list_manager
 from noisicaa.ui import player_state as player_state_lib
 from noisicaa.builtin_nodes import ui_registry
 from . import time_view_mixin
-from . import base_track_editor
 from . import tools
 
 logger = logging.getLogger(__name__)
 
 
+class TrackSeparator(QtWidgets.QWidget):
+    def __init__(self, parent: 'Editor', container: 'TrackContainer') -> None:
+        super().__init__(parent)
+
+        if container is not None:
+            self.setCursor(Qt.SizeVerCursor)
+
+        self.__editor = parent
+        self.__container = container
+        self.__click_pos = None  # type: QtCore.QPoint
+
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if self.__container is not None and evt.button() == Qt.LeftButton:
+            self.__click_pos = evt.pos()
+            self.__editor.beginTrackResize()
+            evt.accept()
+
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if self.__click_pos is not None:
+            pos = self.mapTo(self.__editor, evt.pos() - self.__click_pos)
+
+            self.__editor.setTrackHeight(
+                self.__container, max(0, pos.y() - self.__container.track_editor.y()))
+
+            evt.accept()
+
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if evt.button() == Qt.LeftButton and self.__click_pos is not None:
+            self.__click_pos = None
+            self.__editor.endTrackResize()
+            evt.accept()
+
+    def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
+        painter = QtGui.QPainter(self)
+        try:
+            if self.height() >= 3:
+                painter.fillRect(0, 0, self.width(), 1, QtGui.QColor(200, 200, 200))
+                painter.fillRect(0, 1, self.width(), self.height() - 2, QtGui.QColor(100, 100, 100))
+                painter.fillRect(0, self.height() - 1, self.width(), 1, QtGui.QColor(200, 200, 200))
+            else:
+                painter.fillRect(0, 0, self.width(), self.height(), QtGui.QColor(100, 100, 100))
+
+        finally:
+            painter.end()
+
+
+class TrackHandle(slots.SlotContainer, QtWidgets.QWidget):
+    isCurrent, setIsCurrent, isCurrentChanged = slots.slot(bool, 'isCurrent', default=False)
+
+    def __init__(self, *, editor: 'Editor', container: 'TrackContainer', **kwargs: Any) -> None:
+        super().__init__(parent=editor, **kwargs)
+
+        self.__editor = editor
+        self.__container = container
+        self.__click_pos = None  # type: QtCore.QPoint
+
+        self.setCursor(Qt.OpenHandCursor)
+
+        self.isCurrentChanged.connect(lambda _: self.update())
+
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
+        self.__editor.setCurrentTrack(self.__container.track)
+
+        if evt.button() == Qt.LeftButton:
+            self.__click_pos = evt.pos()
+            self.__editor.beginTrackMove(self.__container)
+            self.setCursor(Qt.ClosedHandCursor)
+            evt.accept()
+
+    def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if self.__click_pos is not None:
+            mpos = self.mapTo(self.__editor, evt.pos()).y()
+            if mpos < 20:
+                self.__editor.setAutoScroll(-min(20, (20 - mpos) // 2))
+            elif mpos > self.__editor.height() - 20:
+                self.__editor.setAutoScroll(min(20, (mpos - self.__editor.height() + 20) // 2))
+            else:
+                self.__editor.setAutoScroll(0)
+            pos = self.mapTo(self.__editor, evt.pos() - self.__click_pos)
+            self.__editor.moveTrack(pos.y())
+            evt.accept()
+
+    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if evt.button() == Qt.LeftButton and self.__click_pos is not None:
+            self.__click_pos = None
+            self.__editor.endTrackMove()
+            self.__editor.setAutoScroll(0)
+            self.setCursor(Qt.OpenHandCursor)
+            evt.accept()
+
+    def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
+        painter = QtGui.QPainter(self)
+        try:
+            w = self.width()
+            h = self.height()
+
+            if self.isCurrent():
+                c_tl = QtGui.QColor(255, 255, 255)
+                c_br = QtGui.QColor(160, 160, 255)
+                c_body = QtGui.QColor(220, 220, 255)
+            else:
+                c_tl = QtGui.QColor(255, 255, 255)
+                c_br = QtGui.QColor(160, 160, 160)
+                c_body = QtGui.QColor(220, 220, 220)
+
+            painter.fillRect(0, 0, w, 1, c_tl)
+            painter.fillRect(0, 1, 1, h - 1, c_tl)
+            painter.fillRect(1, h - 1, w - 1, 1, c_br)
+            painter.fillRect(w - 1, 1, 1, h - 2, c_br)
+            painter.fillRect(1, 1, w - 2, 1, c_tl)
+            painter.fillRect(1, 2, 1, h - 3, c_tl)
+            painter.fillRect(2, h - 2, w - 3, 1, c_br)
+            painter.fillRect(w - 2, 2, 1, h - 4, c_br)
+            painter.fillRect(2, 2, w - 4, h - 4, c_body)
+
+            mx = w // 2
+            my = h // 2
+
+            for i in (0, -1, 1, -2, 2):
+                hy1 = my - 3 + 8 * i
+                hy2 = my + 3 + 8 * i
+
+                if my - 8 * abs(i) >= 13:
+                    painter.fillRect(mx - 2, hy1, 1, hy2 - hy1, c_br)
+                    painter.fillRect(mx - 1, hy1, 1, hy2 - hy1 - 1, c_br)
+                    painter.fillRect(mx - 1, hy2 - 1, 1, 1, c_tl)
+                    painter.fillRect(mx, hy1, 1, 1, c_br)
+                    painter.fillRect(mx, hy1 + 1, 1, hy2 - hy1 - 1, c_tl)
+                    painter.fillRect(mx + 1, hy1, 1, hy2 - hy1, c_tl)
+
+        finally:
+            painter.end()
+
+
+class TrackLabel(slots.SlotContainer, QtWidgets.QLabel):
+    isCurrent, setIsCurrent, isCurrentChanged = slots.slot(bool, 'isCurrent', default=False)
+
+    def __init__(self, parent: QtWidgets.QWidget) -> None:
+        super().__init__(parent=parent)
+
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
+        self.setFrameStyle(QtWidgets.QFrame.Panel | QtWidgets.QFrame.Raised)
+        self.setBackgroundRole(QtGui.QPalette.Window)
+        self.setAutoFillBackground(True)
+
+        self.isCurrentChanged.connect(
+            lambda current: self.setBackgroundRole(QtGui.QPalette.Highlight if current else QtGui.QPalette.Window))
+
+        font = QtGui.QFont(self.font())
+        font.setPointSizeF(0.8 * font.pointSizeF())
+        self.setFont(font)
+
+
+class TrackContainer(
+        object_list_manager.ObjectWrapper[music.Track, 'Editor'],
+        ui_base.ProjectMixin,
+        QtCore.QObject):
+    visibilityChanged = QtCore.pyqtSignal(bool)
+
+    def __init__(
+            self, *,
+            editor: 'Editor',
+            track: music.Track,
+            player_state: player_state_lib.PlayerState,
+            **kwargs: Any) -> None:
+        super().__init__(
+            object_list_manager=editor,
+            wrapped_object=track,
+            **kwargs)
+
+        self.editor = editor
+        self.track = track
+
+        self.__listeners = core.ListenerMap[str]()
+
+        track_editor_cls = ui_registry.track_editor_cls_map[type(track).__name__]
+        self.track_editor = track_editor_cls(
+            track=track,
+            player_state=player_state,
+            editor=self.editor,
+            context=self.editor.context)
+        self.editor.xOffsetChanged.connect(self.track_editor.setXOffset)
+        self.editor.scaleXChanged.connect(self.track_editor.setScaleX)
+        self.editor.zoomChanged.connect(self.track_editor.setZoom)
+        self.editor.playbackPositionChanged.connect(self.track_editor.setPlaybackPosition)
+        self.track_editor.setXOffset(self.editor.xOffset())
+
+        self.__listeners['visible'] = self.track.visible_changed.add(
+            lambda change: self.visibilityChanged.emit(change.new_value))
+
+        self.height = self.editor.get_session_value(
+            'track_editor:%016x:height' % self.track.id,
+            fractions.Fraction(self.track_editor.defaultHeight()))
+
+        self.top_separator = TrackSeparator(editor, None)
+        self.separator = TrackSeparator(editor, self)
+        self.label = TrackLabel(editor)
+        self.label.setText(self.track.name)
+        self.__listeners['name'] = self.track.name_changed.add(
+            lambda change: self.label.setText(change.new_value))
+
+        self.handle = TrackHandle(editor=editor, container=self)
+
+        self.__hide_label_under_mouse = False
+        self.__hide_label_small_track = False
+        self.__global_mouse_move_conn = self.app.globalMousePosChanged.connect(self.__globalMouseMove)
+
+    def cleanup(self) -> None:
+        self.__listeners.cleanup()
+
+        self.app.globalMousePosChanged.disconnect(self.__global_mouse_move_conn)
+
+        self.track_editor.hide()
+        self.track_editor.cleanup()
+
+        self.separator.setParent(None)
+        self.separator.hide()
+
+        self.handle.setParent(None)
+        self.handle.hide()
+
+        self.label.setParent(None)
+        self.label.hide()
+
+    def __globalMouseMove(self, pos: QtCore.QPoint) -> None:
+        pos = self.label.mapFromGlobal(pos)
+        rect = self.label.rect().adjusted(-10, -10, 10, 10)
+        self.__hide_label_under_mouse = rect.contains(pos)
+        self.label.setVisible(not self.__hide_label_under_mouse and not self.__hide_label_small_track)
+
+    def setTrackGeometry(
+            self, rect: QtCore.QRect, sidebar_width: int, separator_height: int, show_top_sep: bool
+    ) -> None:
+        handle_width = 12
+
+        if show_top_sep:
+            self.top_separator.setVisible(True)
+            self.top_separator.setGeometry(
+                rect.x(), rect.y() - separator_height, rect.width(), separator_height)
+        else:
+            self.top_separator.setVisible(False)
+
+        self.handle.setVisible(True)
+        self.handle.setGeometry(rect.x(), rect.y(), handle_width, rect.height())
+
+        self.track_editor.setVisible(True)
+        self.track_editor.setGeometry(
+            rect.x() + handle_width, rect.y(), rect.width() - handle_width, rect.height())
+
+        self.__hide_label_small_track = (rect.height() < self.label.height() + 4)
+        self.label.move(rect.x() + handle_width + 4, rect.y() + 2)
+        self.label.setVisible(not self.__hide_label_under_mouse and not self.__hide_label_small_track)
+
+        self.separator.setVisible(True)
+        self.separator.setGeometry(
+            rect.x(), rect.y() + rect.height(), rect.width(), separator_height)
+
+    def hide(self) -> None:
+        self.handle.setVisible(False)
+        self.track_editor.setVisible(False)
+        self.label.setVisible(False)
+        self.top_separator.setVisible(False)
+        self.separator.setVisible(False)
+
+    def setIsCurrent(self, is_current: bool) -> None:
+        self.handle.setIsCurrent(is_current)
+        self.track_editor.setIsCurrent(is_current)
+        self.label.setIsCurrent(is_current)
+
+    def setHeight(self, height: fractions.Fraction) -> None:
+        self.height = height
+        self.editor.set_session_value('track_editor:%016x:height' % self.track.id, height)
+
+    def raise_(self) -> None:
+        self.handle.raise_()
+        self.track_editor.raise_()
+        self.label.raise_()
+        self.top_separator.raise_()
+        self.separator.raise_()
+
+
 class Editor(
+        object_list_manager.ObjectListManager[music.Track, TrackContainer],
         time_view_mixin.TimeViewMixin,
         ui_base.ProjectMixin,
         slots.SlotContainer,
+        core.AutoCleanupMixin,
         QtWidgets.QWidget):
     maximumYOffsetChanged = QtCore.pyqtSignal(int)
     yOffsetChanged = QtCore.pyqtSignal(int)
@@ -58,48 +341,59 @@ class Editor(
     currentTrackChanged = QtCore.pyqtSignal(object)
     playbackPosition, setPlaybackPosition, playbackPositionChanged = slots.slot(
         audioproc.MusicalTime, 'playbackPosition', default=audioproc.MusicalTime(-1, 1))
+    sidebarWidth, setSidebarWidth, sidebarWidthChanged = slots.slot(
+        int, 'sidebarWidth', default=0)
+    zoom, setZoom, zoomChanged = slots.slot(
+        fractions.Fraction, 'zoom', default=fractions.Fraction(1, 1))
+
+    MIN_ZOOM = fractions.Fraction(2, 3) ** 12
+    MAX_ZOOM = fractions.Fraction(3, 2) ** 2
 
     def __init__(self, *, player_state: player_state_lib.PlayerState, **kwargs: Any) -> None:
         self.__player_state = player_state
 
         self.__current_tool_box = None  # type: tools.ToolBox
         self.__current_tool = None  # type: tools.ToolBase
-        self.__current_track_editor = None  # type: base_track_editor.BaseTrackEditor
         self.__y_offset = 0
 
         super().__init__(**kwargs)
 
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
+        self.setMinimumWidth(50)
         self.setMinimumHeight(0)
 
-        self.__viewport = QtWidgets.QWidget(self)
-        self.__viewport.move(0, 0)
+        self.__in_track_resize = False
+        self.__moving_track = None  # type: TrackContainer
+        self.__moving_track_pos = None  # type: int
+        self.__moving_track_insert_index = None  # type: int
 
-        self.__viewport_layout = QtWidgets.QVBoxLayout()
-        self.__viewport_layout.setContentsMargins(0, 0, 0, 0)
-        self.__viewport_layout.setSpacing(3)
-        self.__viewport.setLayout(self.__viewport_layout)
+        self.__auto_scroll_dy = 0
+        self.__auto_scroll_timer = QtCore.QTimer(self)
+        self.__auto_scroll_timer.setInterval(1000 // 50)
+        self.__auto_scroll_timer.timeout.connect(self.__autoScrollTick)
 
-        self.__listeners = core.ListenerMap[str]()
+        self.initObjectList(self.project, 'nodes')
+
+        self.__content_height = 0
+        self.__updateTracks()
+        self.objectListChanged.connect(self.__updateTracks)
+
+        self.sidebarWidthChanged.connect(self.__updateTracks)
 
         self.__current_track = None  # type: music.Track
-        self.__tracks = []  # type: List[base_track_editor.BaseTrackEditor]
-        self.__track_map = {}  # type: Dict[int, base_track_editor.BaseTrackEditor]
-
-        for node in self.project.nodes:
-            self.__addNode(node)
-
-        self.__listeners['project:nodes'] = self.project.nodes_changed.add(
-            self.__onNodesChanged)
-
-        for idx, track_editor in enumerate(self.__tracks):
+        for idx, container in enumerate(self.objectWrappers()):
             if idx == 0:
-                self.__onCurrentTrackChanged(track_editor.track)
-
+                self.__onCurrentTrackChanged(container.track)
         self.currentTrackChanged.connect(self.__onCurrentTrackChanged)
 
         self.__player_state.currentTimeChanged.connect(self.setPlaybackPosition)
+
+        self.setZoom(self.get_session_value(
+            'tracklist:%s:zoom' % self.project.id, fractions.Fraction(1, 1)))
+        self.zoomChanged.connect(functools.partial(
+            self.set_session_value, 'tracklist:%s:zoom' % self.project.id))
+        self.zoomChanged.connect(lambda _: self.__updateTracks())
 
         self.__increase_scale_x_action = QtWidgets.QAction(self)
         self.__increase_scale_x_action.setShortcut("ctrl+left")
@@ -115,11 +409,25 @@ class Editor(
             functools.partial(self.__setScaleX, fractions.Fraction(3, 2)))
         self.addAction(self.__decrease_scale_x_action)
 
-    def cleanup(self) -> None:
-        for track_editor in list(self.__tracks):
-            self.__removeNode(track_editor.track)
+        self.__increase_zoom_action = QtWidgets.QAction(self)
+        self.__increase_zoom_action.setShortcut("ctrl++")
+        self.__increase_zoom_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.__increase_zoom_action.triggered.connect(
+            functools.partial(self.__scaleZoom, fractions.Fraction(3, 2)))
+        self.addAction(self.__increase_zoom_action)
 
-        self.__listeners.cleanup()
+        self.__decrease_zoom_action = QtWidgets.QAction(self)
+        self.__decrease_zoom_action.setShortcut("ctrl+-")
+        self.__decrease_zoom_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.__decrease_zoom_action.triggered.connect(
+            functools.partial(self.__scaleZoom, fractions.Fraction(2, 3)))
+        self.addAction(self.__decrease_zoom_action)
+
+        self.__reset_zoom_action = QtWidgets.QAction(self)
+        self.__reset_zoom_action.setShortcut("ctrl+0")
+        self.__reset_zoom_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.__reset_zoom_action.triggered.connect(self.__resetZoom)
+        self.addAction(self.__reset_zoom_action)
 
     def __setScaleX(self, factor: fractions.Fraction) -> None:
         new_scale_x = self.scaleX() * factor
@@ -133,6 +441,37 @@ class Editor(
         center_x = self.leftMargin() + int(self.scaleX() * center_time)
         self.setXOffset(max(0, center_x - self.width() // 2))
 
+    def __setZoom(self, zoom: fractions.Fraction) -> None:
+        if zoom == self.zoom():
+            return
+
+        center_y = (self.yOffset() + self.height() // 2) / self.zoom()
+        self.setZoom(zoom)
+        self.setYOffset(
+            max(0, min(self.maximumYOffset(), int(center_y * self.zoom()) - self.height() // 2)))
+
+    def __scaleZoom(self, factor: fractions.Fraction) -> None:
+        new_zoom = self.zoom() * factor
+        new_zoom = max(self.MIN_ZOOM, new_zoom)
+        new_zoom = min(self.MAX_ZOOM, new_zoom)
+        self.__setZoom(new_zoom)
+        self.__setScaleX(factor)
+
+    def __resetZoom(self) -> None:
+        self.__setScaleX(1 / self.zoom())
+        self.__setZoom(fractions.Fraction(1, 1))
+
+    def __autoScrollTick(self) -> None:
+        self.setYOffset(
+            max(0, min(self.maximumYOffset(), self.yOffset() + self.__auto_scroll_dy)))
+
+    def setAutoScroll(self, dy: int) -> None:
+        self.__auto_scroll_dy = dy
+        if self.__auto_scroll_dy and self.isVisible():
+            self.__auto_scroll_timer.start()
+        else:
+            self.__auto_scroll_timer.stop()
+
     def currentTrack(self) -> music.Track:
         return self.__current_track
 
@@ -141,107 +480,159 @@ class Editor(
             return
 
         if self.__current_track is not None:
-            track_editor = self.__track_map[self.__current_track.id]
-            track_editor.setIsCurrent(False)
-            if self.__current_track.visible:
-                self.update(
-                    0, track_editor.y() - self.yOffset(),
-                    self.width(), track_editor.height())
+            container = self.objectWrapperById(self.__current_track.id)
+            container.setIsCurrent(False)
             self.__current_track = None
 
         if track is not None:
-            track_editor = self.__track_map[track.id]
-            track_editor.setIsCurrent(True)
+            container = self.objectWrapperById(track.id)
+            container.setIsCurrent(True)
             self.__current_track = track
 
-            if self.__current_track.visible:
-                self.update(
-                    0, track_editor.y() - self.yOffset(),
-                    self.width(), track_editor.height())
-
-            if track_editor.track.visible and self.isVisible():
+            if container.track.visible and self.isVisible():
+                track_y = container.track_editor.y() + self.yOffset()
                 yoffset = self.yOffset()
-                if track_editor.y() + track_editor.height() > yoffset + self.height():
-                    yoffset = track_editor.y() + track_editor.height() - self.height()
-                if track_editor.y() < yoffset:
-                    yoffset = track_editor.y()
+                if track_y + container.track_editor.height() > yoffset + self.height():
+                    yoffset = track_y + container.track_editor.height() - self.height()
+                if track_y < yoffset:
+                    yoffset = track_y
                 self.setYOffset(yoffset)
 
         self.currentTrackChanged.emit(self.__current_track)
 
-    def __addNode(self, node: music.BaseNode) -> None:
-        if isinstance(node, music.Track):
-            track_editor = self.createTrack(node)
-            self.__tracks.append(track_editor)
-            self.__track_map[node.id] = track_editor
-            self.__listeners['track:%s:visible' % node.id] = node.visible_changed.add(
-                lambda *_: self.updateTracks())
-            self.updateTracks()
+    def _filterObject(self, obj: music.ObjectBase) -> bool:
+        return isinstance(obj, music.Track)
 
-    def __removeNode(self, node: music.BaseNode) -> None:
-        if isinstance(node, music.Track):
-            del self.__listeners['track:%s:visible' % node.id]
-
-            track_editor = self.__track_map.pop(node.id)
-            for idx in range(len(self.__tracks)):
-                if self.__tracks[idx] is track_editor:
-                    del self.__tracks[idx]
-                    break
-
-            track_editor.cleanup()
-            self.updateTracks()
-
-    def __onNodesChanged(
-            self, change: music.PropertyListChange[music.BaseNode]) -> None:
-        if isinstance(change, music.PropertyListInsert):
-            self.__addNode(change.new_value)
-
-        elif isinstance(change, music.PropertyListDelete):
-            self.__removeNode(change.old_value)
-
-        else:  # pragma: no cover
-            raise TypeError(type(change))
-
-    def createTrack(self, track: music.Track) -> base_track_editor.BaseTrackEditor:
-        track_editor_cls = ui_registry.track_editor_cls_map[type(track).__name__]
-        track_editor = track_editor_cls(
+    def _createObjectWrapper(self, track: music.Track) -> TrackContainer:
+        container = TrackContainer(
+            editor=self,
             track=track,
             player_state=self.__player_state,
-            editor=self,
             context=self.context)
-        self.xOffsetChanged.connect(track_editor.setXOffset)
-        self.scaleXChanged.connect(track_editor.setScaleX)
-        self.playbackPositionChanged.connect(track_editor.setPlaybackPosition)
-        track_editor.setXOffset(self.xOffset())
-        return track_editor
+        container.visibilityChanged.connect(lambda _: self.__updateTracks())
+        return container
 
-    def updateTracks(self) -> None:
-        while self.__viewport_layout.count() > 0:
-            self.__viewport_layout.takeAt(0)
+    def _deleteObjectWrapper(self, container: TrackContainer) -> None:
+        if container.track is self.__current_track:
+            self.setCurrentTrack(None)
 
-        for track_editor in self.__tracks:
-            track_editor.setVisible(track_editor.track.visible)
-            if not track_editor.track.visible:
+        container.cleanup()
+
+    def __updateTracks(self) -> None:
+        separator_height = max(1, min(8, int(self.zoom() * 4)))
+        tracks = []  # type: List[Tuple[TrackContainer, int]]
+        moving_track_height = 0
+
+        content_height = 0
+        for container in self.objectWrappers():
+            if not container.track.visible:
+                container.hide()
                 continue
-            self.__viewport_layout.addWidget(track_editor)
 
-        self.__viewport.adjustSize()
-        self.__viewport.resize(self.width(), self.__viewport.height())
+            if not tracks:
+                content_height += separator_height
 
-        self.maximumYOffsetChanged.emit(
-            max(0, self.__viewport.height() - self.height()))
+            track_height = max(5, int(self.zoom() * container.height))
+            track_height = min(container.track_editor.maximumHeight(), track_height)
+            track_height = max(container.track_editor.minimumHeight(), track_height)
 
-        self.update()
+            if container is self.__moving_track:
+                moving_track_height = track_height
+
+            tracks.append((container, track_height))
+
+            content_height += track_height + separator_height
+
+        if self.__in_track_resize:
+            content_height = max(content_height, self.__content_height)
+
+        if content_height != self.__content_height:
+            self.__content_height = content_height
+            self.maximumYOffsetChanged.emit(max(0, self.__content_height - self.height()))
+
+        if self.__content_height >= self.height():
+            y = -self.yOffset()
+        else:
+            y = (self.height() - self.__content_height) // 2
+        y += separator_height
+
+        show_top_sep = True
+        moving_track_inserted = False
+        for container, track_height in tracks:
+            if container is self.__moving_track:
+                container.setTrackGeometry(
+                    QtCore.QRect(0, self.__moving_track_pos, self.width(), track_height),
+                    self.sidebarWidth(), separator_height, True)
+                show_top_sep = True
+
+            else:
+                if (not moving_track_inserted
+                        and self.__moving_track is not None
+                        and self.__moving_track_pos < y + track_height // 2):
+                    y += moving_track_height + separator_height
+                    if container.track.index > self.__moving_track.track.index:
+                        self.__moving_track_insert_index = container.track.index - 1
+                    else:
+                        self.__moving_track_insert_index = container.track.index
+                    moving_track_inserted = True
+
+                container.setTrackGeometry(
+                    QtCore.QRect(0, y, self.width(), track_height),
+                    self.sidebarWidth(), separator_height, show_top_sep)
+                show_top_sep = False
+
+                y += track_height + separator_height
+
+        if not moving_track_inserted and self.__moving_track is not None:
+            self.__moving_track_insert_index = len(self.project.nodes) - 1
+
+        if self.__moving_track is not None:
+            self.__moving_track.raise_()
+
+    def beginTrackResize(self) -> None:
+        self.__in_track_resize = True
+
+    def endTrackResize(self) -> None:
+        self.__in_track_resize = False
+        self.__updateTracks()
+
+    def setTrackHeight(self, container: TrackContainer, height: int) -> None:
+        h = fractions.Fraction(height) / self.zoom()
+        h = min(container.track_editor.maximumHeight(), h)
+        h = max(container.track_editor.minimumHeight(), h)
+        if h != container.height:
+            container.setHeight(h)
+            self.__updateTracks()
+
+    def beginTrackMove(self, container: TrackContainer) -> None:
+        self.__moving_track = container
+        self.__moving_track_pos = container.track_editor.pos().y()
+        self.__moving_track_insert_index = None
+        self.__updateTracks()
+
+    def endTrackMove(self) -> None:
+        assert self.__moving_track is not None
+        if self.__moving_track_insert_index is not None:
+            moving_track = self.__moving_track
+            new_index = self.__moving_track_insert_index
+            self.__moving_track = None
+            self.__moving_track_insert_index = None
+            with self.project.apply_mutations(
+                    'Move track "%s"' % moving_track.track.name):
+                self.project.nodes.move(moving_track.track.index, new_index)
+
+        self.__updateTracks()
+
+    def moveTrack(self, pos: int) -> None:
+        self.__moving_track_pos = pos
+        self.__updateTracks()
 
     def __onCurrentTrackChanged(self, track: music.Track) -> None:
         if track is not None:
-            track_editor = down_cast(base_track_editor.BaseTrackEditor, self.__track_map[track.id])
-            self.__current_track_editor = track_editor
-
-            self.setCurrentToolBox(track_editor.toolBox())
+            container = self.objectWrapperById(track.id)
+            self.setCurrentToolBox(container.track_editor.toolBox())
 
         else:
-            self.__current_track_editor = None
             self.setCurrentToolBox(None)
 
     def currentToolBox(self) -> tools.ToolBox:
@@ -288,7 +679,7 @@ class Editor(
             self.setCursor(QtGui.QCursor(Qt.ArrowCursor))
 
     def maximumYOffset(self) -> int:
-        return max(0, self.__viewport.height() - self.height())
+        return max(0, self.__content_height - self.height())
 
     def pageHeight(self) -> int:
         return self.height()
@@ -303,7 +694,7 @@ class Editor(
         self.__y_offset = offset
         self.yOffsetChanged.emit(self.__y_offset)
 
-        self.__viewport.move(0, -self.__y_offset)
+        self.__updateTracks()
 
     def offset(self) -> QtCore.QPoint:
         return QtCore.QPoint(self.xOffset(), self.__y_offset)
@@ -311,11 +702,11 @@ class Editor(
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)
 
-        self.__viewport.resize(self.width(), self.__viewport.height())
-
         self.maximumYOffsetChanged.emit(
-            max(0, self.__viewport.height() - self.height()))
+            max(0, self.__content_height - self.height()))
         self.pageHeightChanged.emit(self.height())
+
+        self.__updateTracks()
 
     def wheelEvent(self, evt: QtGui.QWheelEvent) -> None:
         if evt.modifiers() == Qt.ShiftModifier:

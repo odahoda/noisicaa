@@ -35,6 +35,8 @@ def build(ctx):
     ctx.py_test('perf_stats_test.py')
     ctx.py_module('process_manager.py')
     ctx.py_test('process_manager_test.py')
+    ctx.py_module('process_manager_io.py')
+    ctx.py_module('process_manager_entry.py')
     ctx.py_module('recordfile.py')
     ctx.py_test('recordfile_test.py')
     ctx.py_test('stats_test.py')

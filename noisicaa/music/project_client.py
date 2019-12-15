@@ -43,6 +43,7 @@ from . import writer_client
 from . import render
 from . import player as player_lib
 from . import session_value_store
+from . import loadtest_generator
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +181,22 @@ class ProjectClient(object):
             writer=self.__writer_client,
             node_db=self.__node_db)
         self.__project.monitor_model_changes()
+        await self.__init_session_data()
+
+    async def create_loadtest(self, path: str, spec: Dict[str, Any]) -> None:
+        assert self.__project is None
+
+        await self.__create_writer()
+
+        self.__pool = project_lib.Pool(project_cls=project_lib.Project)
+        self.__project = await project_lib.Project.create_blank(
+            path=path,
+            pool=self.__pool,
+            writer=self.__writer_client,
+            node_db=self.__node_db)
+        self.__project.monitor_model_changes()
+        with self.__project.apply_mutations('Fill it with junk'):
+            loadtest_generator.fill_project(self.__project, spec)
         await self.__init_session_data()
 
     async def create_inmemory(self) -> None:

@@ -165,6 +165,7 @@ def configure(ctx):
     pip_mgr.check_package(RUNTIME, 'sortedcontainers')
     pip_mgr.check_package(RUNTIME, 'toposort')
     pip_mgr.check_package(RUNTIME, 'urwid')
+    pip_mgr.check_package(RUNTIME, 'fastjsonschema')
     pip_mgr.check_package(BUILD, 'cssutils')
     pip_mgr.check_package(BUILD, 'Cython', version='0.29.6')
     pip_mgr.check_package(BUILD, 'Jinja2')
@@ -328,9 +329,9 @@ def check_virtual_env(ctx):
                 system_site_packages=False,
                 with_pip=True)
             env_builder.create(venvdir)
-        except Exception as exc:  # pylint: disable=broad-except
+        except BaseException as exc:  # pylint: disable=broad-except
             shutil.rmtree(venvdir)
-            ctx.fatal("Failed to create virtual env: %s" % exc)
+            ctx.fatal("Failed to create virtual env: %s: %s" % (type(exc).__name__, exc))
 
         # Always update PIP to something more recent than what ensurepip has installed. We need at
         # least 9.0 for 'pip list --format=json' to work.
@@ -701,6 +702,7 @@ class CSoundBuilder(ThirdPartyBuilder):
             ['cmake',
              '-DBUILD_PYTHON_INTERFACE=0',
              '-DBUILD_LINEAR_ALGEBRA_OPCODES=0',
+             '-DBUILD_STK_OPCODES=0',
              '-DCMAKE_INSTALL_PREFIX=' + self._ctx.env.VIRTUAL_ENV,
              os.path.abspath(src_path)
             ],

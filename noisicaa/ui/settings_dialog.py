@@ -30,6 +30,7 @@ from PyQt5 import QtWidgets
 from ..constants import DATA_DIR
 from . import ui_base
 
+
 class SettingsDialog(ui_base.CommonMixin, QtWidgets.QDialog):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -71,8 +72,10 @@ class SettingsDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
 
 class Page(ui_base.CommonMixin, QtWidgets.QWidget):
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, title: str, **kwargs: Any) -> None:
         super().__init__(**kwargs)
+
+        self.title = title
 
         layout = QtWidgets.QVBoxLayout()
 
@@ -81,22 +84,27 @@ class Page(ui_base.CommonMixin, QtWidgets.QWidget):
         layout.addStretch(1)
         self.setLayout(layout)
 
+    def createOptions(self, layout: QtWidgets.QVBoxLayout) -> None:
+        raise NotImplementedError
+
+    def getIcon(self) -> QtGui.QIcon:
+        raise NotImplementedError
+
 
 class AppearancePage(Page):
-    def __init__(self, **kwargs: Any) -> None:
-        self.title = "Appearance"
-        self._qt_styles = sorted(QtWidgets.QStyleFactory.keys())
+    _qt_styles = sorted(QtWidgets.QStyleFactory.keys())
 
-        super().__init__(**kwargs)
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(title="Appearance", **kwargs)
 
     def getIcon(self) -> QtGui.QIcon:
         path = os.path.join(DATA_DIR, 'icons', 'settings_appearance.png')
         return QtGui.QIcon(path)
 
-    def createOptions(self, layout: QtWidgets.QLayout) -> None:
+    def createOptions(self, layout: QtWidgets.QVBoxLayout) -> None:
         self.createQtStyle(layout)
 
-    def createQtStyle(self, parent: QtWidgets.QLayout) -> None:
+    def createQtStyle(self, parent: QtWidgets.QVBoxLayout) -> None:
         layout = QtWidgets.QHBoxLayout()
         parent.addLayout(layout)
 
@@ -138,16 +146,16 @@ class QBlockSizeSpinBox(QtWidgets.QSpinBox):
 
 
 class AudioPage(Page):
+    _backends = ['portaudio', 'null']
+
     def __init__(self, **kwargs: Any) -> None:
-        self.title = "Audio"
-        self._backends = ['portaudio', 'null']
-        super().__init__(**kwargs)
+        super().__init__(title="Audio", **kwargs)
 
     def getIcon(self) -> QtGui.QIcon:
         path = os.path.join(DATA_DIR, 'icons', 'settings_audio.png')
         return QtGui.QIcon(path)
 
-    def createOptions(self, layout: QtWidgets.QLayout) -> None:
+    def createOptions(self, layout: QtWidgets.QVBoxLayout) -> None:
         backend_widget = QtWidgets.QComboBox()
         #backend_layout.addWidget(combo, stretch=1)
 

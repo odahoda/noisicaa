@@ -246,7 +246,7 @@ class DraggedConnection(QtWidgets.QGraphicsPathItem):
 
 class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene):
     currentTrack, setCurrentTrack, currentTrackChanged = slots.slot(
-        music.Track, 'currentTrack')
+        music.Track, 'currentTrack', allow_none=True)
 
     contentRect, setContentRect, contentRectChanged = slots.slot(
         QtCore.QRectF, 'contentRect')
@@ -289,6 +289,10 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
 
         elif isinstance(change, music.PropertyListDelete):
             self.__removeNode(change.old_value, change.index)
+
+        elif isinstance(change, music.PropertyListMove):
+            item = self.__nodes.pop(change.old_index)
+            self.__nodes.insert(change.new_index, item)
 
         else:  # pragma: no cover
             raise TypeError(type(change))
@@ -725,7 +729,7 @@ class ChangeConnection(State):
 
 class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView):
     currentTrack, setCurrentTrack, currentTrackChanged = slots.slot(
-        music.Track, 'currentTrack')
+        music.Track, 'currentTrack', allow_none=True)
 
     visibleCanvasRect, setVisibleCanvasRect, visibleCanvasRectChanged = slots.slot(
         QtCore.QRectF, 'visibleCanvasRect')
@@ -911,7 +915,8 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
 
         menu = QtWidgets.QMenu()
 
-        click_node = self.__scene.nodeAt(self.mapToScene(event.pos()))
+        scene_pos = self.mapToScene(event.pos())
+        click_node = self.__scene.nodeAt(scene_pos)
         if click_node is not None:
             click_node.buildContextMenu(menu)
 
@@ -922,7 +927,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             # signal fires.
             insert_node_action.nodeSelected.connect(lambda _: menu.close())
             insert_node_action.nodeSelected.connect(
-                lambda uri: self.__scene.insertNode(uri, self.mapToScene(event.pos())))
+                lambda uri: self.__scene.insertNode(uri, scene_pos))
             insert_node_menu.addAction(insert_node_action)
 
             menu.addSeparator()
@@ -930,7 +935,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             menu.addAction(self.__select_all_action)
 
         if not menu.isEmpty():
-            menu.exec_(event.globalPos())
+            menu.popup(event.globalPos())
             event.accept()
 
     def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:

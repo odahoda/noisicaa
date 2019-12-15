@@ -22,7 +22,7 @@
 
 import logging
 import math
-from typing import Optional, Union, Callable
+from typing import Optional, Callable, TypeVar
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -30,6 +30,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from . import slots
+from .qtyping import QGeneric
 
 logger = logging.getLogger(__name__)
 
@@ -64,11 +65,14 @@ class RenderContext(object):
             self.dot_pen.setWidth(2)
 
 
-# TODO: BaseDial should really be a Generic class, but QWidget doesn't with Generic.
-T = Union[int, float]
+T = TypeVar('T')
 
-class BaseDial(slots.SlotContainer, QtWidgets.QWidget):
+class BaseDial(QGeneric[T], slots.SlotContainer, QtWidgets.QWidget):
     readOnly, setReadOnly, readOnlyChanged = slots.slot(bool, 'readOnly', default=False)
+    # This class should also have slots 'value', 'default', 'minimum' and 'maximum', all of type
+    # T. But Qt signals have to be created with a real type, they don't work with a TypeVar. So
+    # those slots are added in subclasses with the concrete type of T. But every use of these slots
+    # here results in a mypy error, which has been disabled with a 'type: ignore'.
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent=parent)
@@ -92,17 +96,16 @@ class BaseDial(slots.SlotContainer, QtWidgets.QWidget):
     def heightForWidth(self, w: int) -> int:
         return w
 
-    # TODO: This should be "func: Callable[[T], str]", if QWidget would work with Generic.
-    def setDisplayFunc(self, func: Callable) -> None:
+    def setDisplayFunc(self, func: Callable[[T], str]) -> None:
         self.__display_func = func
         self.update()
 
     def setRange(self, minimum: T, maximum: T) -> None:
-        self.setMinimum(minimum)
-        self.setMaximum(maximum)
+        self.setMinimum(minimum)  # type: ignore
+        self.setMaximum(maximum)  # type: ignore
 
     def normalizedValue(self) -> float:
-        return self.normalize(self.value())
+        return self.normalize(self.value())  # type: ignore
 
     def normalize(self, value: T) -> float:
         raise NotImplementedError
@@ -145,7 +148,7 @@ class BaseDial(slots.SlotContainer, QtWidgets.QWidget):
 
     def _renderLabel(self, ctxt: RenderContext) -> None:
         if ctxt.size > 40:
-            text = self.__display_func(self.value())
+            text = self.__display_func(self.value())  # type: ignore
             if text:
                 font = QtGui.QFont("Arial")
                 font.setPixelSize(10)
@@ -177,4 +180,4 @@ class BaseDial(slots.SlotContainer, QtWidgets.QWidget):
 
     def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and not self.readOnly():
-            self.setValue(self.default())
+            self.setValue(self.default())  # type: ignore

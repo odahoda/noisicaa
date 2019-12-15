@@ -158,6 +158,10 @@ class Player(object):
 
         elif isinstance(change, model_base.PropertyListDelete):
             self.remove_node(change.old_value)
+
+        elif isinstance(change, model_base.PropertyListMove):
+            pass
+
         else:
             raise TypeError("Unsupported change type %s" % type(change))
 

@@ -24,7 +24,6 @@ import asyncio
 import base64
 import concurrent.futures
 import enum
-import errno
 import functools
 import importlib
 import logging
@@ -47,10 +46,9 @@ import eventfd
 
 from . import ipc
 from . import stats
-from . import stacktrace
 from . import empty_message_pb2
 from . import process_manager_pb2
-from .logging import init_pylogging
+from . import process_manager_io
 
 if typing.TYPE_CHECKING:
     import resource
@@ -126,138 +124,6 @@ class LogAdapter(asyncio.Protocol):
                 self._state = 'header'
 
 
-class ChildLogHandler(logging.Handler):
-    def __init__(self, log_fd: int) -> None:
-        super().__init__()
-        self.__log_fd = log_fd
-        self.__lock = threading.Lock()
-
-    def handle(self, record: logging.LogRecord) -> None:
-        record_attrs = {
-            'msg': record.getMessage(),
-            'args': (),
-        }
-        for attr in (
-                'created', 'exc_text', 'filename',
-                'funcName', 'levelname', 'levelno', 'lineno',
-                'module', 'msecs', 'name', 'pathname', 'process',
-                'relativeCreated', 'thread', 'threadName'):
-            record_attrs[attr] = record.__dict__[attr]
-
-        serialized_record = pickle.dumps(record_attrs, protocol=pickle.HIGHEST_PROTOCOL)
-        msg = bytearray()
-        msg += b'RECORD'
-        msg += struct.pack('>L', len(serialized_record))
-        msg += serialized_record
-
-        with self.__lock:
-            while msg:
-                written = os.write(self.__log_fd, msg)
-                msg = msg[written:]
-
-    def emit(self, record: logging.LogRecord) -> None:
-        pass
-
-
-class ChildConnection(object):
-    def __init__(self, fd_in: int, fd_out: int) -> None:
-        self.fd_in = fd_in
-        self.fd_out = fd_out
-
-        self.__reader_state = 0
-        self.__reader_buf = None  # type: bytearray
-        self.__reader_length = None  # type: int
-
-    def write(self, request: bytes) -> None:
-        header = b'#%d\n' % len(request)
-        msg = header + request
-        while msg:
-            written = os.write(self.fd_out, msg)
-            msg = msg[written:]
-
-    def __reader_start(self) -> None:
-        self.__reader_state = 0
-        self.__reader_buf = None
-        self.__reader_length = None
-
-    def __read_internal(self) -> None:
-        if self.__reader_state == 0:
-            d = os.read(self.fd_in, 1)
-            if not d:
-                raise OSError(errno.EBADF, "File descriptor closed")
-            assert d == b'#', d
-            self.__reader_buf = bytearray()
-            self.__reader_state = 1
-
-        elif self.__reader_state == 1:
-            d = os.read(self.fd_in, 1)
-            if not d:
-                raise OSError(errno.EBADF, "File descriptor closed")
-            elif d == b'\n':
-                self.__reader_length = int(self.__reader_buf)
-                self.__reader_buf = bytearray()
-                self.__reader_state = 2
-            else:
-                self.__reader_buf += d
-
-        elif self.__reader_state == 2:
-            if len(self.__reader_buf) < self.__reader_length:
-                d = os.read(self.fd_in, self.__reader_length - len(self.__reader_buf))
-                if not d:
-                    raise OSError(errno.EBADF, "File descriptor closed")
-                self.__reader_buf += d
-
-            if len(self.__reader_buf) == self.__reader_length:
-                self.__reader_state = 3
-
-    @property
-    def __reader_done(self) -> bool:
-        return self.__reader_state == 3
-
-    @property
-    def __reader_response(self) -> bytes:
-        assert self.__reader_done
-        return self.__reader_buf
-
-    def read(self) -> bytes:
-        self.__reader_start()
-        while not self.__reader_done:
-            self.__read_internal()
-        return self.__reader_response
-
-    async def read_async(self, event_loop: asyncio.AbstractEventLoop) -> bytes:
-        done = asyncio.Event(loop=event_loop)
-        def read_cb() -> None:
-            try:
-                self.__read_internal()
-
-            except OSError:
-                event_loop.remove_reader(self.fd_in)
-                done.set()
-                return
-
-            except:
-                event_loop.remove_reader(self.fd_in)
-                raise
-
-            if self.__reader_done:
-                event_loop.remove_reader(self.fd_in)
-                done.set()
-
-        self.__reader_start()
-        event_loop.add_reader(self.fd_in, read_cb)
-        await done.wait()
-
-        if self.__reader_done:
-            return self.__reader_response
-        else:
-            raise OSError("Failed to read from connection")
-
-    def close(self) -> None:
-        os.close(self.fd_in)
-        os.close(self.fd_out)
-
-
 class ChildCollector(object):
     def __init__(self, stats_collector: stats.Collector, collection_interval: int = 100) -> None:
         self.__stats_collector = stats_collector
@@ -267,7 +133,7 @@ class ChildCollector(object):
         self.__stat_poll_count = None  # type: stats.Counter
 
         self.__lock = threading.Lock()
-        self.__connections = {}  # type: Dict[int, ChildConnection]
+        self.__connections = {}  # type: Dict[int, process_manager_io.ChildConnection]
         self.__stop = None  # type: threading.Event
         self.__thread = None  # type: threading.Thread
 
@@ -302,7 +168,7 @@ class ChildCollector(object):
             self.__stat_poll_count.unregister()
             self.__stat_poll_count = None
 
-    def add_child(self, pid: int, connection: ChildConnection) -> None:
+    def add_child(self, pid: int, connection: process_manager_io.ChildConnection) -> None:
         with self.__lock:
             self.__connections[pid] = connection
 
@@ -316,7 +182,7 @@ class ChildCollector(object):
         with self.__lock:
             poll_start = time.perf_counter()
 
-            pending = {}  # type: Dict[int, Tuple[float, int, ChildConnection]]
+            pending = {}  # type: Dict[int, Tuple[float, int, process_manager_io.ChildConnection]]
             poller = select.poll()
             for pid, connection in self.__connections.items():
                 t0 = time.perf_counter()
@@ -550,7 +416,7 @@ class ProcessManager(object):
 
                 # TODO: ensure that sys.stdout/err use utf-8
 
-                child_connection = ChildConnection(request_in, response_out)
+                child_connection = process_manager_io.ChildConnection(request_in, response_out)
 
                 # Wait until manager told us it's ok to start. Avoid race
                 # condition where child terminates and generates SIGCHLD
@@ -573,7 +439,7 @@ class ProcessManager(object):
 
                 cmdline = []  # type: List[str]
                 cmdline += [sys.executable]
-                cmdline += ['-m', 'noisicaa.core.process_manager']
+                cmdline += ['-m', 'noisicaa.core.process_manager_entry']
                 cmdline += [base64.b64encode(
                     pickle.dumps(args, protocol=pickle.HIGHEST_PROTOCOL)).decode('ascii')]
 
@@ -615,7 +481,7 @@ class ProcessManager(object):
             proc.pid = pid
             self._processes.add(proc)
 
-            child_connection = ChildConnection(response_in, request_out)
+            child_connection = process_manager_io.ChildConnection(response_in, request_out)
 
             proc.create_loggers()
 
@@ -688,7 +554,7 @@ class ProcessManager(object):
 
 
 class ChildConnectionHandler(object):
-    def __init__(self, connection: ChildConnection) -> None:
+    def __init__(self, connection: process_manager_io.ChildConnection) -> None:
         self.connection = connection
 
         self.__stop = None  # type: eventfd.EventFD
@@ -811,69 +677,6 @@ class SubprocessMixin(ProcessBase):
         self.pid = os.getpid()
         self.executor = None  # type: concurrent.futures.ThreadPoolExecutor
 
-    @staticmethod
-    def entry(argv: List[str]) -> None:
-        try:
-            assert len(argv) == 2
-
-            args = pickle.loads(base64.b64decode(argv[1]))
-
-            request_in = args['request_in']
-            response_out = args['response_out']
-            logger_out = args['logger_out']
-            log_level = args['log_level']
-            entry = args['entry']
-            name = args['name']
-            manager_address = args['manager_address']
-            tmp_dir = args['tmp_dir']
-            kwargs = args['kwargs']
-
-            # Remove all existing log handlers, and install a new
-            # handler to pipe all log messages back to the manager
-            # process.
-            root_logger = logging.getLogger()
-            while root_logger.handlers:
-                root_logger.removeHandler(root_logger.handlers[0])
-            root_logger.addHandler(ChildLogHandler(logger_out))
-            root_logger.setLevel(log_level)
-
-            # Make loggers of 3rd party modules less noisy.
-            for other in ['quamash']:
-                logging.getLogger(other).setLevel(logging.WARNING)
-
-            stacktrace.init()
-            init_pylogging()
-
-            mod_name, cls_name = entry.rsplit('.', 1)
-            mod = importlib.import_module(mod_name)
-            cls = getattr(mod, cls_name)
-            impl = cls(
-                name=name, manager_address=manager_address, tmp_dir=tmp_dir,
-                **kwargs)
-
-            child_connection = ChildConnection(request_in, response_out)
-            rc = impl.main(child_connection)
-
-            frames = sys._current_frames()  # pylint: disable=protected-access
-            for thread in threading.enumerate():
-                if thread.ident == threading.get_ident():
-                    continue
-                logger.warning("Left over thread %s (%x)", thread.name, thread.ident)
-                if thread.ident in frames:
-                    logger.warning("".join(traceback.format_stack(frames[thread.ident])))
-
-        except SystemExit as exc:
-            rc = exc.code
-        except:  # pylint: disable=bare-except
-            traceback.print_exc()
-            rc = 1
-        finally:
-            rc = rc or 0
-            sys.stdout.write("_exit(%d)\n" % rc)
-            sys.stdout.flush()
-            sys.stderr.flush()
-            os._exit(rc)  # pylint: disable=protected-access
-
     def create_event_loop(self) -> asyncio.AbstractEventLoop:
         return asyncio.new_event_loop()
 
@@ -901,7 +704,11 @@ class SubprocessMixin(ProcessBase):
         sys.stderr.flush()
         os._exit(1)  # pylint: disable=protected-access
 
-    def main(self, child_connection: ChildConnection, *args: Any, **kwargs: Any) -> int:
+    def main(
+            self,
+            child_connection: process_manager_io.ChildConnection,
+            *args: Any, **kwargs: Any
+    ) -> int:
         event_loop_policy = EventLoopPolicy()
         asyncio.set_event_loop_policy(event_loop_policy)
 
@@ -936,7 +743,11 @@ class SubprocessMixin(ProcessBase):
             self.event_loop.close()
             logger.info("Event loop closed.")
 
-    async def main_async(self, child_connection: ChildConnection, *args: Any, **kwargs: Any) -> int:
+    async def main_async(
+            self,
+            child_connection: process_manager_io.ChildConnection,
+            *args: Any, **kwargs: Any
+    ) -> int:
         self.manager = ManagerStub(self.event_loop, self.manager_address)
         async with self.manager:
             try:
@@ -1246,8 +1057,3 @@ class SubprocessHandle(ProcessHandle):
 
 class ManagerStub(ipc.Stub):
     pass
-
-
-if __name__ == '__main__':
-    # Entry point for subprocesses.
-    SubprocessMixin.entry(sys.argv)

@@ -35,7 +35,7 @@ from . import base_dial
 logger = logging.getLogger(__name__)
 
 
-class ControlValueDial(base_dial.BaseDial):
+class ControlValueDial(base_dial.BaseDial[float]):
     value, setValue, valueChanged = slots.slot(float, 'value', default=0.0)
     default, setDefault, defaultChanged = slots.slot(float, 'default', default=0.0)
     logScale, setLogScale, logScaleChanged = slots.slot(bool, 'logScale', default=False)
