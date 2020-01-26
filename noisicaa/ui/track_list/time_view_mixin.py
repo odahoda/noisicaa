@@ -124,7 +124,9 @@ class ContinuousTimeMixin(ScaledTimeMixin, slots.SlotContainer):
     def gridStep(self) -> audioproc.MusicalDuration:
         return self.__grid_step
 
-    def renderTimeGrid(self, painter: QtGui.QPainter, rect: QtCore.QRect, *, show_numbers=False) -> None:
+    def renderTimeGrid(
+            self, painter: QtGui.QPainter, rect: QtCore.QRect, *, show_numbers: bool = False
+    ) -> None:
         grid_step = self.gridStep()
 
         tick_num = int(self.xToTime(rect.x()) / grid_step)
@@ -152,7 +154,8 @@ class ContinuousTimeMixin(ScaledTimeMixin, slots.SlotContainer):
 
                 painter.fillRect(x, rect.y(), 1, rect.height(), c)
 
-            if show_numbers and tick_time % audioproc.MusicalTime(1, 1) == audioproc.MusicalTime(0, 1):
+            if (show_numbers
+                    and tick_time % audioproc.MusicalTime(1, 1) == audioproc.MusicalTime(0, 1)):
                 beat_num = int(tick_time / audioproc.MusicalTime(1, 4))
                 painter.setPen(Qt.black)
                 painter.drawText(x + 5, 12, '%d' % (beat_num + 1))

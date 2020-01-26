@@ -189,7 +189,8 @@ class TimeLine(
 
             painter.translate(-self.xOffset(), 0)
 
-            self.renderTimeGrid(painter, evt.rect().translated(self.xOffset(), 0), show_numbers=True)
+            self.renderTimeGrid(
+                painter, evt.rect().translated(self.xOffset(), 0), show_numbers=True)
 
             # loop markers
             loop_start_time = self.__player_state.loopStartTime()

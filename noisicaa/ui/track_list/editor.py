@@ -191,7 +191,8 @@ class TrackLabel(slots.SlotContainer, QtWidgets.QLabel):
         self.setAutoFillBackground(True)
 
         self.isCurrentChanged.connect(
-            lambda current: self.setBackgroundRole(QtGui.QPalette.Highlight if current else QtGui.QPalette.Window))
+            lambda current: self.setBackgroundRole(
+                QtGui.QPalette.Highlight if current else QtGui.QPalette.Window))
 
         font = QtGui.QFont(self.font())
         font.setPointSizeF(0.8 * font.pointSizeF())
@@ -250,7 +251,8 @@ class TrackContainer(
 
         self.__hide_label_under_mouse = False
         self.__hide_label_small_track = False
-        self.__global_mouse_move_conn = self.app.globalMousePosChanged.connect(self.__globalMouseMove)
+        self.__global_mouse_move_conn = self.app.globalMousePosChanged.connect(
+            self.__globalMouseMove)
 
     def cleanup(self) -> None:
         self.__listeners.cleanup()
@@ -273,7 +275,8 @@ class TrackContainer(
         pos = self.label.mapFromGlobal(pos)
         rect = self.label.rect().adjusted(-10, -10, 10, 10)
         self.__hide_label_under_mouse = rect.contains(pos)
-        self.label.setVisible(not self.__hide_label_under_mouse and not self.__hide_label_small_track)
+        self.label.setVisible(
+            not self.__hide_label_under_mouse and not self.__hide_label_small_track)
 
     def setTrackGeometry(
             self, rect: QtCore.QRect, sidebar_width: int, separator_height: int, show_top_sep: bool
@@ -296,7 +299,8 @@ class TrackContainer(
 
         self.__hide_label_small_track = (rect.height() < self.label.height() + 4)
         self.label.move(rect.x() + handle_width + 4, rect.y() + 2)
-        self.label.setVisible(not self.__hide_label_under_mouse and not self.__hide_label_small_track)
+        self.label.setVisible(
+            not self.__hide_label_under_mouse and not self.__hide_label_small_track)
 
         self.separator.setVisible(True)
         self.separator.setGeometry(

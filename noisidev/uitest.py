@@ -148,7 +148,11 @@ class MockProcess(core.ProcessBase):
 
 
 class MockApp(ui_base.AbstractEditorApp):  # pylint: disable=abstract-method
+    globalMousePosChanged = QtCore.pyqtSignal(QtCore.QPoint)
+
     def __init__(self):
+        super().__init__()
+
         self.audioproc_client = None  # type: audioproc.AbstractAudioProcClient
         self.process = None  # type: core.ProcessBase
         self.settings = None  # type: QtCore.QSettings

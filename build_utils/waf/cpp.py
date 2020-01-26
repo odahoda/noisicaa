@@ -63,6 +63,14 @@ class run_clang_tidy(Task):
             argv = [
                 ctx.env.CLANG_TIDY[0],
                 '-quiet',
+                '--checks=%s' % ','.join([
+                    'clang-diagnostic-*',
+                    'clang-analyzer-*',
+                    # This check is triggered deep down in boost,
+                    # e.g. noisicaa/builtin_nodes/control_track/processor.cpp (a false-positive
+                    # afaict), and I don't know how to disable it more locally.
+                    '-clang-analyzer-core.DivideZero',
+                ]),
                 self.inputs[0].relpath(),
                 '--',
                 '-Wall',
