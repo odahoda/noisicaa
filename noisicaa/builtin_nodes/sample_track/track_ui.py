@@ -24,6 +24,7 @@ import asyncio
 import fractions
 import functools
 import logging
+import traceback
 from typing import Any, List, Tuple, Sequence
 
 from PyQt5.QtCore import Qt
@@ -35,6 +36,7 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
+from noisicaa.bindings import sndfile
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
 from noisicaa.ui.track_list import tools
@@ -62,7 +64,7 @@ class EditSamplesTool(tools.ToolBase):
 
     def onAddSample(self, time: audioproc.MusicalTime) -> None:
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            parent=self.project_view,
+            parent=self.track,
             caption="Add Sample to track \"%s\"" % self.track.track.name,
             #directory=self.ui_state.get(
             #'instruments_add_dialog_path', ''),
@@ -73,8 +75,49 @@ class EditSamplesTool(tools.ToolBase):
         if not path:
             return
 
-        with self.project.apply_mutations('%s: Create sample' % self.track.track.name):
-            self.track.track.create_sample(time, path)
+        QtCore.QCoreApplication.processEvents()
+
+        progress_dialog = QtWidgets.QProgressDialog(self.track)
+        progress_dialog.setModal(True)
+        progress_dialog.setLabelText("Importing sample...")
+
+        class Cancelled(Exception):
+            pass
+
+        def progress_cb(progress: float) -> None:
+            if progress_dialog.wasCanceled():
+                raise Cancelled()
+            progress_dialog.show()
+            progress_dialog.setValue(int(100 * progress))
+            QtCore.QCoreApplication.processEvents()
+
+        try:
+            try:
+                with self.project.apply_mutations('%s: Create sample' % self.track.track.name):
+                    self.track.track.create_sample(time, path, progress_cb=progress_cb)
+            finally:
+                progress_dialog.close()
+
+        except sndfile.Error as exc:
+            logger.error("Failed to import sample:\n%s", traceback.format_exc())
+
+            dialog = QtWidgets.QMessageBox(self.track)
+            dialog.setObjectName('sample-import-error')
+            dialog.setWindowTitle("noisicaä - Error")
+            dialog.setIcon(QtWidgets.QMessageBox.Critical)
+            dialog.setText("Failed to import sample from \"%s\"." % path)
+            dialog.setInformativeText(str(exc))
+            buttons = QtWidgets.QMessageBox.StandardButtons()
+            buttons |= QtWidgets.QMessageBox.Close
+            dialog.setStandardButtons(buttons)
+            # TODO: Even with the size grip enabled, the dialog window is not resizable.
+            # Might be a bug in Qt: https://bugreports.qt.io/browse/QTBUG-41932
+            dialog.setSizeGripEnabled(True)
+            dialog.setModal(True)
+            dialog.show()
+
+        except Cancelled:
+            pass
 
     def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
         time = self.track.xToTime(evt.pos().x())
@@ -83,6 +126,7 @@ class EditSamplesTool(tools.ToolBase):
         menu.setObjectName('context-menu')
 
         add_sample_action = QtWidgets.QAction("Add sample...", menu)
+        add_sample_action.setObjectName('add-sample')
         add_sample_action.setStatusTip("Add a sample to the track.")
         add_sample_action.triggered.connect(functools.partial(self.onAddSample, time))
         menu.addAction(add_sample_action)

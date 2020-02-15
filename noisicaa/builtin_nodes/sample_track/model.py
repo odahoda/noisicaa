@@ -20,9 +20,13 @@
 #
 # @end:license
 
+import base64
 import fractions
 import logging
+import os
+import os.path
 import random
+import time as time_lib
 from typing import Any, Dict, Optional, Callable
 
 from noisicaa.core.typing_extra import down_cast
@@ -176,15 +180,86 @@ class SampleTrack(_model.SampleTrack):
     def description(self) -> node_db.NodeDescription:
         return node_description.SampleTrackDescription
 
-    def create_sample(self, time: audioproc.MusicalTime, path: str) -> SampleRef:
-        smpl = self._pool.create(samples_lib.Sample, path=path)
-        self.project.samples.append(smpl)
+    def create_sample(
+            self,
+            time: audioproc.MusicalTime,
+            path: str,
+            *,
+            progress_cb: Callable[[float], None] = None
+    ) -> SampleRef:
+        sample_name_base = base64.b32encode(os.urandom(15)).decode('ascii')
+        sample_path_base = os.path.join('samples', sample_name_base)
 
-        smpl_ref = self._pool.create(
-            SampleRef,
-            time=time,
-            sample=smpl)
-        self.samples.append(smpl_ref)
+        os.makedirs(
+            os.path.dirname(os.path.join(self.project.data_dir, sample_path_base)),
+            exist_ok=True)
+
+        logger.info("Importing sample from '%s' as '%s'...", path, sample_name_base)
+        t0 = time_lib.time()
+        next_progress = t0 + 0.5
+        with sndfile.SndFile(path) as sf:
+            logger.info("Sample rate: %d", sf.sample_rate)
+            logger.info("Num samples: %d", sf.num_samples)
+            logger.info("Num channels: %d", sf.num_channels)
+
+            raw_paths = [
+                sample_path_base + '-ch%02d.raw' % ch
+                for ch in range(sf.num_channels)]
+            raw_fps = []
+            try:
+                for raw_path in raw_paths:
+                    raw_path = os.path.join(self.project.data_dir, raw_path)
+                    raw_fps.append(open(raw_path, 'wb'))
+
+                samples_read = 0
+                while True:
+                    data = sf.read_samples(10240)
+                    if len(data) == 0:
+                        break
+                    samples_read += len(data)
+
+                    data = data.transpose()
+                    assert len(data) == len(raw_fps)
+                    for fp, samples in zip(raw_fps, data):
+                        fp.write(samples.tobytes('C'))
+
+                    if progress_cb is not None and time_lib.time() >= next_progress:
+                        progress_cb(float(samples_read) / sf.num_samples)
+                        next_progress = time_lib.time() + 0.1
+
+                if samples_read != sf.num_samples:
+                    raise ValueError(
+                        "Failed to read all samples (%d != %d)" % (samples_read, sf.num_samples))
+
+            except:
+                for raw_path in raw_paths:
+                    raw_path = os.path.join(self.project.data_dir, raw_path)
+                    if os.path.exists(raw_path):
+                        os.unlink(raw_path)
+                raise
+
+            finally:
+                for fp in raw_fps:
+                    fp.close()
+
+            logger.info("Sample imported in %.3fsec", time_lib.time() - t0)
+
+            smpl = self._pool.create(
+                samples_lib.Sample,
+                path=path,
+                sample_rate=sf.sample_rate,
+                num_samples=sf.num_samples)
+            for raw_path in raw_paths:
+                smpl_channel = self._pool.create(samples_lib.SampleChannel, raw_path=raw_path)
+                smpl.channels.append(smpl_channel)
+            self.project.samples.append(smpl)
+
+            smpl_ref = self._pool.create(
+                SampleRef,
+                time=time,
+                sample=smpl)
+            self.samples.append(smpl_ref)
+
         return smpl_ref
 
     def delete_sample(self, smpl_ref: SampleRef) -> None:

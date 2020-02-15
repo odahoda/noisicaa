@@ -34,6 +34,7 @@ extend ObjectBase {
 
   // Samples (2xxxxx)
   optional Sample sample = 200000;
+  optional SampleChannel sample_channel = 200001;
 
   // Pipeline graph (3xxxxx)
   optional NodeConnection node_connection = 300000;

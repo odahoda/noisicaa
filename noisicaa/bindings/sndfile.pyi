@@ -19,6 +19,7 @@
 # @end:license
 
 import enum
+import numpy
 import types
 from typing import Type
 
@@ -101,3 +102,4 @@ class SndFile(object):
     @property
     def encoding(self) -> Encoding: ...
     def get_samples(self) -> memoryview: ...
+    def read_samples(self, num_samples: int) -> numpy.ndarray: ...

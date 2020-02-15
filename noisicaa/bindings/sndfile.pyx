@@ -511,3 +511,10 @@ cdef class SndFile(object):
         if items_read != num_items:
             raise Error("Failed to read all items (%d < %d)" % (items_read, num_items))
         return buf
+
+    def read_samples(self, num_samples):
+        cdef numpy.ndarray[float, ndim=2, mode="c"] buf = numpy.ndarray(
+            shape=(num_samples, self.num_channels), dtype=numpy.float32, order='C')
+        samples_read = sf_readf_float(self._sf, &buf[0,0], num_samples)
+        buf = buf[:samples_read]
+        return buf

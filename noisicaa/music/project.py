@@ -496,6 +496,7 @@ class Pool(model_base.Pool):
 
         self.register_class(metadata_lib.Metadata)
         self.register_class(samples_lib.Sample)
+        self.register_class(samples_lib.SampleChannel)
         self.register_class(base_track.MeasureReference)
         self.register_class(graph.SystemOutNode)
         self.register_class(graph.NodeConnection)

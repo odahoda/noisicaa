@@ -20,26 +20,48 @@
 #
 # @end:license
 
-# from noisidev import uitest
-# from noisicaa import music
-# from . import sample_track_item
-# from . import track_item_tests
+import os.path
+from unittest import mock
+
+from PyQt5 import QtCore
+
+from noisidev import unittest
+from noisidev import uitest
+from noisicaa import audioproc
+from noisicaa.ui.track_list import track_editor_tests
+from . import track_ui
+
+MT = audioproc.MusicalTime
+MD = audioproc.MusicalDuration
 
 
-# class SampleTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest.UITestCase):
-#     async def setup_testcase(self):
-#         await self.project_client.send_command(music.Command(
-#             target=self.project.id,
-#             add_track=music.AddTrack(
-#                 track_type='sample',
-#                 parent_group_id=self.project.master_group.id)))
+class SampleTrackEditorItemTest(track_editor_tests.TrackEditorItemTestMixin, uitest.UITestCase):
+    async def setup_testcase(self):
+        with self.project.apply_mutations('test'):
+            self.track = self.project.create_node('builtin://sample-track')
 
-#         self.tool_box = sample_track_item.SampleTrackToolBox(context=self.context)
+    def _createTrackItem(self, **kwargs):
+        return track_ui.SampleTrackEditor(
+            track=self.track,
+            player_state=self.player_state,
+            editor=self.editor,
+            context=self.context,
+            **kwargs)
 
-#     def _createTrackItem(self, **kwargs):
-#         return sample_track_item.SampleTrackEditorItem(
-#             track=self.project.master_group.tracks[0],
-#             player_state=self.player_state,
-#             editor=self.editor,
-#             context=self.context,
-#             **kwargs)
+    def test_add_sample(self):
+        assert len(self.track.samples) == 0
+
+        with self._trackItem() as ti:
+            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
+
+            SMPL_PATH = os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')
+
+            with mock.patch(
+                    'PyQt5.QtWidgets.QFileDialog.getOpenFileName',
+                    return_value=(SMPL_PATH, None)):
+                menu = self.openContextMenu()
+                self.triggerMenuAction(menu, 'add-sample')
+
+            self.assertEqual(len(self.track.samples), 1)
+            self.assertEqual(self.track.samples[0].time, MT(2, 4))
+            self.assertEqual(self.track.samples[0].sample.path, SMPL_PATH)
