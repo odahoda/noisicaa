@@ -173,12 +173,6 @@ class EditSamplesTool(tools.ToolBase):
             new_pos = QtCore.QPoint(
                 evt.pos().x() - self.__moving_sample_offset.x(),
                 self.__moving_sample_original_pos.y())
-
-            if new_pos.x() < 10:
-                new_pos.setX(10)
-            elif new_pos.x() > self.track.width() - 10 - self.__moving_sample.width():
-                new_pos.setX(self.track.width() - 10 - self.__moving_sample.width())
-
             self.track.setSamplePos(self.__moving_sample, new_pos)
 
             evt.accept()
@@ -548,13 +542,14 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
             self.setHighlightedSample(None)
             return
 
+        mx = self.__mouse_pos.x() + self.xOffset()
         closest_sample = None  # type: SampleItem
         closest_dist = None  # type: int
         for sample in self.__samples:
-            if self.__mouse_pos.x() < sample.pos().x():
-                dist = sample.pos().x() - self.__mouse_pos.x()
-            elif self.__mouse_pos.x() > sample.pos().x() + sample.width():
-                dist = self.__mouse_pos.x() - (sample.pos().x() + sample.width())
+            if mx < sample.pos().x():
+                dist = sample.pos().x() - mx
+            elif mx > sample.pos().x() + sample.width():
+                dist = mx - (sample.pos().x() + sample.width())
             else:
                 dist = 0
 
