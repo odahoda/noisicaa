@@ -64,7 +64,7 @@ class ProcessState(enum.Enum):
 
 
 class PipeAdapter(asyncio.Protocol):
-    def __init__(self, handler: Callable[[str], None]) -> None:
+    def __init__(self, handler: Callable[[bytes], None]) -> None:
         super().__init__()
         self._handler = handler
         self._buf = bytearray()
@@ -75,13 +75,13 @@ class PipeAdapter(asyncio.Protocol):
             eol = self._buf.find(b'\n')
             if eol < 0:
                 break
-            line = self._buf[:eol].decode('utf-8')
+            line = self._buf[:eol]
             del self._buf[:eol+1]
             self._handler(line)
 
     def eof_received(self) -> None:
         if self._buf:
-            line = self._buf.decode('utf-8')
+            line = self._buf
             del self._buf[:]
             self._handler(line)
 
@@ -1034,10 +1034,12 @@ class SubprocessHandle(ProcessHandle):
             os.fdopen(logger_fd))
         self.logger_protocol = cast(asyncio.Protocol, protocol)
 
-    def handle_stdout(self, line: str) -> None:
+    def handle_stdout(self, line_b: bytes) -> None:
+        line = line_b.decode('utf-8', 'replace')
         self.stdout_logger.info(line)
 
-    def handle_stderr(self, line: str) -> None:
+    def handle_stderr(self, line_b: bytes) -> None:
+        line = line_b.decode('utf-8', 'replace')
         if len(line.rstrip('\r\n')) == 0:
             # Buffer empty lines, so we can discard those that are followed
             # by a message that we also want to discard.
