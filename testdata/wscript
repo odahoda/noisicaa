@@ -23,6 +23,7 @@
 def build(ctx):
     ctx.static_file('kick-gettinglaid.wav')
     ctx.static_file('future-thunder1.wav')
+    ctx.static_file('future-thunder1.mp3')
     ctx.static_file('test1.wav')
     ctx.static_file('symbol.svg')
     ctx.rendered_csound('kick.csnd')

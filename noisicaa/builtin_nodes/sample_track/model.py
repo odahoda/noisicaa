@@ -21,11 +21,18 @@
 # @end:license
 
 import base64
+import contextlib
 import logging
 import os
 import os.path
+import subprocess
 import time as time_lib
-from typing import Any, Optional, Callable
+from typing import Any, Optional, Callable, Iterator
+
+import eyed3.core
+import eyed3.mimetype
+import eyed3.mp3
+import numpy
 
 from noisicaa import audioproc
 from noisicaa import music
@@ -120,6 +127,88 @@ class SampleRef(_model.SampleRef):
         self.sample = sample
 
 
+class SampleLoadError(Exception):
+    pass
+
+
+class SampleReader(object):
+    def __init__(self) -> None:
+        self.sample_rate = None  # type: int
+        self.num_samples = None  # type: int
+        self.num_channels = None  # type: int
+
+    def close(self) -> None:
+        pass
+
+    def read_samples(self, count: int) -> numpy.ndarray:
+        raise NotImplementedError
+
+
+class SndFileReader(SampleReader):
+    def __init__(self, path: str) -> None:
+        super().__init__()
+
+        try:
+            self.__sf = sndfile.SndFile(path)
+        except sndfile.Error as exc:
+            raise SampleLoadError(str(exc)) from None
+
+        self.sample_rate = self.__sf.sample_rate
+        self.num_samples = self.__sf.num_samples
+        self.num_channels = self.__sf.num_channels
+
+    def close(self) -> None:
+        self.__sf.close()
+
+    def read_samples(self, count: int) -> numpy.ndarray:
+        return self.__sf.read_samples(count)
+
+
+class Mp3Reader(SampleReader):
+    def __init__(self, path: str) -> None:
+        super().__init__()
+
+        mp3 = eyed3.core.load(path)
+
+        self.sample_rate = mp3.info.sample_freq
+        self.num_samples = int(mp3.info.time_secs * mp3.info.sample_freq)
+        if mp3.info.mode == eyed3.mp3.headers.MODE_MONO:
+            self.num_channels = 1
+        else:
+            self.num_channels = 2
+
+        cmd = ['/usr/bin/ffmpeg', '-nostdin', '-y', '-i', path, '-f', 'f32le', '-']
+        self.__proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+
+    def close(self) -> None:
+        self.__proc.kill()
+        self.__proc.wait()
+
+    def read_samples(self, count: int) -> numpy.ndarray:
+        buf = self.__proc.stdout.read(4 * count * self.num_channels)
+        if not buf:
+            self.__proc.wait()
+            assert self.__proc.returncode == 0, self.__proc.returncode
+        samples = numpy.frombuffer(buf, dtype=numpy.float32)
+        count = len(samples) // self.num_channels
+        samples = samples.reshape(count, self.num_channels)
+        return samples
+
+
+@contextlib.contextmanager
+def open_sample(path: str) -> Iterator[SampleReader]:
+    mtype = eyed3.mimetype.guessMimetype(path)
+    reader = None  # type: SampleReader
+    if mtype in eyed3.mp3.MIME_TYPES:
+        reader = Mp3Reader(path)
+    else:
+        reader = SndFileReader(path)
+    try:
+        yield reader
+    finally:
+        reader.close()
+
+
 class SampleTrack(_model.SampleTrack):
     def create_node_connector(
             self, message_cb: Callable[[audioproc.ProcessorMessage], None],
@@ -149,14 +238,14 @@ class SampleTrack(_model.SampleTrack):
         logger.info("Importing sample from '%s' as '%s'...", path, sample_name_base)
         t0 = time_lib.time()
         next_progress = t0 + 0.5
-        with sndfile.SndFile(path) as sf:
-            logger.info("Sample rate: %d", sf.sample_rate)
-            logger.info("Num samples: %d", sf.num_samples)
-            logger.info("Num channels: %d", sf.num_channels)
+        with open_sample(path) as reader:
+            logger.info("Sample rate: %d", reader.sample_rate)
+            logger.info("Num samples: approx. %d", reader.num_samples)
+            logger.info("Num channels: %d", reader.num_channels)
 
             raw_paths = [
                 sample_path_base + '-ch%02d.raw' % ch
-                for ch in range(sf.num_channels)]
+                for ch in range(reader.num_channels)]
             raw_fps = []
             try:
                 for raw_path in raw_paths:
@@ -165,23 +254,19 @@ class SampleTrack(_model.SampleTrack):
 
                 samples_read = 0
                 while True:
-                    data = sf.read_samples(10240)
+                    data = reader.read_samples(10240)
                     if len(data) == 0:
                         break
                     samples_read += len(data)
 
                     data = data.transpose()
-                    assert len(data) == len(raw_fps)
+                    assert len(data) == len(raw_fps), (len(data), len(raw_fps))
                     for fp, samples in zip(raw_fps, data):
                         fp.write(samples.tobytes('C'))
 
                     if progress_cb is not None and time_lib.time() >= next_progress:
-                        progress_cb(float(samples_read) / sf.num_samples)
+                        progress_cb(float(samples_read) / reader.num_samples)
                         next_progress = time_lib.time() + 0.1
-
-                if samples_read != sf.num_samples:
-                    raise ValueError(
-                        "Failed to read all samples (%d != %d)" % (samples_read, sf.num_samples))
 
             except:
                 for raw_path in raw_paths:
@@ -199,8 +284,8 @@ class SampleTrack(_model.SampleTrack):
             smpl = self._pool.create(
                 samples_lib.Sample,
                 path=path,
-                sample_rate=sf.sample_rate,
-                num_samples=sf.num_samples)
+                sample_rate=reader.sample_rate,
+                num_samples=samples_read)
             for raw_path in raw_paths:
                 smpl_channel = self._pool.create(samples_lib.SampleChannel, raw_path=raw_path)
                 smpl.channels.append(smpl_channel)

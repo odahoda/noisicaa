@@ -69,9 +69,11 @@ class EditSamplesTool(tools.ToolBase):
         return 'edit-samples'
 
     def onAddSample(self, time: audioproc.MusicalTime) -> None:
-        filters=[
+        filters = [
             "All Files (*)",
+            "Audio Files (*.wav *.mp3)",
             "Wav (*.wav)",
+            "MP3 (*.mp3)",
         ]
         path, selected_filter = QtWidgets.QFileDialog.getOpenFileName(
             parent=self.track,

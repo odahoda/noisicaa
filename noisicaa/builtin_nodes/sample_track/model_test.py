@@ -148,13 +148,22 @@ class SampleTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://sample-track'
     track_cls = model.SampleTrack
 
-    async def test_create_sample(self):
+    async def test_create_sample_wav(self):
         track = await self._add_track()
 
         with self.project.apply_mutations('test'):
             track.create_sample(
                 audioproc.MusicalTime(1, 4),
                 os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))
+        self.assertEqual(track.samples[0].time, audioproc.MusicalTime(1, 4))
+
+    async def test_create_sample_mp3(self):
+        track = await self._add_track()
+
+        with self.project.apply_mutations('test'):
+            track.create_sample(
+                audioproc.MusicalTime(1, 4),
+                os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.mp3'))
         self.assertEqual(track.samples[0].time, audioproc.MusicalTime(1, 4))
 
     async def test_delete_sample(self):
