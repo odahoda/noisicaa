@@ -35,6 +35,8 @@ cdef extern from "noisicaa/audioproc/public/time_mapper.h" namespace "noisicaa" 
         Status setup()
         void cleanup()
 
+        uint32_t sample_rate() const
+
         void set_bpm(uint32_t bpm)
         uint32_t bpm() const
 
