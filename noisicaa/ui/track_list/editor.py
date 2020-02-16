@@ -227,11 +227,14 @@ class TrackContainer(
             player_state=player_state,
             editor=self.editor,
             context=self.editor.context)
-        self.editor.xOffsetChanged.connect(self.track_editor.setXOffset)
-        self.editor.scaleXChanged.connect(self.track_editor.setScaleX)
-        self.editor.zoomChanged.connect(self.track_editor.setZoom)
-        self.editor.playbackPositionChanged.connect(self.track_editor.setPlaybackPosition)
         self.track_editor.setXOffset(self.editor.xOffset())
+        self.editor.xOffsetChanged.connect(self.track_editor.setXOffset)
+        self.track_editor.setScaleX(self.editor.scaleX())
+        self.editor.scaleXChanged.connect(self.track_editor.setScaleX)
+        self.track_editor.setZoom(self.editor.zoom())
+        self.editor.zoomChanged.connect(self.track_editor.setZoom)
+        self.track_editor.setPlaybackPosition(self.editor.playbackPosition())
+        self.editor.playbackPositionChanged.connect(self.track_editor.setPlaybackPosition)
 
         self.__listeners['visible'] = self.track.visible_changed.add(
             lambda change: self.visibilityChanged.emit(change.new_value))
