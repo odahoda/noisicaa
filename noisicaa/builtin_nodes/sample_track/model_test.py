@@ -166,6 +166,15 @@ class SampleTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
                 os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.mp3'))
         self.assertEqual(track.samples[0].time, audioproc.MusicalTime(1, 4))
 
+    async def test_create_sample_aac(self):
+        track = await self._add_track()
+
+        with self.project.apply_mutations('test'):
+            track.create_sample(
+                audioproc.MusicalTime(1, 4),
+                os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.aac'))
+        self.assertEqual(track.samples[0].time, audioproc.MusicalTime(1, 4))
+
     async def test_delete_sample(self):
         track = await self._add_track()
         with self.project.apply_mutations('test'):

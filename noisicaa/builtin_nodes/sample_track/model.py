@@ -29,9 +29,7 @@ import subprocess
 import time as time_lib
 from typing import Any, Optional, Callable, Iterator
 
-import eyed3.core
-import eyed3.mimetype
-import eyed3.mp3
+import mutagen
 import numpy
 
 from noisicaa import audioproc
@@ -145,6 +143,10 @@ class SampleReader(object):
 
 
 class SndFileReader(SampleReader):
+    mime_types = {
+        'audio/x-wav',
+    }
+
     def __init__(self, path: str) -> None:
         super().__init__()
 
@@ -164,18 +166,20 @@ class SndFileReader(SampleReader):
         return self.__sf.read_samples(count)
 
 
-class Mp3Reader(SampleReader):
+class FFMpegReader(SampleReader):
+    mime_types = {
+        'audio/mpeg',
+        'audio/x-hx-aac-adts',
+    }
+
     def __init__(self, path: str) -> None:
         super().__init__()
 
-        mp3 = eyed3.core.load(path)
+        info = mutagen.File(path).info
 
-        self.sample_rate = mp3.info.sample_freq
-        self.num_samples = int(mp3.info.time_secs * mp3.info.sample_freq)
-        if mp3.info.mode == eyed3.mp3.headers.MODE_MONO:
-            self.num_channels = 1
-        else:
-            self.num_channels = 2
+        self.sample_rate = info.sample_rate
+        self.num_samples = int(info.length * info.sample_rate)
+        self.num_channels = info.channels
 
         cmd = ['/usr/bin/ffmpeg', '-nostdin', '-y', '-i', path, '-f', 'f32le', '-']
         self.__proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -197,12 +201,17 @@ class Mp3Reader(SampleReader):
 
 @contextlib.contextmanager
 def open_sample(path: str) -> Iterator[SampleReader]:
-    mtype = eyed3.mimetype.guessMimetype(path)
+    mtype = subprocess.check_output(
+        ['/usr/bin/file', '--mime-type', '--brief', path]).decode('ascii').strip()
+
     reader = None  # type: SampleReader
-    if mtype in eyed3.mp3.MIME_TYPES:
-        reader = Mp3Reader(path)
-    else:
+    if mtype in SndFileReader.mime_types:
         reader = SndFileReader(path)
+    elif mtype in FFMpegReader.mime_types:
+        reader = FFMpegReader(path)
+    else:
+        raise SampleLoadError("Unsupported file type '%s'" % mtype)
+
     try:
         yield reader
     finally:
