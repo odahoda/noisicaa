@@ -25,9 +25,8 @@ import fractions
 import logging
 import os
 import os.path
-import random
 import time as time_lib
-from typing import Any, Dict, Optional, Callable
+from typing import Any, Optional, Callable
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
@@ -99,7 +98,6 @@ class SampleTrackConnector(node_connector.NodeConnector):
         self.__node_id = self._node.pipeline_node_id
         self.__listeners = core.ListenerMap[str]()
         self.add_cleanup_function(self.__listeners.cleanup)
-        self.__sample_ids = {}  # type: Dict[int, int]
 
     def _init_internal(self) -> None:
         for sample_ref in self._node.samples:
@@ -119,13 +117,15 @@ class SampleTrackConnector(node_connector.NodeConnector):
             raise TypeError("Unsupported change type %s" % type(change))
 
     def __add_sample(self, sample_ref: 'SampleRef') -> None:
-        sample_id = self.__sample_ids[sample_ref.id] = random.getrandbits(64)
-
         self._emit_message(processor_messages.add_sample(
             node_id=self.__node_id,
-            id=sample_id,
+            id=sample_ref.id,
             time=sample_ref.time,
-            sample_path=sample_ref.sample.path))
+            sample_rate=sample_ref.sample.sample_rate,
+            num_samples=sample_ref.sample.num_samples,
+            channel_paths=[
+                os.path.join(self._node.project.data_dir, channel.raw_path)
+                for channel in sample_ref.sample.channels]))
 
         self.__listeners['cp:%s:time' % sample_ref.id] = sample_ref.time_changed.add(
             lambda _: self.__sample_changed(sample_ref))
@@ -134,26 +134,26 @@ class SampleTrackConnector(node_connector.NodeConnector):
             lambda _: self.__sample_changed(sample_ref))
 
     def __remove_sample(self, sample_ref: 'SampleRef') -> None:
-        sample_id = self.__sample_ids[sample_ref.id]
-
         self._emit_message(processor_messages.remove_sample(
             node_id=self.__node_id,
-            id=sample_id))
+            id=sample_ref.id))
 
         del self.__listeners['cp:%s:time' % sample_ref.id]
         del self.__listeners['cp:%s:sample' % sample_ref.id]
 
     def __sample_changed(self, sample_ref: 'SampleRef') -> None:
-        sample_id = self.__sample_ids[sample_ref.id]
-
         self._emit_message(processor_messages.remove_sample(
             node_id=self.__node_id,
-            id=sample_id))
+            id=sample_ref.id))
         self._emit_message(processor_messages.add_sample(
             node_id=self.__node_id,
-            id=sample_id,
+            id=sample_ref.id,
             time=sample_ref.time,
-            sample_path=sample_ref.sample.path))
+            sample_rate=sample_ref.sample.sample_rate,
+            num_samples=sample_ref.sample.num_samples,
+            channel_paths=[
+                os.path.join(self._node.project.data_dir, channel.raw_path)
+                for channel in sample_ref.sample.channels]))
 
 
 class SampleRef(_model.SampleRef):

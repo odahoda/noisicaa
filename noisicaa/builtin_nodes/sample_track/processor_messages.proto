@@ -29,7 +29,10 @@ package noisicaa.pb;
 message SampleScriptAddSample {
   required uint64 id = 1;
   required MusicalTime time = 2;
-  required string sample_path = 3;
+
+  required uint32 sample_rate = 3;
+  required uint32 num_samples = 4;
+  repeated string channel_paths = 5;
 }
 
 message SampleScriptRemoveSample {

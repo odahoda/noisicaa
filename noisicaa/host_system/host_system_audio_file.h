@@ -37,9 +37,9 @@ class Logger;
 
 class AudioFile {
 public:
-  AudioFile(const string& path, uint32_t num_samples, float** channel_data);
+  AudioFile(const string& key, uint32_t num_samples, float** channel_data);
 
-  string path() const { return _path; }
+  const string& key() const { return _key; }
   uint32_t num_samples() const { return _num_samples; }
   uint32_t num_channels() const { return _channel_data.size(); }
   const float* channel_data(uint32_t ch) const { return _channel_data[ch].get(); }
@@ -49,8 +49,8 @@ public:
   void deref() { --_ref_count; }
 
 private:
-  string _path;
   uint32_t _ref_count = 0;
+  string _key;
   uint32_t _num_samples;
   vector<unique_ptr<float>> _channel_data;
 };
@@ -64,6 +64,7 @@ public:
   void cleanup();
 
   StatusOr<AudioFile*> load_audio_file(const string& path);
+  StatusOr<AudioFile*> load_raw_file(uint32_t sample_rate, uint32_t num_samples, const vector<string>& paths);
 
   void acquire_audio_file(AudioFile* audio_file);
   void release_audio_file(AudioFile* audio_file);

@@ -21,9 +21,11 @@
 import math
 import os
 import os.path
+import struct
 
 from noisidev import unittest
 from noisidev import unittest_processor_mixins
+from noisicaa.constants import TEST_OPTS
 from noisicaa.audioproc.public import musical_time
 from . import processor_messages
 
@@ -32,8 +34,17 @@ class ProcessorSampleScriptTest(
         unittest_processor_mixins.ProcessorTestMixin,
         unittest.TestCase):
     def setup_testcase(self):
-        self.sample1_path = os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')
-        self.sample2_path = os.path.join(unittest.TESTDATA_DIR, 'kick-gettinglaid.wav')
+        self.sample1_path = os.path.join(TEST_OPTS.TMP_DIR, 'sample1.raw')
+        self.sample2_path = os.path.join(TEST_OPTS.TMP_DIR, 'sample2.raw')
+
+        self.sample_rate = 44100
+        self.num_samples = 1 * self.sample_rate
+
+        for freq, path in [(200, self.sample1_path), (300, self.sample2_path)]:
+            with open(path, 'wb') as fp:
+                f = freq / self.sample_rate * math.pi / 180
+                for n in range(self.num_samples):
+                    fp.write(struct.pack('@f', math.sin(f * n)))
 
         self.host_system.set_block_size(4096)
 
@@ -50,7 +61,9 @@ class ProcessorSampleScriptTest(
             node_id='123',
             id=0x0001,
             time=musical_time.PyMusicalTime(2048, 44100),
-            sample_path=self.sample1_path))
+            sample_rate=self.sample_rate,
+            num_samples=self.num_samples,
+            channel_paths=[self.sample1_path]))
 
         self.process_block()
         self.assertTrue(all(math.isclose(v, 0.0) for v in self.buffers['out:left'][:2048]))
@@ -61,12 +74,16 @@ class ProcessorSampleScriptTest(
             node_id='123',
             id=0x0001,
             time=musical_time.PyMusicalTime(1024, 44100),
-            sample_path=self.sample1_path))
+            sample_rate=self.sample_rate,
+            num_samples=self.num_samples,
+            channel_paths=[self.sample1_path]))
         self.processor.handle_message(processor_messages.add_sample(
             node_id='123',
             id=0x0002,
             time=musical_time.PyMusicalTime(3072, 44100),
-            sample_path=self.sample2_path))
+            sample_rate=self.sample_rate,
+            num_samples=self.num_samples,
+            channel_paths=[self.sample2_path]))
 
         self.process_block()
         self.assertTrue(all(math.isclose(v, 0.0) for v in self.buffers['out:left'][:1024]))
@@ -77,12 +94,16 @@ class ProcessorSampleScriptTest(
             node_id='123',
             id=0x0001,
             time=musical_time.PyMusicalTime(2048, 44100),
-            sample_path=self.sample1_path))
+            sample_rate=self.sample_rate,
+            num_samples=self.num_samples,
+            channel_paths=[self.sample1_path]))
         self.processor.handle_message(processor_messages.add_sample(
             node_id='123',
             id=0x0002,
             time=musical_time.PyMusicalTime(1024, 44100),
-            sample_path=self.sample2_path))
+            sample_rate=self.sample_rate,
+            num_samples=self.num_samples,
+            channel_paths=[self.sample2_path]))
         self.processor.handle_message(processor_messages.remove_sample(
             node_id='123',
             id=0x0002))
@@ -97,7 +118,9 @@ class ProcessorSampleScriptTest(
             node_id='123',
             id=0x0001,
             time=musical_time.PyMusicalTime(0, 1),
-            sample_path=self.sample1_path))
+            sample_rate=self.sample_rate,
+            num_samples=self.num_samples,
+            channel_paths=[self.sample1_path]))
 
         self.ctxt.clear_time_map(self.host_system.block_size)
         it = self.time_mapper.find(musical_time.PyMusicalTime(1, 16))

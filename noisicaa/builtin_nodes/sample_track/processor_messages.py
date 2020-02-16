@@ -20,6 +20,8 @@
 #
 # @end:license
 
+from typing import List
+
 from noisicaa import audioproc
 from noisicaa.builtin_nodes import processor_message_registry_pb2
 
@@ -27,13 +29,17 @@ def add_sample(
         node_id: str,
         id: int,  # pylint: disable=redefined-builtin
         time: audioproc.MusicalTime,
-        sample_path: str
+        sample_rate: int,
+        num_samples: int,
+        channel_paths: List[str],
 ) -> audioproc.ProcessorMessage:
     msg = audioproc.ProcessorMessage(node_id=node_id)
     pb = msg.Extensions[processor_message_registry_pb2.sample_script_add_sample]
     pb.id = id
     pb.time.CopyFrom(time.to_proto())
-    pb.sample_path = sample_path
+    pb.sample_rate = sample_rate
+    pb.num_samples = num_samples
+    pb.channel_paths.extend(channel_paths)
     return msg
 
 def remove_sample(
