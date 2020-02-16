@@ -20,7 +20,6 @@
 #
 # @end:license
 
-import fractions
 import os.path
 from typing import List
 
@@ -45,10 +44,14 @@ class SampleTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCa
 
         self.sample1 = self.pool.create(
             samples.Sample,
+            sample_rate=44100,
+            num_samples=12344,
             path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))
         self.project.samples.append(self.sample1)
         self.sample2 = self.pool.create(
             samples.Sample,
+            sample_rate=44100,
+            num_samples=12344,
             path=os.path.join(unittest.TESTDATA_DIR, 'kick-gettinglaid.wav'))
         self.project.samples.append(self.sample2)
 
@@ -164,14 +167,3 @@ class SampleTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         with self.project.apply_mutations('test'):
             track.delete_sample(sample)
         self.assertEqual(len(track.samples), 0)
-
-    async def test_render_sample(self):
-        track = await self._add_track()
-        with self.project.apply_mutations('test'):
-            sample = track.create_sample(
-                audioproc.MusicalTime(1, 4),
-                os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))
-
-        response = await model.render_sample(sample, fractions.Fraction(100, 1))
-        self.assertFalse(response.broken)
-        self.assertGreater(len(response.rms), 0)

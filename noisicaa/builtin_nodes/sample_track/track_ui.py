@@ -21,12 +21,19 @@
 # @end:license
 
 import asyncio
+import concurrent.futures
 import fractions
 import functools
 import logging
+import math
+import mmap
+import os.path
+import random
+import time as time_lib
 import traceback
-from typing import Any, List, Tuple, Sequence
+from typing import Any, BinaryIO, Dict, List, Tuple
 
+import numpy
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
@@ -40,7 +47,6 @@ from noisicaa.bindings import sndfile
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
 from noisicaa.ui.track_list import tools
-from . import ipc_pb2
 from . import model
 
 logger = logging.getLogger(__name__)
@@ -204,22 +210,58 @@ class SampleTrackToolBox(tools.ToolBox):
 
 
 class SampleItem(core.AutoCleanupMixin, object):
-    def __init__(self, track_editor: 'SampleTrackEditor', sample: model.SampleRef) -> None:
-        super().__init__()
+    def __init__(
+            self, *,
+            event_loop: asyncio.AbstractEventLoop,
+            track_editor: 'SampleTrackEditor',
+            sample: model.SampleRef,
+            **kwargs: Any
+    ) -> None:
+        super().__init__(**kwargs)
 
+        self.__event_loop = event_loop
         self.__track_editor = track_editor
         self.__sample = sample
 
-        self.__render_result = ('init', )  # type: Tuple[Any, ...]
+        self.__raw_fps = []  # type: List[BinaryIO]
+        self.__raws = []  # type: List[mmap.mmap]
+        for ch in self.__sample.sample.channels:
+            raw_path = os.path.join(
+                self.__sample.project.data_dir, ch.raw_path)
+            fp = open(raw_path, 'rb')
+            self.__raw_fps.append(fp)
+            buf = mmap.mmap(fp.fileno(), 0, prot=mmap.PROT_READ)
+            self.__raws.append(buf)
+
+        self.__tile_cache = {}  # type: Dict[Tuple[int, int], Tuple[int, QtGui.QPixmap]]
+        self.__tile_cache_version = 0
+        self.__render_queue = asyncio.Queue(loop=self.__event_loop)  # type: asyncio.Queue[Tuple]
+        self.__render_task = self.__event_loop.create_task(self.__renderMain())
+
         self.__highlighted = False
 
-        self.__pos = QtCore.QPoint(
-            self.__track_editor.timeToX(self.__sample.time), 0)
+        self.__pos = QtCore.QPoint()
         self.__width = 50
+        self.__height = None  # type: int
+        self.__updateRect()
 
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
-        self.__listeners.add(self.__sample.time_changed.add(self.onTimeChanged))
+        self.__listeners.add(self.__sample.time_changed.add(self.__onTimeChanged))
+
+        conn = self.__track_editor.scaleXChanged.connect(self.__onScaleXChanged)
+        # mypy complains about "Cannot infer type of lambda"...
+        self.add_cleanup_function(
+            lambda conn=conn: self.__track_editor.scaleXChanged.disconnect(conn))  # type: ignore
+
+    def cleanup(self) -> None:
+        self.__render_task.cancel()
+
+        while self.__raws:
+            self.__raws.pop(-1).close()
+        while self.__raw_fps:
+            self.__raw_fps.pop(-1).close()
+        super().cleanup()
 
     @property
     def sample(self) -> model.SampleRef:
@@ -250,79 +292,173 @@ class SampleItem(core.AutoCleanupMixin, object):
     def rect(self) -> QtCore.QRect:
         return QtCore.QRect(self.pos(), self.size())
 
-    def onTimeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
-        self.__pos = QtCore.QPoint(
-            self.__track_editor.timeToX(change.new_value), 0)
+    def __onTimeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
+        self.__updateRect()
         self.__track_editor.update()
+
+    def __onScaleXChanged(self, scale_x: fractions.Fraction) -> None:
+        self.__updateRect()
+        self.__tile_cache.clear()
+        self.purgePaintCaches()
+
+    def __updateRect(self) -> None:
+        tmap = self.__track_editor.project.time_mapper
+
+        num_samples = int(math.ceil(
+            self.__sample.sample.num_samples * tmap.sample_rate / self.__sample.sample.sample_rate))
+
+        begin_time = self.__sample.time
+        begin_x = self.__track_editor.timeToX(begin_time)
+        begin_samplepos = tmap.musical_to_sample_time(begin_time)
+        end_samplepos = begin_samplepos + num_samples
+        end_time = tmap.sample_to_musical_time(end_samplepos)
+        end_x = self.__track_editor.timeToX(end_time)
+
+        self.__pos = QtCore.QPoint(begin_x, 0)
+        self.__width = end_x - begin_x
 
     def setHighlighted(self, highlighted: bool) -> None:
         if highlighted != self.__highlighted:
             self.__highlighted = highlighted
             self.__track_editor.update()
 
-    def renderSample(self, task: asyncio.Task) -> None:
-        response = down_cast(ipc_pb2.RenderSampleResponse, task.result())
-
-        if response.broken:
-            self.__width = 50
-            self.__render_result = ('broken',)
-
-        else:
-            self.__width = len(response.rms)
-            self.__render_result = ('rms', list(response.rms))
-
-        self.__track_editor.update()
-
     def purgePaintCaches(self) -> None:
-        self.__render_result = ('init', )
-        self.__pos = QtCore.QPoint(
-            self.__track_editor.timeToX(self.__sample.time), 0)
-        self.__width = 50
+        while not self.__render_queue.empty():
+            self.__render_queue.get_nowait()
+        self.__tile_cache_version += 1
+
+    async def __renderMain(self) -> None:
+        pool = concurrent.futures.ThreadPoolExecutor(1)
+        try:
+            while True:
+                ch, tile, size, tile_x = await self.__render_queue.get()
+                version = self.__tile_cache_version
+                fut = pool.submit(self.__renderCacheTile, ch, tile, size, tile_x)
+                await asyncio.wait_for(
+                    asyncio.wrap_future(fut, loop=self.__event_loop),
+                    timeout=None, loop=self.__event_loop)
+                self.__tile_cache[(ch, tile)] = (version, fut.result())
+                self.__track_editor.update()
+
+        except asyncio.CancelledError:
+            pass
+
+        except Exception:  # pylint: disable=broad-except
+            logger.error("Exception in SampleTrack.__renderMain():\n%s", traceback.format_exc())
+
+        finally:
+            pool.shutdown()
+
+    def __renderCacheTile(
+            self, ch: int, tile: int, size: QtCore.QSize, tile_x: int
+    ) -> QtGui.QPixmap:
+        t_start = time_lib.time()
+
+        minmax_color = QtGui.QColor(60, 60, 60)
+        rms_color = QtGui.QColor(100, 100, 180)
+
+        pixmap = QtGui.QPixmap(size)
+        pixmap.fill(QtGui.QColor(0, 0, 0, 0))
+        painter = QtGui.QPainter(pixmap)
+        try:
+            tmap = self.__sample.project.time_mapper
+            begin_samplepos = tmap.musical_to_sample_time(self.__sample.time)
+            height = size.height()
+
+            t0 = self.__track_editor.xToTime(tile_x)
+            s0 = int(
+                (tmap.musical_to_sample_time(t0) - begin_samplepos)
+                * self.__sample.sample.sample_rate / tmap.sample_rate)
+            for x in range(size.width()):
+                t1 = self.__track_editor.xToTime(tile_x + x + 1)
+                s1 = int(
+                    (tmap.musical_to_sample_time(t1) - begin_samplepos)
+                    * self.__sample.sample.sample_rate / tmap.sample_rate)
+
+                if 0 <= s0 < self.__sample.sample.num_samples - 1:
+                    cnt = max(min(self.__sample.sample.num_samples, s1 + 1) - s0, 1)
+                    samples = numpy.frombuffer(
+                        self.__raws[ch], dtype=numpy.float32, offset=s0 * 4, count=cnt)
+
+                    y_min = max(0, min(height - 1, int(height - samples.min() * height) // 2))
+                    y_max = max(0, min(height - 1, int(height - samples.max() * height) // 2))
+                    painter.fillRect(x, y_max, 1, y_min - y_max + 1, minmax_color)
+
+                    if cnt > 10:
+                        rms = numpy.sqrt(numpy.mean(samples ** 2))
+                        rms_top = max(0, int(height - rms * height) // 2)
+                        rms_bottom = min(height - 1, int(height + rms * height) // 2)
+                        painter.fillRect(x, rms_top, 1, rms_bottom - rms_top + 1, rms_color)
+
+                t0 = t1
+                s0 = s1
+
+        finally:
+            painter.end()
+
+        logger.debug(
+            "SampleRef #%016x, channel #%d: rendered cache tile %d in %.2fms",
+            self.__sample.id, ch, tile, 1000 * (time_lib.time() - t_start))
+
+        return pixmap
 
     def paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
-        status = self.__render_result[0]
-
-        if status in ('init', 'waiting'):
-            if status == 'init':
-                task = self.__track_editor.event_loop.create_task(
-                    model.render_sample(self.__sample, self.scaleX()))
-                task.add_done_callback(self.renderSample)
-
-                self.__render_result = ('waiting', )
-
+        painter.fillRect(0, 0, 1, self.height(), QtGui.QColor(0, 0, 0))
+        if self.__highlighted:
             painter.fillRect(
-                0, 0, self.width(), self.height(),
-                QtGui.QColor(220, 255, 220))
-
-            painter.setPen(Qt.black)
-            painter.drawText(3, 20, "Loading...")
-
-        elif status == 'broken':
+                1, 0, self.width() - 1, self.height(), QtGui.QColor(255, 255, 255, 150))
+        else:
             painter.fillRect(
-                0, 0, self.width(), self.height(),
-                QtGui.QColor(255, 100, 100))
+                1, 0, self.width() - 1, self.height(), QtGui.QColor(255, 255, 255, 100))
+        painter.fillRect(self.width() - 1, 0, 1, self.height(), QtGui.QColor(0, 0, 0))
 
-            painter.setPen(Qt.black)
-            painter.drawText(3, 20, "Broken")
+        if self.__height != self.__track_editor.height():
+            self.__height = self.__track_editor.height()
+            self.__tile_cache_version += 1
 
-        elif status == 'rms':
-            samples = self.__render_result[1]  # type: Sequence[float]
-            ycenter = self.height() // 2
+        while not self.__render_queue.empty():
+            ch, tile, _, _ = self.__render_queue.get_nowait()
 
-            if self.__highlighted:
-                painter.setPen(QtGui.QColor(0, 0, 120))
-            else:
-                painter.setPen(Qt.black)
+        render_requests = []
+        num_channels = len(self.__sample.sample.channels)
+        channel_top = 0
+        for ch in range(num_channels):
+            channel_bottom = int((ch + 1) * self.height() / num_channels)
+            channel_height = channel_bottom - channel_top
+            channel_zero = (channel_top + channel_bottom) // 2
 
-            painter.drawLine(0, 0, 0, self.height() - 1)
-            painter.drawLine(self.width() - 1, 0, self.width() - 1, self.height() - 1)
-            painter.drawLine(0, ycenter, self.width() - 1, ycenter)
+            if ch != 0:
+                painter.fillRect(0, channel_top, self.width(), 1, QtGui.QColor(150, 150, 150))
+            painter.fillRect(0, channel_zero, self.width(), 1, QtGui.QColor(0, 0, 0))
 
-            for x, smpl in enumerate(
-                    samples[paint_rect.x():paint_rect.x() + paint_rect.width()],
-                    paint_rect.x()):
-                h = min(self.height(), int(self.height() * smpl / 2.0))
-                painter.drawLine(x, ycenter - h // 2, x, ycenter + h // 2)
+            TILE_WIDTH = 400
+            tile = paint_rect.left() // TILE_WIDTH
+            tile_x = tile * TILE_WIDTH
+            while tile_x < paint_rect.right():
+                tile_x = tile * TILE_WIDTH
+
+                tile_key = (ch, tile)
+                version, tile_pixmap = self.__tile_cache.get(tile_key, (-1, None))
+
+                if version != self.__tile_cache_version or tile_pixmap is None:
+                    render_requests.append(
+                        (ch, tile, QtCore.QSize(TILE_WIDTH, channel_height),
+                         self.__pos.x() + tile_x))
+
+                tile_rect = QtCore.QRect(tile_x, channel_top, TILE_WIDTH, channel_height)
+                if tile_pixmap is not None:
+                    painter.drawPixmap(tile_rect, tile_pixmap, tile_pixmap.rect())
+                else:
+                    painter.fillRect(tile_rect, QtGui.QColor(100, 100, 100, 100))
+
+                tile += 1
+                tile_x += TILE_WIDTH
+
+            channel_top = channel_bottom
+
+        random.shuffle(render_requests)
+        for ch, tile, size, tile_x in render_requests:
+            self.__render_queue.put_nowait((ch, tile, size, tile_x))
 
 
 class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.BaseTrackEditor):
@@ -372,7 +508,7 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
             raise TypeError(type(change))
 
     def addSample(self, insert_index: int, sample: model.SampleRef) -> None:
-        item = SampleItem(track_editor=self, sample=sample)
+        item = SampleItem(event_loop=self.event_loop, track_editor=self, sample=sample)
         self.__samples.insert(insert_index, item)
         self.update()
 
@@ -455,26 +591,7 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
             item.purgePaintCaches()
 
     def _paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
-        painter.setPen(QtGui.QColor(160, 160, 160))
-        painter.drawLine(
-            self.timeToX(audioproc.MusicalTime(0, 1)), self.height() // 2,
-            self.timeToX(self.projectEndTime()), self.height() // 2)
-
-        beat_time = audioproc.MusicalTime()
-        beat_num = 0
-        while beat_time < self.projectEndTime():
-            x = self.timeToX(beat_time)
-
-            if beat_num == 0:
-                painter.fillRect(x, 0, 2, self.height(), Qt.black)
-            else:
-                painter.fillRect(x, 0, 1, self.height(), QtGui.QColor(160, 160, 160))
-
-            beat_time += audioproc.MusicalDuration(1, 4)
-            beat_num += 1
-
-        x = self.timeToX(self.projectEndTime())
-        painter.fillRect(x, 0, 2, self.height(), Qt.black)
+        self.renderTimeGrid(painter, paint_rect)
 
         for item in self.__samples:
             sample_rect = item.rect().intersected(paint_rect)

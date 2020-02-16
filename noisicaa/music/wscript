@@ -49,7 +49,6 @@ def build(ctx):
     ctx.py_test('project_test.py')
     ctx.py_module('render.py')
     ctx.py_test('render_test.py')
-    ctx.cy_module('rms.pyx')
     ctx.py_module('samples.py')
     ctx.py_module('session_value_store.py')
     ctx.py_module('transfer_function.py')

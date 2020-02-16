@@ -21,72 +21,24 @@
 # @end:license
 
 import base64
-import fractions
 import logging
 import os
 import os.path
 import time as time_lib
 from typing import Any, Optional, Callable
 
-from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa import core
 from noisicaa import node_db
 from noisicaa.bindings import sndfile
 from noisicaa.music import node_connector
-from noisicaa.music import rms
 from noisicaa.music import samples as samples_lib
-from . import ipc_pb2
 from . import processor_messages
 from . import node_description
 from . import _model
 
 logger = logging.getLogger(__name__)
-
-
-async def render_sample(
-        sample_ref: 'SampleRef',
-        scale_x: fractions.Fraction,
-) -> ipc_pb2.RenderSampleResponse:
-    response = ipc_pb2.RenderSampleResponse()
-
-    sample = down_cast(samples_lib.Sample, sample_ref.sample)
-
-    try:
-        smpls = sample.samples
-    except sndfile.Error:
-        response.broken = True
-        return response
-
-    smpls = sample.samples[..., 0]  # type: ignore
-
-    tmap = audioproc.TimeMapper(44100)
-    try:
-        tmap.setup(sample.project)
-
-        begin_time = sample_ref.time
-        begin_samplepos = tmap.musical_to_sample_time(begin_time)
-        num_samples = min(tmap.num_samples - begin_samplepos, len(smpls))
-        end_samplepos = begin_samplepos + num_samples
-        end_time = tmap.sample_to_musical_time(end_samplepos)
-
-    finally:
-        tmap.cleanup()
-
-    width = int(scale_x * (end_time - begin_time).fraction)
-
-    if width < num_samples / 10:
-        for p in range(0, width):
-            p_start = p * num_samples // width
-            p_end = (p + 1) * num_samples // width
-            s = smpls[p_start:p_end]
-            response.rms.append(rms.rms(s))
-
-    else:
-        response.broken = True
-
-    return response
 
 
 class SampleTrackConnector(node_connector.NodeConnector):
