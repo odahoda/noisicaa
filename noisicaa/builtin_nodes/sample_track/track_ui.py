@@ -69,17 +69,24 @@ class EditSamplesTool(tools.ToolBase):
         return 'edit-samples'
 
     def onAddSample(self, time: audioproc.MusicalTime) -> None:
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+        filters=[
+            "All Files (*)",
+            "Wav (*.wav)",
+        ]
+        path, selected_filter = QtWidgets.QFileDialog.getOpenFileName(
             parent=self.track,
             caption="Add Sample to track \"%s\"" % self.track.track.name,
-            #directory=self.ui_state.get(
-            #'instruments_add_dialog_path', ''),
-            filter="All Files (*);;Wav files (*.wav)",
-            #initialFilter=self.ui_state.get(
-            #    'instruments_add_dialog_path', ''),
+            directory=self.get_session_value(
+                'sample-track:add-sample-dialog:directory', None),
+            filter=';;'.join(filters),
+            initialFilter=self.get_session_value(
+                'sample-track:add-sample-dialog:selected-filter', filters[1]),
         )
         if not path:
             return
+
+        self.set_session_value('sample-track:add-sample-dialog:directory', os.path.dirname(path))
+        self.set_session_value('sample-track:add-sample-dialog:selected-filter', selected_filter)
 
         QtCore.QCoreApplication.processEvents()
 
