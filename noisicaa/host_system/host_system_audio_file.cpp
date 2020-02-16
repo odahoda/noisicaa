@@ -257,6 +257,7 @@ StatusOr<AudioFile*> AudioFileSubSystem::load_raw_file(
     }
 
     swr_close(ctxt);
+    ++ch;
   }
 
   unique_ptr<float*> cdat(new float*[channel_data.size() + 1]);
