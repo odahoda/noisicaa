@@ -65,8 +65,6 @@ public:
 
   StatusOr<AudioFile*> load_audio_file(const string& path);
 
-  AudioFile* get_audio_file(const string& path) const;
-
   void acquire_audio_file(AudioFile* audio_file);
   void release_audio_file(AudioFile* audio_file);
 

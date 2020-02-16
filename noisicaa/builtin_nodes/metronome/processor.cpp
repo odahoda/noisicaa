@@ -174,8 +174,6 @@ Status ProcessorMetronome::set_spec(const pb::MetronomeSpec& spec) {
       spec.sample_path());
   RETURN_IF_ERROR(stor_audio_file);
 
-  _host_system->audio_file->acquire_audio_file(stor_audio_file.result());
-
   // Create the new spec. If you fail from here, ensure the audio file is released!
   unique_ptr<Spec> new_spec(new Spec());
   new_spec->audio_file = stor_audio_file.result();

@@ -59,6 +59,7 @@ void AudioFileSubSystem::cleanup() {
 StatusOr<AudioFile*> AudioFileSubSystem::load_audio_file(const string& path) {
   const auto& it = _map.find(path);
   if (it != _map.end()) {
+    it->second->ref();
     return it->second.get();
   }
 
@@ -160,6 +161,7 @@ StatusOr<AudioFile*> AudioFileSubSystem::load_audio_file(const string& path) {
   cdat.get()[channel_data.size()] = nullptr;
 
   AudioFile* audio_file = new AudioFile(path, num_samples, cdat.get());
+  audio_file->ref();
   _map.emplace(path, unique_ptr<AudioFile>(audio_file));
 
   return audio_file;

@@ -61,7 +61,6 @@ Status ProcessorSoundFile::setup_internal() {
   RETURN_IF_ERROR(stor_audio_file);
 
   _audio_file = stor_audio_file.result();
-  _host_system->audio_file->acquire_audio_file(_audio_file);
   _loop = false;
   _playing = true;
   _pos = 0;
