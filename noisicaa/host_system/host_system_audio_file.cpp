@@ -170,9 +170,9 @@ StatusOr<AudioFile*> AudioFileSubSystem::load_audio_file(const string& path) {
 StatusOr<AudioFile*> AudioFileSubSystem::load_raw_file(
     uint32_t sample_rate, uint32_t num_samples, const vector<string>& paths) {
   string key;
-  key += sample_rate;
+  key += to_string(sample_rate);
   key += ":";
-  key += num_samples;
+  key += to_string(num_samples);
   for (const auto& p : paths) {
     key += ":" + p;
   }
