@@ -695,6 +695,9 @@ class SubprocessMixin(ProcessBase):
                     msg += '\n%s' % ''.join(traceback.format_exception(type(exc), exc, tb))
                 else:
                     msg += '\n%s: %s\nNo traceback' % (type(exc).__name__, exc)
+            src_tb = context.get('source_traceback', None)
+            if src_tb is not None:
+                msg += '\nSource Traceback:\n%s' % ''.join(traceback.format_list(src_tb))
             logging.error(msg)
 
         except:  # pylint: disable=bare-except
