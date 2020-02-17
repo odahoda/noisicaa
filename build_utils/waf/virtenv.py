@@ -181,6 +181,7 @@ def configure(ctx):
     pip_mgr.check_package(DEV, 'pyfakefs')
     pip_mgr.check_package(DEV, 'pylint', version='2.3.1')
     pip_mgr.check_package(DEV, 'unittest-xml-reporting')
+    pip_mgr.check_package(DEV, 'pyprof2calltree')
 
     # misc sys packages:
     sys_mgr.check_package(RUNTIME, 'ffmpeg')

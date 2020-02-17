@@ -29,6 +29,7 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
 
+from noisidev import profutil
 from noisidev import unittest
 from noisidev import uitest
 from noisicaa import audioproc
@@ -131,3 +132,15 @@ class SampleTrackEditorItemTest(track_editor_tests.TrackEditorItemTestMixin, uit
             await self.releaseMouseButton(Qt.LeftButton)
 
             self.assertEqual(self.track.samples[0].time, MT(0, 4))
+
+    async def test_profile_rendering(self):
+        ls = await self.track.load_sample(SMPL_PATH, self.loop)
+        with self.project.apply_mutations('test'):
+            self.track.create_sample(MT(0, 4), ls)
+
+        with self._trackItem() as ti:
+            self.renderWidget()
+            profutil.profile(self.id(), ti.sample(0).renderPendingCacheTiles)
+            self.renderWidget()
+            assert ti.sample(0).isRenderComplete()
+

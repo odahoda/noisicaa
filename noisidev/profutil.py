@@ -22,20 +22,16 @@
 
 import cProfile
 import os.path
-import tempfile
 
-from noisicaa import constants
+import pyprof2calltree
+
+from noisicaa.constants import TEST_OPTS
 
 def profile(file_base, func):
-    if not constants.TEST_OPTS.ENABLE_PROFILER:
-        return func()
-
     profiler = cProfile.Profile()
     ret = profiler.runcall(func)
-    profile_path = os.path.join(
-        tempfile.gettempdir(), file_base + '.prof')
-    profiler.dump_stats(profile_path)
-    print('Profile written to %s' % profile_path)
+    profile_path = os.path.join(TEST_OPTS.TMP_DIR, 'callgrind.out.' + file_base)
+    pyprof2calltree.convert(profiler.getstats(), profile_path)
     return ret
 
 def profile_method(func):

@@ -334,11 +334,19 @@ class SampleItem(core.AutoCleanupMixin, object):
             self.__render_queue.get_nowait()
         self.__tile_cache_version += 1
 
+    # only used for tests
     def isRenderComplete(self) -> bool:
         if self.__fully_rendered.is_set():
             self.__fully_rendered.clear()
             return True
         return False
+
+    # only used for tests
+    def renderPendingCacheTiles(self) -> None:
+        while not self.__render_queue.empty():
+            ch, tile, size, tile_x = self.__render_queue.get_nowait()
+            pixmap = self.__renderCacheTile(ch, tile, size, tile_x)
+            self.__tile_cache[(ch, tile)] = (self.__tile_cache_version, pixmap)
 
     async def __renderMain(self) -> None:
         pool = concurrent.futures.ThreadPoolExecutor(1)
@@ -376,20 +384,18 @@ class SampleItem(core.AutoCleanupMixin, object):
         try:
             tmap = self.__sample.project.time_mapper
             begin_samplepos = tmap.musical_to_sample_time(self.__sample.time)
+            num_samples = self.__sample.sample.num_samples
+            resample_factor = self.__sample.sample.sample_rate / tmap.sample_rate
             height = size.height()
 
             t0 = self.__track_editor.xToTime(tile_x)
-            s0 = int(
-                (tmap.musical_to_sample_time(t0) - begin_samplepos)
-                * self.__sample.sample.sample_rate / tmap.sample_rate)
+            s0 = int((tmap.musical_to_sample_time(t0) - begin_samplepos) * resample_factor)
             for x in range(size.width()):
                 t1 = self.__track_editor.xToTime(tile_x + x + 1)
-                s1 = int(
-                    (tmap.musical_to_sample_time(t1) - begin_samplepos)
-                    * self.__sample.sample.sample_rate / tmap.sample_rate)
+                s1 = int((tmap.musical_to_sample_time(t1) - begin_samplepos) * resample_factor)
 
-                if 0 <= s0 < self.__sample.sample.num_samples - 1:
-                    cnt = max(min(self.__sample.sample.num_samples, s1 + 1) - s0, 1)
+                if 0 <= s0 < num_samples - 1:
+                    cnt = max(min(num_samples, s1 + 1) - s0, 1)
                     samples = numpy.frombuffer(
                         self.__raws[ch], dtype=numpy.float32, offset=s0 * 4, count=cnt)
 
