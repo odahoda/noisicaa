@@ -148,39 +148,49 @@ class SampleTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://sample-track'
     track_cls = model.SampleTrack
 
-    async def test_create_sample_wav(self):
+    async def test_load_sample_wav(self):
+        path = os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')
         track = await self._add_track()
+        loaded_sample = await track.load_sample(path, self.loop)
+        self.assertEqual(loaded_sample.path, path)
+        self.assertEqual(loaded_sample.num_samples, 126208)
+        self.assertEqual(loaded_sample.sample_rate, 44100)
+        self.assertEqual(len(loaded_sample.raw_paths), 2)
+
+    async def test_load_sample_mp3(self):
+        path = os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.mp3')
+        track = await self._add_track()
+        loaded_sample = await track.load_sample(path, self.loop)
+        self.assertEqual(loaded_sample.path, path)
+        self.assertEqual(loaded_sample.num_samples, 126208)
+        self.assertEqual(loaded_sample.sample_rate, 44100)
+        self.assertEqual(len(loaded_sample.raw_paths), 2)
+
+    async def test_load_sample_aac(self):
+        path = os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.aac')
+        track = await self._add_track()
+        loaded_sample = await track.load_sample(path, self.loop)
+        self.assertEqual(loaded_sample.path, path)
+        # The converted AAC apparently does not have the same length as the orig wav.
+        #self.assertEqual(loaded_sample.num_samples, 126208)
+        self.assertEqual(loaded_sample.sample_rate, 44100)
+        self.assertEqual(len(loaded_sample.raw_paths), 2)
+
+    async def test_create_sample(self):
+        track = await self._add_track()
+        loaded_sample = await track.load_sample(
+            os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'), self.loop)
 
         with self.project.apply_mutations('test'):
-            track.create_sample(
-                audioproc.MusicalTime(1, 4),
-                os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))
-        self.assertEqual(track.samples[0].time, audioproc.MusicalTime(1, 4))
-
-    async def test_create_sample_mp3(self):
-        track = await self._add_track()
-
-        with self.project.apply_mutations('test'):
-            track.create_sample(
-                audioproc.MusicalTime(1, 4),
-                os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.mp3'))
-        self.assertEqual(track.samples[0].time, audioproc.MusicalTime(1, 4))
-
-    async def test_create_sample_aac(self):
-        track = await self._add_track()
-
-        with self.project.apply_mutations('test'):
-            track.create_sample(
-                audioproc.MusicalTime(1, 4),
-                os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.aac'))
+            track.create_sample(audioproc.MusicalTime(1, 4), loaded_sample)
         self.assertEqual(track.samples[0].time, audioproc.MusicalTime(1, 4))
 
     async def test_delete_sample(self):
         track = await self._add_track()
+        loaded_sample = await track.load_sample(
+            os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'), self.loop)
         with self.project.apply_mutations('test'):
-            sample = track.create_sample(
-                audioproc.MusicalTime(1, 4),
-                os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))
+            sample = track.create_sample(audioproc.MusicalTime(1, 4), loaded_sample)
 
         with self.project.apply_mutations('test'):
             track.delete_sample(sample)

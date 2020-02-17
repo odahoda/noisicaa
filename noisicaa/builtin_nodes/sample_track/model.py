@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import asyncio
 import base64
 import contextlib
 import logging
@@ -27,7 +28,7 @@ import os
 import os.path
 import subprocess
 import time as time_lib
-from typing import Any, Optional, Callable, Iterator
+from typing import Any, Optional, List, Callable, Iterator
 
 import mutagen
 import numpy
@@ -218,6 +219,22 @@ def open_sample(path: str) -> Iterator[SampleReader]:
         reader.close()
 
 
+class LoadedSample(object):
+    def __init__(self, data_dir: str) -> None:
+        self.__data_dir = data_dir
+
+        self.path = None  # type: str
+        self.raw_paths = None  # type: List[str]
+        self.sample_rate = None  # type: int
+        self.num_samples = None  # type: int
+
+    def discard(self) -> None:
+        for raw_path in self.raw_paths:
+            raw_path = os.path.join(self.__data_dir, raw_path)
+            if os.path.exists(raw_path):
+                os.unlink(raw_path)
+
+
 class SampleTrack(_model.SampleTrack):
     def create_node_connector(
             self, message_cb: Callable[[audioproc.ProcessorMessage], None],
@@ -230,13 +247,15 @@ class SampleTrack(_model.SampleTrack):
     def description(self) -> node_db.NodeDescription:
         return node_description.SampleTrackDescription
 
-    def create_sample(
+    async def load_sample(
             self,
-            time: audioproc.MusicalTime,
             path: str,
-            *,
-            progress_cb: Callable[[float], None] = None
-    ) -> SampleRef:
+            event_loop: asyncio.AbstractEventLoop,
+            progress_cb: Callable[[float], None] = None,
+    ) -> LoadedSample:
+        smpl = LoadedSample(self.project.data_dir)
+        smpl.path = path
+
         sample_name_base = base64.b32encode(os.urandom(15)).decode('ascii')
         sample_path_base = os.path.join('samples', sample_name_base)
 
@@ -252,21 +271,22 @@ class SampleTrack(_model.SampleTrack):
             logger.info("Num samples: approx. %d", reader.num_samples)
             logger.info("Num channels: %d", reader.num_channels)
 
-            raw_paths = [
+            smpl.sample_rate = reader.sample_rate
+            smpl.raw_paths = [
                 sample_path_base + '-ch%02d.raw' % ch
                 for ch in range(reader.num_channels)]
             raw_fps = []
             try:
-                for raw_path in raw_paths:
+                for raw_path in smpl.raw_paths:
                     raw_path = os.path.join(self.project.data_dir, raw_path)
                     raw_fps.append(open(raw_path, 'wb'))
 
-                samples_read = 0
+                smpl.num_samples = 0
                 while True:
                     data = reader.read_samples(10240)
                     if len(data) == 0:
                         break
-                    samples_read += len(data)
+                    smpl.num_samples += len(data)
 
                     data = data.transpose()
                     assert len(data) == len(raw_fps), (len(data), len(raw_fps))
@@ -274,14 +294,13 @@ class SampleTrack(_model.SampleTrack):
                         fp.write(samples.tobytes('C'))
 
                     if progress_cb is not None and time_lib.time() >= next_progress:
-                        progress_cb(float(samples_read) / reader.num_samples)
+                        progress_cb(min(1.0, float(smpl.num_samples) / reader.num_samples))
                         next_progress = time_lib.time() + 0.1
 
+                    await asyncio.sleep(0, loop=event_loop)
+
             except:
-                for raw_path in raw_paths:
-                    raw_path = os.path.join(self.project.data_dir, raw_path)
-                    if os.path.exists(raw_path):
-                        os.unlink(raw_path)
+                smpl.discard()
                 raise
 
             finally:
@@ -290,21 +309,28 @@ class SampleTrack(_model.SampleTrack):
 
             logger.info("Sample imported in %.3fsec", time_lib.time() - t0)
 
-            smpl = self._pool.create(
-                samples_lib.Sample,
-                path=path,
-                sample_rate=reader.sample_rate,
-                num_samples=samples_read)
-            for raw_path in raw_paths:
-                smpl_channel = self._pool.create(samples_lib.SampleChannel, raw_path=raw_path)
-                smpl.channels.append(smpl_channel)
-            self.project.samples.append(smpl)
+        return smpl
 
-            smpl_ref = self._pool.create(
-                SampleRef,
-                time=time,
-                sample=smpl)
-            self.samples.append(smpl_ref)
+    def create_sample(
+            self,
+            time: audioproc.MusicalTime,
+            loaded_sample: LoadedSample,
+    ) -> SampleRef:
+        smpl = self._pool.create(
+            samples_lib.Sample,
+            path=loaded_sample.path,
+            sample_rate=loaded_sample.sample_rate,
+            num_samples=loaded_sample.num_samples)
+        for raw_path in loaded_sample.raw_paths:
+            smpl_channel = self._pool.create(samples_lib.SampleChannel, raw_path=raw_path)
+            smpl.channels.append(smpl_channel)
+        self.project.samples.append(smpl)
+
+        smpl_ref = self._pool.create(
+            SampleRef,
+            time=time,
+            sample=smpl)
+        self.samples.append(smpl_ref)
 
         return smpl_ref
 

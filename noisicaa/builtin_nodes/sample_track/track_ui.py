@@ -43,7 +43,6 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
-from noisicaa.bindings import sndfile
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
 from noisicaa.ui.track_list import tools
@@ -68,7 +67,7 @@ class EditSamplesTool(tools.ToolBase):
     def iconName(self) -> str:
         return 'edit-samples'
 
-    def onAddSample(self, time: audioproc.MusicalTime) -> None:
+    def onAddSampleSync(self, time: audioproc.MusicalTime) -> None:
         filters = [
             "All Files (*)",
             "Audio Files (*.wav *.mp3)",
@@ -90,8 +89,9 @@ class EditSamplesTool(tools.ToolBase):
         self.set_session_value('sample-track:add-sample-dialog:directory', os.path.dirname(path))
         self.set_session_value('sample-track:add-sample-dialog:selected-filter', selected_filter)
 
-        QtCore.QCoreApplication.processEvents()
+        self.call_async(self.onAddSample(path, time))
 
+    async def onAddSample(self, path: str, time: audioproc.MusicalTime) -> None:
         progress_dialog = QtWidgets.QProgressDialog(self.track)
         progress_dialog.setModal(True)
         progress_dialog.setLabelText("Importing sample...")
@@ -104,20 +104,17 @@ class EditSamplesTool(tools.ToolBase):
                 raise Cancelled()
             progress_dialog.show()
             progress_dialog.setValue(int(100 * progress))
-            QtCore.QCoreApplication.processEvents()
 
         try:
             try:
-                with self.project.apply_mutations('%s: Create sample' % self.track.track.name):
-                    self.track.track.create_sample(time, path, progress_cb=progress_cb)
+                loaded_sample = await self.track.track.load_sample(
+                    path, self.event_loop, progress_cb)
             finally:
                 progress_dialog.close()
 
-        except sndfile.Error as exc:
-            logger.error("Failed to import sample:\n%s", traceback.format_exc())
-
+        except model.SampleLoadError as exc:
             dialog = QtWidgets.QMessageBox(self.track)
-            dialog.setObjectName('sample-import-error')
+            dialog.setObjectName('sample-load-error')
             dialog.setWindowTitle("noisicaä - Error")
             dialog.setIcon(QtWidgets.QMessageBox.Critical)
             dialog.setText("Failed to import sample from \"%s\"." % path)
@@ -130,9 +127,13 @@ class EditSamplesTool(tools.ToolBase):
             dialog.setSizeGripEnabled(True)
             dialog.setModal(True)
             dialog.show()
+            return
 
         except Cancelled:
-            pass
+            return
+
+        with self.project.apply_mutations('%s: Create sample' % self.track.track.name):
+            self.track.track.create_sample(time, loaded_sample)
 
     def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
         time = self.track.xToTime(evt.pos().x())
@@ -143,7 +144,7 @@ class EditSamplesTool(tools.ToolBase):
         add_sample_action = QtWidgets.QAction("Add sample...", menu)
         add_sample_action.setObjectName('add-sample')
         add_sample_action.setStatusTip("Add a sample to the track.")
-        add_sample_action.triggered.connect(functools.partial(self.onAddSample, time))
+        add_sample_action.triggered.connect(functools.partial(self.onAddSampleSync, time))
         menu.addAction(add_sample_action)
 
         menu.popup(evt.globalPos())
@@ -225,6 +226,9 @@ class SampleItem(core.AutoCleanupMixin, object):
         self.__event_loop = event_loop
         self.__track_editor = track_editor
         self.__sample = sample
+
+        # For testing, triggered when all tiles have been rendered.
+        self.__fully_rendered = asyncio.Event(loop=self.__event_loop)
 
         self.__raw_fps = []  # type: List[BinaryIO]
         self.__raws = []  # type: List[mmap.mmap]
@@ -329,6 +333,12 @@ class SampleItem(core.AutoCleanupMixin, object):
         while not self.__render_queue.empty():
             self.__render_queue.get_nowait()
         self.__tile_cache_version += 1
+
+    def isRenderComplete(self) -> bool:
+        if self.__fully_rendered.is_set():
+            self.__fully_rendered.clear()
+            return True
+        return False
 
     async def __renderMain(self) -> None:
         pool = concurrent.futures.ThreadPoolExecutor(1)
@@ -459,9 +469,13 @@ class SampleItem(core.AutoCleanupMixin, object):
 
             channel_top = channel_bottom
 
-        random.shuffle(render_requests)
-        for ch, tile, size, tile_x in render_requests:
-            self.__render_queue.put_nowait((ch, tile, size, tile_x))
+        if render_requests:
+            random.shuffle(render_requests)
+            for ch, tile, size, tile_x in render_requests:
+                self.__render_queue.put_nowait((ch, tile, size, tile_x))
+
+        else:
+            self.__fully_rendered.set()
 
 
 class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.BaseTrackEditor):
@@ -489,6 +503,9 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
     @property
     def track(self) -> model.SampleTrack:
         return down_cast(model.SampleTrack, super().track)
+
+    def sample(self, idx: int) -> SampleItem:
+        return self.__samples[idx]
 
     def cleanup(self) -> None:
         for item in self.__samples:

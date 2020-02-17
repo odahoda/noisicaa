@@ -20,10 +20,14 @@
 #
 # @end:license
 
+import asyncio
 import os.path
+import time
 from unittest import mock
 
+from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
+from PyQt5 import QtWidgets
 
 from noisidev import unittest
 from noisidev import uitest
@@ -33,6 +37,10 @@ from . import track_ui
 
 MT = audioproc.MusicalTime
 MD = audioproc.MusicalDuration
+SMPL_PATH = os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')
+assert os.path.isfile(SMPL_PATH)
+NON_SMPL_PATH = os.path.join(unittest.TESTDATA_DIR, 'symbol.svg')
+assert os.path.isfile(NON_SMPL_PATH)
 
 
 class SampleTrackEditorItemTest(track_editor_tests.TrackEditorItemTestMixin, uitest.UITestCase):
@@ -48,20 +56,78 @@ class SampleTrackEditorItemTest(track_editor_tests.TrackEditorItemTestMixin, uit
             context=self.context,
             **kwargs)
 
-    def test_add_sample(self):
+    async def test_add_sample(self):
         assert len(self.track.samples) == 0
 
         with self._trackItem() as ti:
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
-
-            SMPL_PATH = os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
 
             with mock.patch(
                     'PyQt5.QtWidgets.QFileDialog.getOpenFileName',
                     return_value=(SMPL_PATH, None)):
-                menu = self.openContextMenu()
-                self.triggerMenuAction(menu, 'add-sample')
+                menu = await self.openContextMenu()
+                await self.triggerMenuAction(menu, 'add-sample')
 
-            self.assertEqual(len(self.track.samples), 1)
+                t0 = time.time()
+                while len(self.track.samples) == 0:
+                    if t0 > time.time() + 10:
+                        raise TimeoutError
+                    await asyncio.sleep(0.2, loop=self.loop)
+
             self.assertEqual(self.track.samples[0].time, MT(2, 4))
             self.assertEqual(self.track.samples[0].sample.path, SMPL_PATH)
+
+            self.renderWidget()
+            while not ti.sample(0).isRenderComplete():
+                self.renderWidget()
+                await asyncio.sleep(0.2, loop=self.loop)
+
+    async def test_add_sample_load_error(self):
+        assert len(self.track.samples) == 0
+
+        with self._trackItem() as ti:
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
+
+            with mock.patch(
+                    'PyQt5.QtWidgets.QFileDialog.getOpenFileName',
+                    return_value=(NON_SMPL_PATH, None)):
+                menu = await self.openContextMenu()
+                await self.triggerMenuAction(menu, 'add-sample')
+
+            # Wait for the error dialog to pop up.
+            t0 = time.time()
+            while True:
+                if t0 > time.time() + 10:
+                    raise TimeoutError
+                error_dialog = ti.findChild(QtWidgets.QMessageBox, 'sample-load-error')
+                if error_dialog is not None:
+                    error_dialog.accept()
+                    break
+                await asyncio.sleep(0.2, loop=self.loop)
+
+    async def test_move_sample(self):
+        ls = await self.track.load_sample(SMPL_PATH, self.loop)
+        with self.project.apply_mutations('test'):
+            self.track.create_sample(MT(0, 4), ls)
+
+        with self._trackItem() as ti:
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(1, 4)), ti.height() // 2))
+            await self.pressMouseButton(Qt.LeftButton)
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
+            await self.releaseMouseButton(Qt.LeftButton)
+
+            self.assertEqual(self.track.samples[0].time, MT(1, 4))
+
+    async def test_move_sample_abort(self):
+        ls = await self.track.load_sample(SMPL_PATH, self.loop)
+        with self.project.apply_mutations('test'):
+            self.track.create_sample(MT(0, 4), ls)
+
+        with self._trackItem() as ti:
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(1, 4)), ti.height() // 2))
+            await self.pressMouseButton(Qt.LeftButton)
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
+            await self.clickMouseButton(Qt.RightButton)
+            await self.releaseMouseButton(Qt.LeftButton)
+
+            self.assertEqual(self.track.samples[0].time, MT(0, 4))
