@@ -56,7 +56,7 @@ class PianoRollGridTest(uitest.UITestCase):
         self.grid.addEvent(MEVT(MT(3, 4), NOTE_ON(0, 63, 100)))
         self.grid.addEvent(MEVT(MT(4, 4), NOTE_OFF(0, 63)))
 
-    def test_render(self):
+    async def test_render(self):
         self.fill_grid()
         self.renderWidget()
         self.grid.setOverlayColor(QtGui.QColor(100, 100, 255, 100))
@@ -64,13 +64,13 @@ class PianoRollGridTest(uitest.UITestCase):
         self.grid.setPlaybackPosition(MT(3, 4))
         self.renderWidget()
 
-    def test_add_interval(self):
-        self.moveMouse(self.grid.pointAt(70, MT(2, 4)))
-        self.pressMouseButton(Qt.LeftButton)
-        self.moveMouse(self.grid.pointAt(70, MT(3, 4)))
+    async def test_add_interval(self):
+        await self.moveMouse(self.grid.pointAt(70, MT(2, 4)))
+        await self.pressMouseButton(Qt.LeftButton)
+        await self.moveMouse(self.grid.pointAt(70, MT(3, 4)))
         self.renderWidget()
-        self.moveMouse(self.grid.pointAt(70, MT(4, 4)))
-        self.releaseMouseButton(Qt.LeftButton)
+        await self.moveMouse(self.grid.pointAt(70, MT(4, 4)))
+        await self.releaseMouseButton(Qt.LeftButton)
 
         self.assertEqual(
             self.grid.events(),
@@ -78,10 +78,10 @@ class PianoRollGridTest(uitest.UITestCase):
              MEVT(MT(4, 4), NOTE_OFF(0, 70)),
             ])
 
-        self.moveMouse(self.grid.pointAt(70, MT(5, 4)))
-        self.pressMouseButton(Qt.LeftButton)
-        self.moveMouse(self.grid.pointAt(70, MT(3, 4)))
-        self.releaseMouseButton(Qt.LeftButton)
+        await self.moveMouse(self.grid.pointAt(70, MT(5, 4)))
+        await self.pressMouseButton(Qt.LeftButton)
+        await self.moveMouse(self.grid.pointAt(70, MT(3, 4)))
+        await self.releaseMouseButton(Qt.LeftButton)
 
         self.assertEqual(
             self.grid.events(),
@@ -91,16 +91,16 @@ class PianoRollGridTest(uitest.UITestCase):
              MEVT(MT(5, 4), NOTE_OFF(0, 70)),
             ])
 
-    def test_move_interval(self):
+    async def test_move_interval(self):
         self.grid.addEvent(MEVT(MT(0, 4), NOTE_ON(0, 60, 100)))
         self.grid.addEvent(MEVT(MT(2, 4), NOTE_OFF(0, 60)))
 
-        self.moveMouse(self.grid.pointAt(60, MT(1, 4)))
-        self.pressMouseButton(Qt.LeftButton)
-        self.moveMouse(self.grid.pointAt(61, MT(2, 4)))
+        await self.moveMouse(self.grid.pointAt(60, MT(1, 4)))
+        await self.pressMouseButton(Qt.LeftButton)
+        await self.moveMouse(self.grid.pointAt(61, MT(2, 4)))
         self.renderWidget()
-        self.moveMouse(self.grid.pointAt(62, MT(3, 4)))
-        self.releaseMouseButton(Qt.LeftButton)
+        await self.moveMouse(self.grid.pointAt(62, MT(3, 4)))
+        await self.releaseMouseButton(Qt.LeftButton)
 
         self.assertEqual(
             self.grid.events(),
@@ -108,28 +108,28 @@ class PianoRollGridTest(uitest.UITestCase):
              MEVT(MT(4, 4), NOTE_OFF(0, 62)),
             ])
 
-    def test_delete_interval(self):
+    async def test_delete_interval(self):
         self.grid.addEvent(MEVT(MT(0, 4), NOTE_ON(0, 60, 100)))
         self.grid.addEvent(MEVT(MT(2, 4), NOTE_OFF(0, 60)))
 
-        self.moveMouse(self.grid.pointAt(60, MT(1, 4)))
-        self.pressMouseButton(Qt.MiddleButton)
-        self.releaseMouseButton(Qt.MiddleButton)
+        await self.moveMouse(self.grid.pointAt(60, MT(1, 4)))
+        await self.pressMouseButton(Qt.MiddleButton)
+        await self.releaseMouseButton(Qt.MiddleButton)
 
         self.assertEqual(
             self.grid.events(),
             [])
 
-    def test_resize_interval(self):
+    async def test_resize_interval(self):
         self.grid.addEvent(MEVT(MT(1, 4), NOTE_ON(0, 60, 100)))
         self.grid.addEvent(MEVT(MT(3, 4), NOTE_OFF(0, 60)))
 
-        self.moveMouse(self.grid.pointAt(60, MT(1, 4)))
-        self.pressMouseButton(Qt.LeftButton)
-        self.moveMouse(self.grid.pointAt(61, MT(1, 8)))
+        await self.moveMouse(self.grid.pointAt(60, MT(1, 4)))
+        await self.pressMouseButton(Qt.LeftButton)
+        await self.moveMouse(self.grid.pointAt(61, MT(1, 8)))
         self.renderWidget()
-        self.moveMouse(self.grid.pointAt(62, MT(0, 4)))
-        self.releaseMouseButton(Qt.LeftButton)
+        await self.moveMouse(self.grid.pointAt(62, MT(0, 4)))
+        await self.releaseMouseButton(Qt.LeftButton)
 
         self.assertEqual(
             self.grid.events(),
@@ -137,12 +137,12 @@ class PianoRollGridTest(uitest.UITestCase):
              MEVT(MT(3, 4), NOTE_OFF(0, 60)),
             ])
 
-        self.moveMouse(self.grid.pointAt(60, MT(3, 4)))
-        self.pressMouseButton(Qt.LeftButton)
-        self.moveMouse(self.grid.pointAt(61, MT(5, 8)))
+        await self.moveMouse(self.grid.pointAt(60, MT(3, 4)))
+        await self.pressMouseButton(Qt.LeftButton)
+        await self.moveMouse(self.grid.pointAt(61, MT(5, 8)))
         self.renderWidget()
-        self.moveMouse(self.grid.pointAt(62, MT(2, 4)))
-        self.releaseMouseButton(Qt.LeftButton)
+        await self.moveMouse(self.grid.pointAt(62, MT(2, 4)))
+        await self.releaseMouseButton(Qt.LeftButton)
 
         self.assertEqual(
             self.grid.events(),
@@ -150,16 +150,16 @@ class PianoRollGridTest(uitest.UITestCase):
              MEVT(MT(2, 4), NOTE_OFF(0, 60)),
             ])
 
-    def test_select_rect(self):
+    async def test_select_rect(self):
         self.fill_grid()
         self.grid.setEditMode(pianoroll.EditMode.SelectRect)
 
-        self.moveMouse(self.grid.pointAt(50, MT(5, 8)))
-        self.pressMouseButton(Qt.LeftButton)
-        self.moveMouse(self.grid.pointAt(60, MT(3, 8)))
+        await self.moveMouse(self.grid.pointAt(50, MT(5, 8)))
+        await self.pressMouseButton(Qt.LeftButton)
+        await self.moveMouse(self.grid.pointAt(60, MT(3, 8)))
         self.renderWidget()
-        self.moveMouse(self.grid.pointAt(70, MT(1, 8)))
-        self.releaseMouseButton(Qt.LeftButton)
+        await self.moveMouse(self.grid.pointAt(70, MT(1, 8)))
+        await self.releaseMouseButton(Qt.LeftButton)
 
         self.grid.delete_selection_action.trigger()
 
@@ -169,22 +169,22 @@ class PianoRollGridTest(uitest.UITestCase):
              MEVT(MT(4, 4), NOTE_OFF(0, 63)),
             ])
 
-    def test_change_velocity(self):
+    async def test_change_velocity(self):
         self.fill_grid()
         self.grid.setEditMode(pianoroll.EditMode.EditVelocity)
 
         assert self.grid.events()[0].midi[2] == 100
 
-        self.moveMouse(self.grid.pointAt(60, MT(1, 8)))
-        self.pressMouseButton(Qt.LeftButton)
-        self.moveMouse(self.grid.pointAt(60, MT(2, 8)))
+        await self.moveMouse(self.grid.pointAt(60, MT(1, 8)))
+        await self.pressMouseButton(Qt.LeftButton)
+        await self.moveMouse(self.grid.pointAt(60, MT(2, 8)))
         self.renderWidget()
-        self.moveMouse(self.grid.pointAt(60, MT(3, 8)))
-        self.releaseMouseButton(Qt.LeftButton)
+        await self.moveMouse(self.grid.pointAt(60, MT(3, 8)))
+        await self.releaseMouseButton(Qt.LeftButton)
 
         self.assertGreater(self.grid.events()[0].midi[2], 100)
 
-    def test_transpose_selection(self):
+    async def test_transpose_selection(self):
         self.fill_grid()
         self.grid.select_all_action.trigger()
         self.grid.transpose_selection_up_octave_action.trigger()
@@ -209,7 +209,7 @@ class PianoKeysTest(uitest.UITestCase):
         self.keys.resize(self.keys.minimumWidth(), 200)
         self.setWidgetUnderTest(self.keys)
 
-    def test_notes(self):
+    async def test_notes(self):
         self.keys.noteOn(60)
         self.renderWidget()
         self.keys.noteOn(61)
@@ -219,34 +219,34 @@ class PianoKeysTest(uitest.UITestCase):
         self.keys.noteOff(61)
         self.renderWidget()
 
-    def test_scroll(self):
-        self.moveMouse(QtCore.QPoint(20, 100))
-        self.pressKey(Qt.Key_Shift)
-        self.pressMouseButton(Qt.LeftButton)
-        self.moveMouse(QtCore.QPoint(20, 80))
+    async def test_scroll(self):
+        await self.moveMouse(QtCore.QPoint(20, 100))
+        await self.pressKey(Qt.Key_Shift)
+        await self.pressMouseButton(Qt.LeftButton)
+        await self.moveMouse(QtCore.QPoint(20, 80))
         self.renderWidget()
-        self.moveMouse(QtCore.QPoint(20, 60))
-        self.releaseMouseButton(Qt.LeftButton)
+        await self.moveMouse(QtCore.QPoint(20, 60))
+        await self.releaseMouseButton(Qt.LeftButton)
 
         self.assertEqual(self.keys.yOffset(), 40)
 
-    def test_play(self):
+    async def test_play(self):
         notes = []  # type: List[pianoroll.PlayNotes]
         self.keys.playNotes.connect(notes.append)
 
-        self.moveMouse(QtCore.QPoint(20, 100))
-        self.pressMouseButton(Qt.LeftButton)
+        await self.moveMouse(QtCore.QPoint(20, 100))
+        await self.pressMouseButton(Qt.LeftButton)
         self.renderWidget()
-        self.releaseMouseButton(Qt.LeftButton)
+        await self.releaseMouseButton(Qt.LeftButton)
 
         self.assertEqual(len(notes), 2)
 
         notes.clear()
-        self.moveMouse(QtCore.QPoint(20, 100))
-        self.pressMouseButton(Qt.LeftButton)
+        await self.moveMouse(QtCore.QPoint(20, 100))
+        await self.pressMouseButton(Qt.LeftButton)
         self.renderWidget()
-        self.moveMouse(QtCore.QPoint(20, 180))
-        self.releaseMouseButton(Qt.LeftButton)
+        await self.moveMouse(QtCore.QPoint(20, 180))
+        await self.releaseMouseButton(Qt.LeftButton)
 
         self.assertGreater(len(notes), 2)
         self.assertEqual(len(notes) % 2, 0)

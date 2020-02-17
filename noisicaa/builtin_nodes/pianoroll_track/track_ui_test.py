@@ -52,21 +52,21 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
             context=self.context,
             **kwargs)
 
-    def test_segments_changed(self):
+    async def test_segments_changed(self):
         with self._trackItem():
             with self.project.apply_mutations('test'):
                 seg = self.track.create_segment(MT(3, 4), MD(2, 4))
 
-            self.processQtEvents()
+            await self.processQtEvents()
             self.renderWidget()
 
             with self.project.apply_mutations('test'):
                 self.track.remove_segment(seg)
 
-            self.processQtEvents()
+            await self.processQtEvents()
             self.renderWidget()
 
-    def test_events_changed(self):
+    async def test_events_changed(self):
         with self.project.apply_mutations('test'):
             seg = self.track.create_segment(MT(0, 4), MD(4, 4))
             seg.segment.add_event(MEVT(MT(0, 4), NOTE_ON(0, 60, 100)))
@@ -77,17 +77,17 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
                 seg.segment.add_event(MEVT(MT(1, 4), NOTE_ON(0, 61, 100)))
                 seg.segment.add_event(MEVT(MT(2, 4), NOTE_OFF(0, 61)))
 
-            self.processQtEvents()
+            await self.processQtEvents()
             self.renderWidget()
 
             with self.project.apply_mutations('test'):
                 while len(seg.segment.events) > 0:
                     seg.segment.remove_event(seg.segment.events[0])
 
-            self.processQtEvents()
+            await self.processQtEvents()
             self.renderWidget()
 
-    def test_events_edited(self):
+    async def test_events_edited(self):
         with self.project.apply_mutations('test'):
             seg = self.track.create_segment(MT(0, 4), MD(4, 4))
             seg.segment.add_event(MEVT(MT(0, 4), NOTE_ON(0, 60, 100)))
@@ -102,23 +102,23 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
             with grid.collect_mutations():
                 grid.addEvent(MEVT(MT(1, 4), NOTE_ON(0, 61, 100)))
                 grid.addEvent(MEVT(MT(2, 4), NOTE_OFF(0, 61)))
-            self.processQtEvents()
+            await self.processQtEvents()
             self.renderWidget()
 
             self.assertEqual(len(seg.segment.events), 4)
 
-    def test_scroll(self):
+    async def test_scroll(self):
         with self.project.apply_mutations('test'):
             self.track.create_segment(MT(0, 4), MD(2, 4))
 
         with self._trackItem() as ti:
             yoff = ti.yOffset()
-            self.scrollWheel(-1)
+            await self.scrollWheel(-1)
             self.assertGreater(ti.yOffset(), yoff)
-            self.scrollWheel(1)
+            await self.scrollWheel(1)
             self.assertEqual(ti.yOffset(), yoff)
 
-    def test_playback_pos(self):
+    async def test_playback_pos(self):
         with self.project.apply_mutations('test'):
             self.track.create_segment(MT(0, 4), MD(2, 4))
             self.track.create_segment(MT(3, 4), MD(2, 4))
@@ -128,16 +128,16 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
             t = MT(0, 1)
             while t < MT(8, 4):
                 ti.setPlaybackPosition(t)
-                self.processQtEvents()
+                await self.processQtEvents()
                 t += MD(1, 32)
 
-    def test_change_row_height(self):
+    async def test_change_row_height(self):
         with self.project.apply_mutations('test'):
             self.track.create_segment(MT(0, 4), MD(4, 4))
 
         with self._trackItem() as ti:
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
-            menu = self.openContextMenu()
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
+            menu = await self.openContextMenu()
             incr_button = menu.findChild(QtWidgets.QAbstractButton, 'incr-row-height')
             assert incr_button is not None
             decr_button = menu.findChild(QtWidgets.QAbstractButton, 'decr-row-height')
@@ -149,70 +149,70 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
             decr_button.click()
             self.assertEqual(ti.gridYSize(), h)
 
-    def test_move_segment(self):
+    async def test_move_segment(self):
         with self.project.apply_mutations('test'):
             seg = self.track.create_segment(MT(0, 4), MD(4, 4))
 
         with self._trackItem() as ti:
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(1, 4)), ti.height() // 2))
-            self.pressMouseButton(Qt.LeftButton)
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(3, 4)), ti.height() // 2))
-            self.releaseMouseButton(Qt.LeftButton)
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(1, 4)), ti.height() // 2))
+            await self.pressMouseButton(Qt.LeftButton)
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(3, 4)), ti.height() // 2))
+            await self.releaseMouseButton(Qt.LeftButton)
 
             self.assertEqual(seg.time, MT(2, 4))
 
-    def test_resize_segment(self):
+    async def test_resize_segment(self):
         with self.project.apply_mutations('test'):
             seg = self.track.create_segment(MT(0, 4), MD(4, 4))
 
         with self._trackItem() as ti:
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(4, 4)), ti.height() // 2))
-            self.pressMouseButton(Qt.LeftButton)
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(5, 4)), ti.height() // 2))
-            self.releaseMouseButton(Qt.LeftButton)
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(4, 4)), ti.height() // 2))
+            await self.pressMouseButton(Qt.LeftButton)
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(5, 4)), ti.height() // 2))
+            await self.releaseMouseButton(Qt.LeftButton)
 
             self.assertEqual(seg.time, MT(0, 4))
             self.assertEqual(seg.segment.duration, MD(5, 4))
 
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(0, 4)), ti.height() // 2))
-            self.pressMouseButton(Qt.LeftButton)
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
-            self.releaseMouseButton(Qt.LeftButton)
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(0, 4)), ti.height() // 2))
+            await self.pressMouseButton(Qt.LeftButton)
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
+            await self.releaseMouseButton(Qt.LeftButton)
 
             self.assertEqual(seg.time, MT(2, 4))
             self.assertEqual(seg.segment.duration, MD(3, 4))
 
-    def test_add_segment(self):
+    async def test_add_segment(self):
         assert len(self.track.segments) == 0
 
         with self._trackItem() as ti:
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
-            menu = self.openContextMenu()
-            self.triggerMenuAction(menu, 'add-segment')
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
+            menu = await self.openContextMenu()
+            await self.triggerMenuAction(menu, 'add-segment')
 
             self.assertEqual(len(self.track.segments), 1)
             self.assertEqual(self.track.segments[0].time, MT(2, 4))
 
-    def test_delete_segment(self):
+    async def test_delete_segment(self):
         with self.project.apply_mutations('test'):
             self.track.create_segment(MT(0, 4), MD(4, 4))
 
         with self._trackItem() as ti:
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
-            menu = self.openContextMenu()
-            self.triggerMenuAction(menu, 'delete-segment')
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
+            menu = await self.openContextMenu()
+            await self.triggerMenuAction(menu, 'delete-segment')
 
             self.assertEqual(len(self.track.segments), 0)
 
-    def test_split_segment(self):
+    async def test_split_segment(self):
         with self.project.apply_mutations('test'):
             self.track.create_segment(MT(0, 4), MD(4, 4))
 
         with self._trackItem() as ti:
             ti.setPlaybackPosition(MT(3, 4))
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(3, 4)), ti.height() // 2))
-            menu = self.openContextMenu()
-            self.triggerMenuAction(menu, 'split-segment')
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(3, 4)), ti.height() // 2))
+            menu = await self.openContextMenu()
+            await self.triggerMenuAction(menu, 'split-segment')
 
             self.assertEqual(len(self.track.segments), 2)
             self.assertEqual(self.track.segments[0].time, MT(0, 4))
@@ -220,7 +220,7 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
             self.assertEqual(self.track.segments[1].time, MT(3, 4))
             self.assertEqual(self.track.segments[1].segment.duration, MD(1, 4))
 
-    def test_select_segments(self):
+    async def test_select_segments(self):
         with self.project.apply_mutations('test'):
             ref1 = self.track.create_segment(MT(0, 4), MD(4, 4))
             ref2 = self.track.create_segment(MT(6, 4), MD(4, 4))
@@ -231,51 +231,51 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
             selected = lambda: {segment.segmentRef().id for segment in ti.selection()}
 
             self.assertEqual(selected(), set())
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
-            self.clickMouseButton(Qt.LeftButton)
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(2, 4)), ti.height() // 2))
+            await self.clickMouseButton(Qt.LeftButton)
             self.assertEqual(selected(), {ref1.id})
 
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(8, 4)), ti.height() // 2))
-            self.clickMouseButton(Qt.LeftButton)
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(8, 4)), ti.height() // 2))
+            await self.clickMouseButton(Qt.LeftButton)
             self.assertEqual(selected(), {ref2.id})
 
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(14, 4)), ti.height() // 2))
-            self.pressKey(Qt.Key_Control)
-            self.clickMouseButton(Qt.LeftButton)
-            self.releaseKey(Qt.Key_Control)
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(14, 4)), ti.height() // 2))
+            await self.pressKey(Qt.Key_Control)
+            await self.clickMouseButton(Qt.LeftButton)
+            await self.releaseKey(Qt.Key_Control)
             self.assertEqual(selected(), {ref2.id, ref3.id})
 
-            self.pressKey(Qt.Key_Control)
-            self.clickMouseButton(Qt.LeftButton)
-            self.releaseKey(Qt.Key_Control)
+            await self.pressKey(Qt.Key_Control)
+            await self.clickMouseButton(Qt.LeftButton)
+            await self.releaseKey(Qt.Key_Control)
             self.assertEqual(selected(), {ref2.id})
 
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(11, 4)), ti.height() // 2))
-            self.clickMouseButton(Qt.LeftButton)
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(11, 4)), ti.height() // 2))
+            await self.clickMouseButton(Qt.LeftButton)
             self.assertEqual(selected(), set())
 
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(8, 4)), ti.height() // 2))
-            self.clickMouseButton(Qt.LeftButton)
-            self.moveMouse(QtCore.QPoint(ti.timeToX(MT(20, 4)), ti.height() // 2))
-            self.pressKey(Qt.Key_Shift)
-            self.clickMouseButton(Qt.LeftButton)
-            self.releaseKey(Qt.Key_Shift)
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(8, 4)), ti.height() // 2))
+            await self.clickMouseButton(Qt.LeftButton)
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(20, 4)), ti.height() // 2))
+            await self.pressKey(Qt.Key_Shift)
+            await self.clickMouseButton(Qt.LeftButton)
+            await self.releaseKey(Qt.Key_Shift)
             self.assertEqual(selected(), {ref2.id, ref3.id, ref4.id})
 
-    def test_select_all_segment(self):
+    async def test_select_all_segment(self):
         with self.project.apply_mutations('test'):
             ref1 = self.track.create_segment(MT(0, 4), MD(4, 4))
             ref2 = self.track.create_segment(MT(6, 4), MD(4, 4))
 
         with self._trackItem() as ti:
-            menu = self.openContextMenu()
-            self.triggerMenuAction(menu, 'select-all')
+            menu = await self.openContextMenu()
+            await self.triggerMenuAction(menu, 'select-all')
 
             self.assertEqual(
                 {segment.segmentRef().id for segment in ti.selection()},
                 {ref1.id, ref2.id})
 
-    def test_clear_selection_segment(self):
+    async def test_clear_selection_segment(self):
         with self.project.apply_mutations('test'):
             self.track.create_segment(MT(0, 4), MD(4, 4))
             self.track.create_segment(MT(6, 4), MD(4, 4))
@@ -283,7 +283,7 @@ class PianoRollTrackEditorTest(track_editor_tests.TrackEditorItemTestMixin, uite
         with self._trackItem() as ti:
             ti.addToSelection(ti.segments[0])
 
-            menu = self.openContextMenu()
-            self.triggerMenuAction(menu, 'clear-selection')
+            menu = await self.openContextMenu()
+            await self.triggerMenuAction(menu, 'clear-selection')
 
             self.assertEqual(len(ti.selection()), 0)

@@ -32,12 +32,19 @@ from . import editor
 
 
 class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.player_state = None
+        self.editor = None
+
     def setup_testcase(self):
         self.player_state = player_state.PlayerState(context=self.context)
         self.editor = editor.Editor(player_state=self.player_state, context=self.context)
 
     def cleanup_testcase(self):
-        self.editor.cleanup()
+        if self.editor is not None:
+            self.editor.cleanup()
 
     def _createTrackItem(self, **kwargs):
         raise NotImplementedError
@@ -49,7 +56,6 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
             ti.resize(800, ti.minimumHeight())
             self.setWidgetUnderTest(ti)
             ti.show()
-            self.processQtEvents()
             yield ti
         finally:
             ti.cleanup()
@@ -67,9 +73,9 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
             ti.setScaleX(Fraction(1000, 1))
             self.assertEqual(ti.scaleX(), Fraction(1000, 1))
 
-    def test_mouse_events(self):
+    async def test_mouse_events(self):
         with self._trackItem():
-            self.replayEvents(
+            await self.replayEvents(
                 uitest.MoveMouse(QtCore.QPoint(100, 50)),
                 uitest.PressMouseButton(Qt.LeftButton),
                 uitest.MoveMouse(QtCore.QPoint(110, 54)),
@@ -80,9 +86,9 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
                 uitest.DoubleClickButton(Qt.LeftButton),
             )
 
-    def test_key_events(self):
+    async def test_key_events(self):
         with self._trackItem():
-            self.replayEvents(
+            await self.replayEvents(
                 uitest.MoveMouse(QtCore.QPoint(100, 50)),
                 uitest.PressKey(Qt.Key_Shift),
                 uitest.PressKey(Qt.Key_A),
