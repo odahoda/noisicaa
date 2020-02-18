@@ -146,6 +146,7 @@ class SampleReader(object):
 class SndFileReader(SampleReader):
     mime_types = {
         'audio/x-wav',
+        'audio/x-flac',
     }
 
     def __init__(self, path: str) -> None:

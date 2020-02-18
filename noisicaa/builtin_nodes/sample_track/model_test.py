@@ -157,6 +157,15 @@ class SampleTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         self.assertEqual(loaded_sample.sample_rate, 44100)
         self.assertEqual(len(loaded_sample.raw_paths), 2)
 
+    async def test_load_sample_flac(self):
+        path = os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.flac')
+        track = await self._add_track()
+        loaded_sample = await track.load_sample(path, self.loop)
+        self.assertEqual(loaded_sample.path, path)
+        self.assertEqual(loaded_sample.num_samples, 126208)
+        self.assertEqual(loaded_sample.sample_rate, 44100)
+        self.assertEqual(len(loaded_sample.raw_paths), 2)
+
     async def test_load_sample_mp3(self):
         path = os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.mp3')
         track = await self._add_track()
