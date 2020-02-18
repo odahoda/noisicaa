@@ -281,6 +281,17 @@ classes {
 }
 
 classes {
+  name: "SampleChannel"
+  super_class: "ObjectBase"
+  proto_ext_name: "sample_channel"
+  properties {
+    name: "raw_path"
+    type: STRING
+    proto_id: 1
+  }
+}
+
+classes {
   name: "Sample"
   super_class: "ObjectBase"
   proto_ext_name: "sample"
@@ -288,6 +299,23 @@ classes {
     name: "path"
     type: STRING
     proto_id: 1
+  }
+  properties {
+    name: "num_samples"
+    type: UINT32
+    proto_id: 2
+  }
+  properties {
+    name: "sample_rate"
+    type: UINT32
+    proto_id: 3
+  }
+  properties {
+    name: "channels"
+    type: OBJECT_LIST
+    obj_type: "SampleChannel"
+    obj_mod: "noisicaa.music.samples"
+    proto_id: 4
   }
 }
 

@@ -60,6 +60,10 @@ cdef class PyTimeMapper(object):
         self.duration = change.new_value
 
     @property
+    def sample_rate(self):
+        return int(self.__tmap.sample_rate())
+
+    @property
     def bpm(self):
         return int(self.__tmap.bpm())
 

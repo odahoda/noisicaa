@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import asyncio
 import functools
 import logging
 import os.path
@@ -460,54 +461,54 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
     def setWidgetUnderTest(self, widget):
         self.widget_under_test = widget
 
-    def processQtEvents(self):
-        self.qt_app.processEvents()
+    async def processQtEvents(self):
+        await asyncio.sleep(0, loop=self.loop)
 
     def renderWidget(self):
         pixmap = QtGui.QPixmap(self.widget_under_test.size())
         self.widget_under_test.render(pixmap)
         return pixmap
 
-    def replayEvents(self, *events):
+    async def replayEvents(self, *events):
         for event in events:
             event.replay(self.hid_state, self.widget_under_test)
-            self.processQtEvents()
+            await self.processQtEvents()
 
-    def moveMouse(self, pos, steps=10):
+    async def moveMouse(self, pos, steps=10):
         p1 = self.hid_state.mouse_pos
         p2 = pos
         for i in range(1, steps + 1):
             MoveMouse(i * (p2 - p1) / steps + p1).replay(self.hid_state, self.widget_under_test)
-            self.processQtEvents()
+            await self.processQtEvents()
 
-    def pressKey(self, key):
+    async def pressKey(self, key):
         PressKey(key).replay(self.hid_state, self.widget_under_test)
-        self.processQtEvents()
+        await self.processQtEvents()
 
-    def releaseKey(self, key):
+    async def releaseKey(self, key):
         ReleaseKey(key).replay(self.hid_state, self.widget_under_test)
-        self.processQtEvents()
+        await self.processQtEvents()
 
-    def pressMouseButton(self, button):
+    async def pressMouseButton(self, button):
         PressMouseButton(button).replay(self.hid_state, self.widget_under_test)
-        self.processQtEvents()
+        await self.processQtEvents()
 
-    def releaseMouseButton(self, button):
+    async def releaseMouseButton(self, button):
         ReleaseMouseButton(button).replay(self.hid_state, self.widget_under_test)
-        self.processQtEvents()
+        await self.processQtEvents()
 
-    def clickMouseButton(self, button):
-        self.pressMouseButton(button)
-        self.releaseMouseButton(button)
+    async def clickMouseButton(self, button):
+        await self.pressMouseButton(button)
+        await self.releaseMouseButton(button)
 
-    def scrollWheel(self, direction):
+    async def scrollWheel(self, direction):
         MoveWheel(direction).replay(self.hid_state, self.widget_under_test)
-        self.processQtEvents()
+        await self.processQtEvents()
 
-    def openContextMenu(self):
+    async def openContextMenu(self):
         assert self.widget_under_test.findChild(QtWidgets.QMenu, 'context-menu') is None
         OpenContextMenu().replay(self.hid_state, self.widget_under_test)
-        self.processQtEvents()
+        await self.processQtEvents()
         menu = self.widget_under_test.findChild(QtWidgets.QMenu, 'context-menu')
         assert menu is not None
         return menu
@@ -518,11 +519,11 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
                 return action
         raise AssertionError(name)
 
-    def triggerMenuAction(self, menu, name):
+    async def triggerMenuAction(self, menu, name):
         action = self.getMenuAction(menu, name)
         self.assertTrue(action.isEnabled())
         action.trigger()
-        self.processQtEvents()
+        await self.processQtEvents()
 
 
 class ProjectMixin(

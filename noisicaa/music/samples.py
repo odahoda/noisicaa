@@ -30,16 +30,35 @@ from . import _model
 logger = logging.getLogger(__name__)
 
 
+class SampleChannel(_model.SampleChannel, model_base.ProjectChild):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.__samples = None  # type: memoryview
+
+    def create(self, *, raw_path: Optional[str] = None, **kwargs: Any) -> None:
+        super().create(**kwargs)
+
+        self.raw_path = raw_path
+
+
 class Sample(_model.Sample, model_base.ProjectChild):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__samples = None  # type: memoryview
 
-    def create(self, *, path: Optional[str] = None, **kwargs: Any) -> None:
+    def create(
+            self, *,
+            path: str = None,
+            sample_rate: int = None,
+            num_samples: int = None,
+            **kwargs: Any) -> None:
         super().create(**kwargs)
 
         self.path = path
+        self.sample_rate = sample_rate
+        self.num_samples = num_samples
 
     @property
     def samples(self) -> memoryview:

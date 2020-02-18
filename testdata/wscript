@@ -23,6 +23,9 @@
 def build(ctx):
     ctx.static_file('kick-gettinglaid.wav')
     ctx.static_file('future-thunder1.wav')
+    ctx.run_ffmpeg('future-thunder1.mp3', 'future-thunder1.wav', ['-f', 'mp3'])
+    ctx.run_ffmpeg('future-thunder1.aac', 'future-thunder1.wav', ['-f', 'adts'])
+    ctx.run_ffmpeg('future-thunder1.flac', 'future-thunder1.wav', ['-f', 'flac'])
     ctx.static_file('test1.wav')
     ctx.static_file('symbol.svg')
     ctx.rendered_csound('kick.csnd')

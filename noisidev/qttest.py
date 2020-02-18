@@ -23,6 +23,8 @@
 import asyncio
 import concurrent.futures
 import logging
+import sys
+import traceback
 
 from PyQt5 import QtWidgets
 import quamash
@@ -31,6 +33,30 @@ from noisicaa import constants
 from . import unittest
 
 logger = logging.getLogger(__name__)
+
+
+def error_handler(event_loop, context):
+    try:
+        event_loop.default_exception_handler(context)
+    except:  # pylint: disable=bare-except
+        traceback.print_exc()
+
+    try:
+        msg = context['message']
+        exc = context.get('exception', None)
+        if exc is not None:
+            tb = exc.__traceback__
+            if tb is not None:
+                msg += '\n%s' % ''.join(traceback.format_exception(type(exc), exc, tb))
+            else:
+                msg += '\n%s: %s\nNo traceback' % (type(exc).__name__, exc)
+        src_tb = context.get('source_traceback', None)
+        if src_tb is not None:
+            msg += '\nSource Traceback:\n%s' % ''.join(traceback.format_list(src_tb))
+        sys.stderr.write(msg)
+
+    except:  # pylint: disable=bare-except
+        traceback.print_exc()
 
 
 class QtTestCase(unittest.AsyncTestCase):
@@ -47,6 +73,7 @@ class QtTestCase(unittest.AsyncTestCase):
             cls.qt_app.setQuitOnLastWindowClosed(False)
 
         event_loop = quamash.QEventLoop(cls.qt_app)
+        event_loop.set_exception_handler(error_handler)
         asyncio.set_event_loop(event_loop)
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
         event_loop.set_default_executor(executor)

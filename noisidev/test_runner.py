@@ -55,6 +55,9 @@ sys.path.insert(0, LIBDIR)
 # Ensure that future imports from noisidev come from LIBDIR.
 sys.modules.pop('noisidev')
 
+# Enable debug mode of asyncio
+os.environ['PYTHONASYNCIODEBUG'] = '1'
+
 os.environ['NOISICAA_DATA_DIR'] = os.path.join(LIBDIR, 'data')
 
 # Set path to locally built 3rdparty libraries.

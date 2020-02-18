@@ -39,6 +39,8 @@ public:
   Status setup();
   void cleanup();
 
+  uint32_t sample_rate() const { return _sample_rate; }
+
   void set_bpm(uint32_t bpm) { _bpm = bpm; }
   uint32_t bpm() const { return _bpm; }
 

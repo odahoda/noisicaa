@@ -62,20 +62,22 @@ void SampleScript::apply_mutation(Logger* logger, pb::ProcessorMessage* msg) {
       msg->GetExtension(pb::sample_script_add_sample);
 
     StatusOr<AudioFile*> stor_audio_file =
-      _host_system->audio_file->load_audio_file(m.sample_path());
+      _host_system->audio_file->load_raw_file(
+          m.sample_rate(),
+          m.num_samples(),
+          {m.channel_paths().begin(), m.channel_paths().end()});
     if (!stor_audio_file.is_error()) {
       Sample sample;
       sample.id = m.id();
       sample.time = m.time();
       sample.audio_file = stor_audio_file.result();
-      _host_system->audio_file->acquire_audio_file(sample.audio_file);
 
       auto it = lower_bound(samples.begin(), samples.end(), sample, sample_comp);
       samples.insert(it, sample);
     } else {
       _logger->warning(
           "Failed to load audio file '%s': %s",
-          m.sample_path().c_str(), stor_audio_file.message());
+          m.channel_paths(0).c_str(), stor_audio_file.message());
     }
   } else if (msg->HasExtension(pb::sample_script_remove_sample)) {
     const pb::SampleScriptRemoveSample& m =
@@ -160,6 +162,7 @@ Status ProcessorSampleScript::process_block_internal(BlockContext* ctxt, TimeMap
         // - Do a binary search to find the new script->offset.
 
         script->offset = 0;
+        script->current_audio_file = nullptr;
         while ((size_t)script->offset < script->samples.size()) {
           const Sample& sample = script->samples[script->offset];
 
@@ -176,7 +179,6 @@ Status ProcessorSampleScript::process_block_internal(BlockContext* ctxt, TimeMap
             break;
           } else if (sample.time >= stime->start_time) {
             // We seeked into some empty space before an audio file.
-            script->current_audio_file = nullptr;
             break;
           }
 
