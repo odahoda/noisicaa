@@ -60,7 +60,7 @@ class MutationModel(QtCore.QAbstractItemModel):
             log_entry = self.__storage.get_log_entry(idx)
             mutation_list = mutations_pb2.MutationList()
             try:
-                parsed_bytes = mutation_list.ParseFromString(log_entry)  # type: ignore
+                parsed_bytes = mutation_list.ParseFromString(log_entry)  # type: ignore[func-returns-value]
                 assert parsed_bytes == len(log_entry)
             except Exception as exc:  # pylint: disable=broad-except
                 error = self.__mutation_cache[idx] = str(exc)
@@ -84,7 +84,7 @@ class MutationModel(QtCore.QAbstractItemModel):
 
         return self.createIndex(row, column, None)
 
-    def parent(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:  # type: ignore
+    def parent(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:  # type: ignore[override]
         return QtCore.QModelIndex()
 
     def columnCount(self, parent: QtCore.QModelIndex = QtCore.QModelIndex()) -> int:
@@ -245,7 +245,7 @@ class ProjectDebugger(ui_base.CommonMixin, QtWidgets.QWidget):
         log_entry = self.__storage.get_log_entry(history_entry[1])
         mutation_list = mutations_pb2.MutationList()
         try:
-            parsed_bytes = mutation_list.ParseFromString(log_entry)  # type: ignore
+            parsed_bytes = mutation_list.ParseFromString(log_entry)  # type: ignore[func-returns-value]
             assert parsed_bytes == len(log_entry)
         except Exception:  # pylint: disable=broad-except
             self.__mutation_list.setPlainText(traceback.format_exc())

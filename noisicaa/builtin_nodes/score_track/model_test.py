@@ -20,7 +20,7 @@
 #
 # @end:license
 
-from typing import List
+from typing import cast, List
 
 from noisidev import unittest
 from noisidev import unittest_mixins
@@ -60,6 +60,9 @@ class ScoreTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCas
 class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://score-track'
     track_cls = model.ScoreTrack
+
+    async def _add_track(self) -> model.ScoreTrack:
+        return cast(model.ScoreTrack, await super()._add_track())
 
     async def _fill_measure(self, measure):
         with self.project.apply_mutations('test'):

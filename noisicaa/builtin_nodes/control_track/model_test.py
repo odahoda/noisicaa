@@ -20,7 +20,7 @@
 #
 # @end:license
 
-from typing import List
+from typing import cast, List
 
 from noisidev import unittest
 from noisidev import unittest_mixins
@@ -128,6 +128,9 @@ class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestC
 class ControlTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://control-track'
     track_cls = model.ControlTrack
+
+    async def _add_track(self) -> model.ControlTrack:
+        return cast(model.ControlTrack, await super()._add_track())
 
     async def test_add_control_point(self):
         track = await self._add_track()

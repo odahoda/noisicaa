@@ -101,11 +101,11 @@ class BaseDial(QGeneric[T], slots.SlotContainer, QtWidgets.QWidget):
         self.update()
 
     def setRange(self, minimum: T, maximum: T) -> None:
-        self.setMinimum(minimum)  # type: ignore
-        self.setMaximum(maximum)  # type: ignore
+        self.setMinimum(minimum)  # type: ignore[attr-defined]
+        self.setMaximum(maximum)  # type: ignore[attr-defined]
 
     def normalizedValue(self) -> float:
-        return self.normalize(self.value())  # type: ignore
+        return self.normalize(self.value())  # type: ignore[attr-defined]
 
     def normalize(self, value: T) -> float:
         raise NotImplementedError
@@ -148,7 +148,7 @@ class BaseDial(QGeneric[T], slots.SlotContainer, QtWidgets.QWidget):
 
     def _renderLabel(self, ctxt: RenderContext) -> None:
         if ctxt.size > 40:
-            text = self.__display_func(self.value())  # type: ignore
+            text = self.__display_func(self.value())  # type: ignore[attr-defined]
             if text:
                 font = QtGui.QFont("Arial")
                 font.setPixelSize(10)
@@ -180,4 +180,4 @@ class BaseDial(QGeneric[T], slots.SlotContainer, QtWidgets.QWidget):
 
     def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton and not self.readOnly():
-            self.setValue(self.default())  # type: ignore
+            self.setValue(self.default())  # type: ignore[attr-defined]

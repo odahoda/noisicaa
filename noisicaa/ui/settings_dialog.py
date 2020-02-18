@@ -127,7 +127,7 @@ class AppearancePage(Page):
         style_name = self._qt_styles[index]
         style = QtWidgets.QStyleFactory.create(style_name)
         # TODO: something's weird here...
-        self.qt_app.setStyle(style)  # type: ignore
+        self.qt_app.setStyle(style)  # type: ignore[misc,call-overload]
 
         self.app.settings.setValue('appearance/qtStyle', style_name)
 

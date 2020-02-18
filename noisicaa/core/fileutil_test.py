@@ -106,10 +106,10 @@ class LogFileTest(unittest.TestCase):
     def test_invalid_append(self):
         with fileutil.LogFile('/test.log', 'w') as log:
             with self.assertRaises(TypeError):
-                log.append('12345678', b'L')  # type: ignore
+                log.append('12345678', b'L')  # type: ignore[arg-type]
 
             with self.assertRaises(TypeError):
-                log.append(b'12345678', 'L')  # type: ignore
+                log.append(b'12345678', 'L')  # type: ignore[arg-type]
 
             with self.assertRaises(ValueError):
                 log.append(b'12345678', b'LA')

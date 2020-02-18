@@ -25,7 +25,7 @@ from typing import Any, List, Callable
 
 class AutoCleanupMixin(object):
     def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)  # type: ignore
+        super().__init__(**kwargs)  # type: ignore[call-arg]
 
         self.__cleanup_functions = []  # type: List[Callable[[], None]]
 

@@ -30,7 +30,7 @@ class ProcessorSoundFileTest(
         unittest.TestCase):
     def test_sound_file(self):
         self.node_description = self.node_db['builtin://sound_file']
-        self.node_description.sound_file.sound_file_path = os.fsencode(
+        self.node_description.sound_file.sound_file_path = os.fsencode(  # type: ignore[assignment]
             os.path.join(unittest.TESTDATA_DIR, 'snare.wav'))
         self.create_processor()
 

@@ -179,7 +179,7 @@ class Root(ObjectBase):
 class PropertyChangeCollector(object):
     def __init__(self, obj, prop_name):
         self.prop_name = prop_name
-        self.changes = []  # type: List[Tuple[Any]]
+        self.changes = []  # type: List[Tuple]
 
         obj.change.add(self.on_change)
 
@@ -452,7 +452,7 @@ class ObjectTest(unittest.TestCase):
             self.pool.create(GrandChild, id=120 + i)
 
         obj.child_value = self.pool[110]
-        obj.child_value.child = self.pool[121]
+        obj.child_value.child = self.pool[121]  # type: ignore[attr-defined]
         obj.child_list.append(self.pool[111])
         obj.child_list.append(self.pool[112])
         obj.child_list[1].child = self.pool[120]
@@ -543,7 +543,7 @@ class PropertyTest(unittest.TestCase):
         prop = model_base.Property(str)
         prop.name = 'string_value'
         with self.assertRaises(TypeError):
-            prop.set_value(self.obj, self.pb, self.pool, 123)  # type: ignore
+            prop.set_value(self.obj, self.pb, self.pool, 123)  # type: ignore[arg-type]
 
 
 class ProtoPropertyTest(unittest.TestCase):
@@ -619,7 +619,7 @@ class ProtoPropertyTest(unittest.TestCase):
         prop = model_base.ProtoProperty(model_base_test_pb2.Proto)
         prop.name = 'proto_value'
         with self.assertRaises(TypeError):
-            prop.set_value(self.obj, self.pb, self.pool, 123)  # type: ignore
+            prop.set_value(self.obj, self.pb, self.pool, 123)  # type: ignore[arg-type]
 
 
 class WrappedProtoPropertyTest(unittest.TestCase):
@@ -687,7 +687,7 @@ class WrappedProtoPropertyTest(unittest.TestCase):
         prop = model_base.WrappedProtoProperty(Proto)
         prop.name = 'proto_value'
         with self.assertRaises(TypeError):
-            prop.set_value(self.obj, self.pb, self.pool, 123)  # type: ignore
+            prop.set_value(self.obj, self.pb, self.pool, 123)  # type: ignore[arg-type]
 
 
 class ObjectPropertyTest(unittest.TestCase):
@@ -766,7 +766,7 @@ class ObjectPropertyTest(unittest.TestCase):
         prop = model_base.ObjectProperty(Child)
         prop.name = 'child_value'
         with self.assertRaises(TypeError):
-            prop.set_value(self.obj, self.pb, self.pool, 123)  # type: ignore
+            prop.set_value(self.obj, self.pb, self.pool, 123)  # type: ignore[arg-type]
 
 
 class ListPropertyTest(unittest.TestCase):
@@ -865,7 +865,7 @@ class ObjectListPropertyTest(unittest.TestCase):
         self.assertTrue(grandchild.is_child_of(self.obj))
 
 
-class ListMixin(object):
+class ListMixin(unittest.AbstractTestCase):
     SUPPORTS_LIST_SET = True
 
     def create_list(self):

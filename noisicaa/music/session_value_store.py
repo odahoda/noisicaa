@@ -57,7 +57,7 @@ class SessionValueStore(object):
                     checkpoint_serialized = fp.read()
 
                 # mypy thinks that ParseFromString has no return value. bug in the stubs?
-                bytes_parsed = checkpoint.ParseFromString(checkpoint_serialized)  # type: ignore
+                bytes_parsed = checkpoint.ParseFromString(checkpoint_serialized)  # type: ignore[func-returns-value]
                 assert bytes_parsed == len(checkpoint_serialized)
 
                 for session_value in checkpoint.session_values:

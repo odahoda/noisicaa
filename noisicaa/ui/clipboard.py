@@ -71,11 +71,11 @@ class Clipboard(core.AutoCleanupMixin, ui_base.CommonMixin, QtCore.QObject):
     def setup(self) -> None:
         self.__qclipboardChanged()
         conn = self.__qclipboard.dataChanged.connect(self.__qclipboardChanged)
-        self.add_cleanup_function(lambda conn=conn: self.__qclipboard.dataChanged.disconnect(conn))  # type: ignore
+        self.add_cleanup_function(lambda conn=conn: self.__qclipboard.dataChanged.disconnect(conn))  # type: ignore[misc]
 
         self.__focusChanged(None, self.__qt_app.focusWidget())
         conn = self.__qt_app.focusChanged.connect(self.__focusChanged)
-        self.add_cleanup_function(lambda conn=conn: self.__qt_app.focusChanged.disconnect(conn))  # type: ignore
+        self.add_cleanup_function(lambda conn=conn: self.__qt_app.focusChanged.disconnect(conn))  # type: ignore[misc]
 
     def store(self, data: music.ClipboardContents) -> None:
         mime_data = QtCore.QMimeData()
@@ -115,7 +115,7 @@ class Clipboard(core.AutoCleanupMixin, ui_base.CommonMixin, QtCore.QObject):
             return
 
         self.__contents = music.ClipboardContents()
-        self.__contents.ParseFromString(mime_data.data(MIME_TYPE))
+        self.__contents.ParseFromString(mime_data.data(MIME_TYPE).data())
 
         logger.info("Clipboard contents changed:\n%s", self.__contents)
 

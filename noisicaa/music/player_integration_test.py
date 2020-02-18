@@ -117,7 +117,7 @@ class PlayerTest(
             'CREATE_AUDIOPROC_PROCESS', create_audioproc_request, create_audioproc_response)
         self.audioproc_address_main = create_audioproc_response.address
 
-        self.audioproc_client_main = audioproc.AudioProcClient(self.loop, self.server)  # type: ignore
+        self.audioproc_client_main = audioproc.AudioProcClient(self.loop, self.server)  # type: ignore[call-arg]
         await self.audioproc_client_main.setup()
         await self.audioproc_client_main.connect(
             self.audioproc_address_main, flags={'perf_data'})
@@ -179,7 +179,7 @@ class PlayerTest(
 
     #@unittest.skip("TODO: async status updates are flaky")
     async def test_playback_demo(self):
-        p = player.Player(  # type: ignore
+        p = player.Player(  # type: ignore[call-arg]
             project=self.project,
             callback_address=self.callback_server.address,
             event_loop=self.loop,

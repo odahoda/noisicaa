@@ -205,7 +205,7 @@ class HIDState(object):
     def mouse_buttons(self):
         buttons = Qt.NoButton
         for button in self.__pressed_mouse_buttons:
-            buttons |= button
+            buttons |= button  # type: ignore[assignment]
         return buttons
 
     def press_key(self, key):

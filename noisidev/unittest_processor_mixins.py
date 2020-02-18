@@ -84,7 +84,7 @@ class ProcessorTestMixin(
         elif isinstance(self.buffers.type(name), buffers.PyFloatControlValueBuffer):
             buf[0] = value
         else:
-            raise ValueError("%s: %s" % (name, self.buffers[name].type))
+            raise ValueError("%s: %s" % (name, self.buffers.type(name)))
 
     def fill_midi_buffer(self, name, events):
         forge = lv2.AtomForge(self.urid_mapper)

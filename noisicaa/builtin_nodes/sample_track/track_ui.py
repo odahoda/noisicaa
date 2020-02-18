@@ -263,7 +263,7 @@ class SampleItem(core.AutoCleanupMixin, object):
         conn = self.__track_editor.scaleXChanged.connect(self.__onScaleXChanged)
         # mypy complains about "Cannot infer type of lambda"...
         self.add_cleanup_function(
-            lambda conn=conn: self.__track_editor.scaleXChanged.disconnect(conn))  # type: ignore
+            lambda conn=conn: self.__track_editor.scaleXChanged.disconnect(conn))  # type: ignore[misc]
 
     def cleanup(self) -> None:
         self.__render_task.cancel()

@@ -157,7 +157,7 @@ class PluginUI(ui_base.ProjectMixin, QtWidgets.QWidget):
             # TODO: this should use self.__node.pipeline_node_id
             self.__wid, size = await self.project_view.createPluginUI('%016x' % self.__node.id)
 
-            proxy_win = QtGui.QWindow.fromWinId(self.__wid)  # type: ignore
+            proxy_win = QtGui.QWindow.fromWinId(self.__wid)  # type: ignore[arg-type]
             proxy_widget = QtWidgets.QWidget.createWindowContainer(proxy_win, self)
             proxy_widget.setMinimumSize(*size)
             #proxy_widget.setMaximumSize(*size)

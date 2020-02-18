@@ -37,7 +37,7 @@ class FlowLayout(QtWidgets.QLayout):
 
         self.setSpacing(spacing)
 
-        self.itemList = []  # type: List[QtWidgets.QWidget]
+        self.itemList = []  # type: List[QtWidgets.QLayoutItem]
 
     def __del__(self):
         item = self.takeAt(0)

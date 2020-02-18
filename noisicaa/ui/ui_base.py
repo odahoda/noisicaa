@@ -94,7 +94,7 @@ class CommonMixin(object):
         self._context = context
 
         # This is a mixin class, so actual super class is not object.
-        super().__init__(**kwargs)  # type: ignore
+        super().__init__(**kwargs)  # type: ignore[call-arg]
 
     @property
     def context(self) -> CommonContext:

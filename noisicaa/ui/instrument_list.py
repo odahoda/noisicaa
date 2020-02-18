@@ -278,7 +278,7 @@ class InstrumentList(ui_base.CommonMixin, QtCore.QAbstractItemModel):
         item = parent_item.children[row]
         return self.createIndex(row, column, item)
 
-    def parent(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:  # type: ignore
+    def parent(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:  # type: ignore[override]
         if not index.isValid():
             return QtCore.QModelIndex()
 

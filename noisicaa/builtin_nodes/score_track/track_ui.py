@@ -704,7 +704,7 @@ class ScoreMeasureEditor(measured_track_editor.MeasureEditor):
 
     def addMeasureListeners(self) -> None:
         self._measure_listeners.add(self.measure.content_changed.add(
-            lambda _=None: self.invalidatePaintCache(self.FOREGROUND)))  # type: ignore
+            lambda _=None: self.invalidatePaintCache(self.FOREGROUND)))  # type: ignore[misc]
         self._measure_listeners.add(self.measure.clef_changed.add(
             self.onClefChanged))
         self._measure_listeners.add(self.measure.key_signature_changed.add(

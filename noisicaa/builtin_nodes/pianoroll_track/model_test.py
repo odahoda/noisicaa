@@ -21,6 +21,7 @@
 # @end:license
 
 import logging
+from typing import cast
 
 from noisidev import unittest
 from noisicaa import audioproc
@@ -39,6 +40,9 @@ NOTE_OFF = lambda channel, pitch: bytes([0x80 | channel, pitch, 0])
 class PianoRollTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://pianoroll-track'
     track_cls = model.PianoRollTrack
+
+    async def _add_track(self) -> model.PianoRollTrack:
+        return cast(model.PianoRollTrack, await super()._add_track())
 
     async def test_create_segment(self):
         track = await self._add_track()

@@ -233,7 +233,7 @@ class FlatProjectListModel(AbstractRegistryModel, QtCore.QAbstractProxyModel):
     ) -> QtCore.QModelIndex:
         return self.createIndex(row, column, None)
 
-    def parent(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:  # type: ignore
+    def parent(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:  # type: ignore[override]
         return QtCore.QModelIndex()
 
 

@@ -115,7 +115,7 @@ class PluginHost(plugin_host.PyPluginHost):
         self.__state = state
 
     # Parent class doesn't use async setup/cleanup.
-    async def setup(self) -> None:  # type: ignore
+    async def setup(self) -> None:  # type: ignore[override]
         super().setup()
 
         if self.__callback_address is not None:
@@ -140,7 +140,7 @@ class PluginHost(plugin_host.PyPluginHost):
             self.__state_fetcher_task = self.__event_loop.create_task(
                 self.__state_fetcher_main())
 
-    async def cleanup(self) -> None:  # type: ignore
+    async def cleanup(self) -> None:  # type: ignore[override]
         if self.__state_fetcher_task:
             if not self.__state_fetcher_task.done():
                 self.__state_fetcher_task.cancel()

@@ -223,11 +223,9 @@ class StatMonitor(ui_base.AbstractStatMonitor):
         self.setCentralWidget(main_widget)
 
         self.setVisible(
-            int(self.app.settings.value(
-                'dialog/stat_monitor/visible', False)))
+            bool(int(self.app.settings.value('dialog/stat_monitor/visible', False))))
         self.restoreGeometry(
-            self.app.settings.value(
-                'dialog/stat_monitor/geometry', b''))
+            self.app.settings.value('dialog/stat_monitor/geometry', b''))
 
     def storeState(self):
         s = self.app.settings
@@ -272,7 +270,7 @@ class StatMonitor(ui_base.AbstractStatMonitor):
         self.__time_scale *= 2
 
     def onZoomOut(self):
-        if self.time_scale > 1:
+        if self.__time_scale > 1:
             self.__time_scale //= 2
 
     def onUpdate(self):

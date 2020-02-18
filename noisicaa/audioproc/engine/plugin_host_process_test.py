@@ -150,10 +150,10 @@ class PluginHostProcessTest(
                 p = shm_data[offset:offset+bufsize]
                 if port_spec.types[0] == node_db.PortDescription.AUDIO:
                     # TODO: mypy doesn't know memoryview.cast
-                    bufp[port_spec.name] = p.cast('f')  # type: ignore
+                    bufp[port_spec.name] = p.cast('f')  # type: ignore[attr-defined]
                 elif port_spec.types[0] == node_db.PortDescription.KRATE_CONTROL:
                     # TODO: mypy doesn't know memoryview.cast
-                    bufp[port_spec.name] = p.cast('f')  # type: ignore
+                    bufp[port_spec.name] = p.cast('f')  # type: ignore[attr-defined]
                 else:
                     raise ValueError(port_spec.types[0])
 
@@ -279,7 +279,7 @@ class PluginHostProcessTest(
             size = (create_ui_response.width, create_ui_response.height)
 
             # fromWinId expects some 'voidptr'...
-            proxy_win = QtGui.QWindow.fromWinId(wid)  # type: ignore
+            proxy_win = QtGui.QWindow.fromWinId(wid)  # type: ignore[arg-type]
             proxy_widget = QtWidgets.QWidget.createWindowContainer(proxy_win, win)
             proxy_widget.setMinimumSize(*size)
             #proxy_widget.setMaximumSize(*size)

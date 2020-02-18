@@ -42,7 +42,7 @@ class BeatTrackConnector(base_track.MeasuredTrackConnector):
     def _add_measure_listeners(self, mref: base_track.MeasureReference) -> None:
         measure = down_cast(BeatMeasure, mref.measure)
         self._listeners['measure:%s:beats' % mref.id] = measure.content_changed.add(
-            lambda _=None: self.__measure_beats_changed(mref))  # type: ignore
+            lambda _=None: self.__measure_beats_changed(mref))  # type: ignore[misc]
 
     def _remove_measure_listeners(self, mref: base_track.MeasureReference) -> None:
         del self._listeners['measure:%s:beats' % mref.id]

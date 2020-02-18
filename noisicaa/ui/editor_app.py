@@ -157,7 +157,7 @@ class EditorApp(ui_base.AbstractEditorApp):
     async def setup(self) -> None:
         logger.info("Installing custom excepthook.")
         self.__old_excepthook = sys.excepthook
-        sys.excepthook = ExceptHook(self)  # type: ignore
+        sys.excepthook = ExceptHook(self)  # type: ignore[assignment]
 
         self.setup_complete = asyncio.Event(loop=self.process.event_loop)
 
@@ -165,7 +165,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         style_name = self.settings.value('appearance/qtStyle', '')
         if style_name:
             # TODO: something's wrong with the QtWidgets stubs...
-            self.qt_app.setStyle(QtWidgets.QStyleFactory.create(style_name))  # type: ignore
+            self.qt_app.setStyle(QtWidgets.QStyleFactory.create(style_name))  # type: ignore[misc,call-overload]
 
         self.clipboard = clipboard.Clipboard(qt_app=self.qt_app, context=self.context)
         self.clipboard.setup()
@@ -429,7 +429,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.dumpSettings()
 
         logger.info("Remove custom excepthook.")
-        sys.excepthook = self.__old_excepthook  # type: ignore
+        sys.excepthook = self.__old_excepthook  # type: ignore[assignment]
 
     def eventFilter(self, target: QtCore.QObject, evt: QtCore.QEvent) -> bool:
         if evt.type() == QtCore.QEvent.MouseMove:
@@ -457,7 +457,7 @@ class EditorApp(ui_base.AbstractEditorApp):
     def quit(self, exit_code: int = 0) -> None:
         # TODO: quit() is not a method of ProcessBase, only in UIProcess. Find some way to
         #   fix that without a cyclic import.
-        self.process.quit(exit_code)  # type: ignore
+        self.process.quit(exit_code)  # type: ignore[attr-defined]
 
     async def createAudioProcProcess(self) -> None:
         create_audioproc_request = editor_main_pb2.CreateAudioProcProcessRequest(

@@ -47,7 +47,7 @@ class ScoreTrackConnector(base_track.MeasuredTrackConnector):
     def _add_measure_listeners(self, mref: base_track.MeasureReference) -> None:
         measure = down_cast(ScoreMeasure, mref.measure)
         self._listeners['measure:%s:notes' % mref.id] = measure.content_changed.add(
-            lambda _=None: self.__measure_notes_changed(mref))  # type: ignore
+            lambda _=None: self.__measure_notes_changed(mref))  # type: ignore[misc]
 
     def _remove_measure_listeners(self, mref: base_track.MeasureReference) -> None:
         del self._listeners['measure:%s:notes' % mref.id]

@@ -23,6 +23,7 @@
 import inspect
 import logging
 import os.path
+import typing
 import unittest
 
 import asynctest
@@ -86,6 +87,12 @@ class TestCase(SetupTestCaseMixin, unittest.TestCase):
             cleanup_testcase(self)
 
 
+if typing.TYPE_CHECKING:
+    AbstractTestCase = TestCase
+else:
+    AbstractTestCase = object
+
+
 class AsyncTestCase(SetupTestCaseMixin, asynctest.TestCase):
     forbid_get_event_loop = True
 
@@ -109,3 +116,9 @@ class AsyncTestCase(SetupTestCaseMixin, asynctest.TestCase):
             c = cleanup_testcase(self)
             if inspect.isawaitable(c):
                 await c
+
+
+if typing.TYPE_CHECKING:
+    AbstractAsyncTestCase = AsyncTestCase
+else:
+    AbstractAsyncTestCase = object

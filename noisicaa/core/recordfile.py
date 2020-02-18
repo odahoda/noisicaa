@@ -24,6 +24,7 @@ import logging
 import hashlib
 import re
 from typing import Any, Dict, Tuple, Union
+from typing_extensions import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ class RecordFile(object):
     def __enter__(self) -> 'RecordFile':
         return self
 
-    def __exit__(self, *args: Any) -> bool:
+    def __exit__(self, *args: Any) -> Literal[False]:
         self.close()
         return False
 

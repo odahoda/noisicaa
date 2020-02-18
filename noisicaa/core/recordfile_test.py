@@ -47,13 +47,13 @@ class RecordFileTest(unittest.TestCase):
         with recordfile.RecordFile('/test.rec', recordfile.MODE_CREATE) as r:
             r.append_record(b'lalila')
             with self.assertRaises(AssertionError):
-                r.append_record('lalila')  # type: ignore
+                r.append_record('lalila')  # type: ignore[arg-type]
 
     def test_append_record_prop_type(self):
         with recordfile.RecordFile('/test.rec', recordfile.MODE_CREATE) as r:
             r.append_record(b'lalila', foo='bar', foo2boo='12.2')
             with self.assertRaises(AssertionError):
-                r.append_record(b'lalila', foo=1)  # type: ignore
+                r.append_record(b'lalila', foo=1)  # type: ignore[arg-type]
             with self.assertRaises(AssertionError):
                 r.append_record(b'lalila', foo='1 2 3')
             with self.assertRaises(AssertionError):

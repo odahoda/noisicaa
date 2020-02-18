@@ -661,7 +661,7 @@ class ProcessBase(object):
 
 # mypy complains: Invalid type "asyncio.DefaultEventLoopPolicy"
 # Not sure if that's related to https://github.com/python/mypy/issues/1843
-class EventLoopPolicy(asyncio.DefaultEventLoopPolicy):  # type: ignore
+class EventLoopPolicy(asyncio.DefaultEventLoopPolicy):  # type: ignore[valid-type,misc]
     def get_event_loop(self) -> asyncio.AbstractEventLoop:
         raise RuntimeError("get_event_loop() is not allowed.")
 
@@ -723,7 +723,7 @@ class SubprocessMixin(ProcessBase):
         self.event_loop.set_default_executor(self.executor)
 
         # mypy doesn't know about asyncio.SafeChildWatcher.
-        child_watcher = asyncio.SafeChildWatcher()  # type: ignore
+        child_watcher = asyncio.SafeChildWatcher()  # type: ignore[attr-defined]
         child_watcher.attach_loop(self.event_loop)
         event_loop_policy.set_child_watcher(child_watcher)
 
@@ -770,7 +770,7 @@ class SubprocessMixin(ProcessBase):
                 child_connection_handler.setup()
                 try:
                     logger.info("Entering run method.")
-                    return await self.run(*args, **kwargs)  # type: ignore
+                    return await self.run(*args, **kwargs)  # type: ignore[call-arg]
 
                 except Exception:  # pylint: disable=broad-except
                     logger.error(

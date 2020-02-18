@@ -96,6 +96,7 @@ class run_mypy(Task):
                     '--config-file', ini_path,
                     '--cache-dir=%s' % os.path.join(ctx.out_dir, 'mypy-cache.%d' % cache_num),
                     '--show-traceback',
+                    '--no-error-summary',
                     '-m', self.mod_name,
                 ]
                 if self.__strict:

@@ -30,6 +30,7 @@ import struct
 import io
 import logging
 from typing import cast, Any, Optional, Type, Iterator, Dict, Tuple
+from typing_extensions import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -124,14 +125,13 @@ class File(object):
 
             if 'Checksum' in message:
                 should_checksum = cast(str, message['Checksum']).split(';')[0]
-                checksum_type = message.get_param('type', None, 'Checksum')
+                checksum_type = cast(str, message.get_param('type', None, 'Checksum'))
                 if checksum_type is None:
                     raise BadFileFormatError("Checksum type not specified")
                 if checksum_type == 'md5':
                     have_checksum = hashlib.md5(content).hexdigest()
                 else:
-                    raise BadFileFormatError(
-                        "Unsupported checksum type '%s'" % checksum_type)
+                    raise BadFileFormatError("Unsupported checksum type '%s'" % checksum_type)
 
                 if have_checksum != should_checksum:
                     raise CorruptedFileError(
@@ -224,7 +224,7 @@ class LogFile(object):
     def __enter__(self) -> 'LogFile':
         return self
 
-    def __exit__(self, *args: Any) -> bool:
+    def __exit__(self, *args: Any) -> Literal[False]:
         self.close()
         return False
 
@@ -323,7 +323,7 @@ class MimeLogFile(object):
     def __enter__(self) -> 'MimeLogFile':
         return self
 
-    def __exit__(self, *args: Any) -> bool:
+    def __exit__(self, *args: Any) -> Literal[False]:
         self.close()
         return False
 
@@ -374,14 +374,13 @@ class MimeLogFile(object):
 
         if 'Checksum' in message:
             should_checksum = cast(str, message['Checksum']).split(';')[0]
-            checksum_type = message.get_param('type', None, 'Checksum')
+            checksum_type = cast(str, message.get_param('type', None, 'Checksum'))
             if checksum_type is None:
                 raise BadFileFormatError("Checksum type not specified")
             if checksum_type == 'md5':
                 have_checksum = hashlib.md5(content).hexdigest()
             else:
-                raise BadFileFormatError(
-                    "Unsupported checksum type '%s'" % checksum_type)
+                raise BadFileFormatError("Unsupported checksum type '%s'" % checksum_type)
 
             if have_checksum != should_checksum:
                 logger.error("%r", content)

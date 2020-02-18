@@ -37,13 +37,14 @@ from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from noisicaa.constants import TEST_OPTS
 from noisicaa.node_db.private import db as node_db
+from . import unittest
 
 logger = logging.getLogger(__name__)
 
 
-class ServerMixin(object):
+class ServerMixin(unittest.AbstractAsyncTestCase):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)  # type: ignore
+        super().__init__(*args, **kwargs)
 
         self.server = None
 
@@ -56,9 +57,9 @@ class ServerMixin(object):
             await self.server.cleanup()
 
 
-class NodeDBMixin(object):
+class NodeDBMixin(unittest.AbstractAsyncTestCase):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)  # type: ignore
+        super().__init__(*args, **kwargs)
 
         self.node_db = None
 
@@ -71,9 +72,9 @@ class NodeDBMixin(object):
             self.node_db.cleanup()
 
 
-class ProcessManagerMixin(object):
+class ProcessManagerMixin(unittest.AbstractAsyncTestCase):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)  # type: ignore
+        super().__init__(*args, **kwargs)
 
         self.process_manager = None
         self.process_manager_client = None
@@ -300,7 +301,7 @@ class URIDMapperMixin(ProcessManagerMixin):
                     address=self.urid_mapper_address))
 
 
-class NodeConnectorMixin(object):
+class NodeConnectorMixin(unittest.AbstractAsyncTestCase):
     async def setup_testcase(self):
         self.messages = []  # type: List[Any]
 
@@ -342,7 +343,7 @@ class ProjectMixin(
 
         path = os.path.join(TEST_OPTS.TMP_DIR, 'test-project-%s' % uuid.uuid4().hex)
         await self.client.create(path)
-        self.project = self.client.project
+        self.project = self.client.project  # type: ignore[assignment]
         self.pool = self.project._pool
 
         logger.info("Testcase setup complete")

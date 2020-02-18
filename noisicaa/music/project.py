@@ -382,7 +382,7 @@ class Project(BaseProject):
     def deserialize_mutation_list(
             self, mutation_list_serialized: bytes) -> mutations_pb2.MutationList:
         mutation_list = mutations_pb2.MutationList()
-        parsed_bytes = mutation_list.ParseFromString(mutation_list_serialized)  # type: ignore
+        parsed_bytes = mutation_list.ParseFromString(mutation_list_serialized)  # type: ignore[func-returns-value]
         assert parsed_bytes == len(mutation_list_serialized)
         assert mutation_list.version == LOG_VERSION
         return mutation_list

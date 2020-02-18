@@ -166,7 +166,7 @@ class DeviceList(QtCore.QAbstractItemModel):
         parent_item = self.item(parent)
         return self.createIndex(row, column, parent_item.children[row])
 
-    def parent(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:  # type: ignore
+    def parent(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:  # type: ignore[override]
         if not index.isValid():
             return QtCore.QModelIndex()
 

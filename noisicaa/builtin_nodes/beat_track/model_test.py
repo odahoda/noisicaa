@@ -20,6 +20,8 @@
 #
 # @end:license
 
+from typing import cast
+
 from noisidev import unittest
 from noisicaa import audioproc
 from noisicaa.music import base_track_test
@@ -29,6 +31,9 @@ from . import model
 class BeatTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://beat-track'
     track_cls = model.BeatTrack
+
+    async def _add_track(self) -> model.BeatTrack:
+        return cast(model.BeatTrack, await super()._add_track())
 
     async def test_create_measure(self):
         track = await self._add_track()

@@ -80,7 +80,7 @@ class EncoderProtocol(asyncio.streams.FlowControlMixin, asyncio.SubprocessProtoc
             event_loop: asyncio.AbstractEventLoop
     ) -> None:
         # mypy does know about the loop argument
-        super().__init__(loop=event_loop)  # type: ignore
+        super().__init__(loop=event_loop)  # type: ignore[call-arg]
 
         self.__closed = asyncio.Event(loop=event_loop)
 

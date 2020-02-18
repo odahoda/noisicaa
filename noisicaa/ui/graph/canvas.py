@@ -59,7 +59,7 @@ class SelectNodeAction(QtWidgets.QWidgetAction, ui_base.ProjectMixin):
     nodeSelected = QtCore.pyqtSignal(str)
 
     def __init__(self, parent: QtCore.QObject, **kwargs: Any) -> None:
-        super().__init__(parent, **kwargs)  # type: ignore
+        super().__init__(parent, **kwargs)  # type: ignore[call-arg]
 
         self.setDefaultWidget(SelectNodeWidget(
             parent=parent, action=self, context=self.context))
@@ -740,10 +740,10 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
         super().__init__(**kwargs)
 
         self.setMouseTracking(True)
-        self.setRenderHints(  # type: ignore
+        self.setRenderHints(
             QtGui.QPainter.Antialiasing
             | QtGui.QPainter.SmoothPixmapTransform
-            | QtGui.QPainter.HighQualityAntialiasing)
+            | QtGui.QPainter.HighQualityAntialiasing)  # type: ignore[arg-type]
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setResizeAnchor(QtWidgets.QGraphicsView.NoAnchor)
@@ -751,7 +751,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
         self.setDragMode(QtWidgets.QGraphicsView.RubberBandDrag)
         self.setSceneRect(-100000, -100000, 200000, 200000)
 
-        self.rubberBandChanged.connect(self.__rubberBandChanged)  # type: ignore
+        self.rubberBandChanged.connect(self.__rubberBandChanged)
 
         self.currentTrackChanged.connect(self.__currentTrackChanged)
         self.zoomStarted.connect(self.__zoomStarted)

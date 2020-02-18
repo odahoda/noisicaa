@@ -202,7 +202,7 @@ def configure(ctx):
     sys_mgr.check_package(BUILD, 'git')
 
     # mypy
-    pip_mgr.check_package(DEV, 'mypy', version='0.720')
+    pip_mgr.check_package(DEV, 'mypy', version='0.761')
     pip_mgr.check_package(RUNTIME, 'mypy-extensions')
 
     # sndfile

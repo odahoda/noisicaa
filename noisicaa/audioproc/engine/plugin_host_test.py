@@ -57,7 +57,7 @@ class PluginHostMixin(unittest_mixins.NodeDBMixin, unittest_engine_mixins.HostSy
                 plugin.connect_port(idx, buf)
 
                 # TODO: mypy doesn't know memoryview.cast
-                bufp[port.name] = memoryview(buf).cast(valuetype)  # type: ignore
+                bufp[port.name] = memoryview(buf).cast(valuetype)  # type: ignore[attr-defined]
 
             yield plugin, bufp
 

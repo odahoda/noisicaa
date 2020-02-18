@@ -21,7 +21,7 @@
 # @end:license
 
 import os.path
-from typing import List
+from typing import cast, List
 
 from noisidev import unittest
 from noisidev import unittest_mixins
@@ -147,6 +147,9 @@ class SampleTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCa
 class SampleTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://sample-track'
     track_cls = model.SampleTrack
+
+    async def _add_track(self) -> model.SampleTrack:
+        return cast(model.SampleTrack, await super()._add_track())
 
     async def test_load_sample_wav(self):
         path = os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')

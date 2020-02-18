@@ -25,6 +25,7 @@ import logging.handlers
 from logging import *  # pylint: disable=W0614,W0401
 import queue
 from typing import Any, Dict, Optional, List, Tuple
+from typing_extensions import Literal
 
 from . import runtime_settings as runtime_settings_lib
 
@@ -102,7 +103,7 @@ class LogManager(object):
         self.setup()
         return self
 
-    def __exit__(self, *args: Any) -> bool:
+    def __exit__(self, *args: Any) -> Literal[False]:
         self.cleanup()
         return False
 

@@ -39,7 +39,7 @@ try:
 except ImportError:
     # Python 3.5.2 (used by Ubuntu xenial) does not know Coroutine.
     # https://stackoverflow.com/questions/44651115/python-typing-module-missing-the-coroutine-class-in-python-3-5
-    class Coroutine:  # type: ignore
+    class Coroutine:  # type: ignore[no-redef]
         def __getitem__(self, index: Any) -> None:
             pass
 

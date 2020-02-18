@@ -59,7 +59,7 @@ class Thread(object):
         assert self.__thread is not None
 
         # mypy doesn't know about the loop kwarg.
-        done_fut = asyncio.wrap_future(self.__thread_done, loop=self.__event_loop)  # type: ignore
+        done_fut = asyncio.wrap_future(self.__thread_done, loop=self.__event_loop)
         await asyncio.wait_for(asyncio.shield(done_fut), timeout, loop=self.__event_loop)
         assert self.__thread_done.done()
 

@@ -143,7 +143,7 @@ class BeatMeasureEditor(measured_track_editor.MeasureEditor):
 
     def addMeasureListeners(self) -> None:
         self._measure_listeners.add(self.measure.content_changed.add(
-            lambda _=None: self.invalidatePaintCache(self.FOREGROUND)))  # type: ignore
+            lambda _=None: self.invalidatePaintCache(self.FOREGROUND)))  # type: ignore[misc]
         self._measure_listeners.add(self.measure.beats_changed.add(
             lambda _: self.invalidatePaintCache(self.FOREGROUND)))
 

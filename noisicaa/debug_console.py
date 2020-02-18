@@ -497,12 +497,12 @@ class LogBuffer(logging.Handler):
     def records(self) -> Iterator[logging.LogRecord]:
         # pylint: disable=protected-access
         heappop = heapq.heappop
-        siftup = heapq._siftup  # type: ignore
+        siftup = heapq._siftup  # type: ignore[attr-defined]
         _StopIteration = StopIteration
 
         h = []  # type: List[Any]
         h_append = h.append
-        for it in map(iter, self.__records.values()):  # type: ignore
+        for it in map(iter, self.__records.values()):  # type: ignore[arg-type]
             try:
                 h_append([next(it), it])
             except _StopIteration:

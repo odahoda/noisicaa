@@ -88,7 +88,7 @@
 #             node_description=node_desc)
 
 #     def to_bytes(self) -> bytes:
-#         doc = ElementTree.Element('preset', version='1')  # type: ignore
+#         doc = ElementTree.Element('preset', version='1')
 #         doc.text = '\n'
 #         doc.tail = '\n'
 

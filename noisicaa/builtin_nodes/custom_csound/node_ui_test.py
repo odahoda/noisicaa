@@ -24,7 +24,9 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 
 from noisidev import uitest
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import node_db
+from noisicaa.ui import object_list_editor
 from . import node_ui
 
 
@@ -43,7 +45,7 @@ class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
 
         self.table = self.port_list_editor.findChild(
             QtWidgets.QTableView, "object_table", Qt.FindChildrenRecursively)
-        self.model = self.table.model()
+        self.model = down_cast(object_list_editor.ObjectListModel, self.table.model())
         self.delegate = self.table.itemDelegate()
 
     def _getCell(self, row, column):
