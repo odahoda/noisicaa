@@ -22,7 +22,7 @@
 
 def build(ctx):
     ctx.py_module('__init__.py')
-    ctx.py_module('profutil.py', mypy='loose')
+    ctx.py_module('profutil.py', mypy='disabled')
     ctx.py_module('perf_stats.py', mypy='loose')
     ctx.py_module('qttest.py', mypy='loose')
     ctx.py_module('unittest.py', mypy='loose')
