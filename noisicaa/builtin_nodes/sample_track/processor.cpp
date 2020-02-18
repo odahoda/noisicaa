@@ -162,6 +162,7 @@ Status ProcessorSampleScript::process_block_internal(BlockContext* ctxt, TimeMap
         // - Do a binary search to find the new script->offset.
 
         script->offset = 0;
+        script->current_audio_file = nullptr;
         while ((size_t)script->offset < script->samples.size()) {
           const Sample& sample = script->samples[script->offset];
 
@@ -178,7 +179,6 @@ Status ProcessorSampleScript::process_block_internal(BlockContext* ctxt, TimeMap
             break;
           } else if (sample.time >= stime->start_time) {
             // We seeked into some empty space before an audio file.
-            script->current_audio_file = nullptr;
             break;
           }
 
