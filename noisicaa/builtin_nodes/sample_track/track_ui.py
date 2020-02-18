@@ -240,7 +240,7 @@ class SampleItem(core.AutoCleanupMixin, object):
             buf = mmap.mmap(fp.fileno(), 0, prot=mmap.PROT_READ)
             self.__raws.append(buf)
 
-        self.__tile_cache = {}  # type: Dict[Tuple[int, int], Tuple[int, QtGui.QPixmap]]
+        self.__tile_cache = {}  # type: Dict[Tuple[int, int], Tuple[int, QtGui.QImage]]
         self.__tile_cache_version = 0
         self.__render_queue = asyncio.Queue(loop=self.__event_loop)  # type: asyncio.Queue[Tuple]
         self.__render_task = self.__event_loop.create_task(self.__renderMain())
@@ -345,8 +345,8 @@ class SampleItem(core.AutoCleanupMixin, object):
     def renderPendingCacheTiles(self) -> None:
         while not self.__render_queue.empty():
             ch, tile, size, tile_x = self.__render_queue.get_nowait()
-            pixmap = self.__renderCacheTile(ch, tile, size, tile_x)
-            self.__tile_cache[(ch, tile)] = (self.__tile_cache_version, pixmap)
+            img = self.__renderCacheTile(ch, tile, size, tile_x)
+            self.__tile_cache[(ch, tile)] = (self.__tile_cache_version, img)
 
     async def __renderMain(self) -> None:
         pool = concurrent.futures.ThreadPoolExecutor(1)
@@ -372,15 +372,15 @@ class SampleItem(core.AutoCleanupMixin, object):
 
     def __renderCacheTile(
             self, ch: int, tile: int, size: QtCore.QSize, tile_x: int
-    ) -> QtGui.QPixmap:
+    ) -> QtGui.QImage:
         t_start = time_lib.time()
 
         minmax_color = QtGui.QColor(60, 60, 60)
         rms_color = QtGui.QColor(100, 100, 180)
 
-        pixmap = QtGui.QPixmap(size)
-        pixmap.fill(QtGui.QColor(0, 0, 0, 0))
-        painter = QtGui.QPainter(pixmap)
+        img = QtGui.QImage(size, QtGui.QImage.Format_ARGB32)
+        img.fill(QtGui.QColor(0, 0, 0, 0))
+        painter = QtGui.QPainter(img)
         try:
             tmap = self.__sample.project.time_mapper
             begin_samplepos = tmap.musical_to_sample_time(self.__sample.time)
@@ -419,7 +419,7 @@ class SampleItem(core.AutoCleanupMixin, object):
             "SampleRef #%016x, channel #%d: rendered cache tile %d in %.2fms",
             self.__sample.id, ch, tile, 1000 * (time_lib.time() - t_start))
 
-        return pixmap
+        return img
 
     def paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
         painter.fillRect(0, 0, 1, self.height(), QtGui.QColor(0, 0, 0))
@@ -457,16 +457,16 @@ class SampleItem(core.AutoCleanupMixin, object):
                 tile_x = tile * TILE_WIDTH
 
                 tile_key = (ch, tile)
-                version, tile_pixmap = self.__tile_cache.get(tile_key, (-1, None))
+                version, tile_img = self.__tile_cache.get(tile_key, (-1, None))
 
-                if version != self.__tile_cache_version or tile_pixmap is None:
+                if version != self.__tile_cache_version or tile_img is None:
                     render_requests.append(
                         (ch, tile, QtCore.QSize(TILE_WIDTH, channel_height),
                          self.__pos.x() + tile_x))
 
                 tile_rect = QtCore.QRect(tile_x, channel_top, TILE_WIDTH, channel_height)
-                if tile_pixmap is not None:
-                    painter.drawPixmap(tile_rect, tile_pixmap, tile_pixmap.rect())
+                if tile_img is not None:
+                    painter.drawImage(tile_rect, tile_img, tile_img.rect())
                 else:
                     painter.fillRect(tile_rect, QtGui.QColor(100, 100, 100, 100))
 

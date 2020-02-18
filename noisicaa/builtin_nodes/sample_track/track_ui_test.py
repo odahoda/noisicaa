@@ -143,4 +143,3 @@ class SampleTrackEditorItemTest(track_editor_tests.TrackEditorItemTestMixin, uit
             profutil.profile(self.id(), ti.sample(0).renderPendingCacheTiles)
             self.renderWidget()
             assert ti.sample(0).isRenderComplete()
-
