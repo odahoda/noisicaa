@@ -389,13 +389,14 @@ class SampleItem(core.AutoCleanupMixin, object):
             tmap = self.__sample.project.time_mapper
             begin_samplepos = tmap.musical_to_sample_time(self.__sample.time)
             num_samples = self.__sample.sample.num_samples
+            duration_per_pixel = self.__track_editor.durationPerPixel()
             resample_factor = self.__sample.sample.sample_rate / tmap.sample_rate
             height = size.height()
 
             t0 = self.__track_editor.xToTime(tile_x)
             s0 = int((tmap.musical_to_sample_time(t0) - begin_samplepos) * resample_factor)
             for x in range(size.width()):
-                t1 = self.__track_editor.xToTime(tile_x + x + 1)
+                t1 = t0 + duration_per_pixel
                 s1 = int((tmap.musical_to_sample_time(t1) - begin_samplepos) * resample_factor)
 
                 if 0 <= s0 < num_samples - 1:

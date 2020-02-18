@@ -111,6 +111,9 @@ class ContinuousTimeMixin(ScaledTimeMixin, slots.SlotContainer):
         else:
             self.__grid_step = audioproc.MusicalDuration(1, 1)
 
+    def durationPerPixel(self) -> audioproc.MusicalDuration:
+        return audioproc.MusicalDuration(1 / self.scaleX())
+
     def timeToX(self, time: audioproc.MusicalTime) -> int:
         return self.leftMargin() + self.additionalXOffset() + int(self.scaleX() * time.fraction)
 
