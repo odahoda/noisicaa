@@ -116,6 +116,7 @@ def configure(ctx):
     ctx.load('build_utils.waf.plugins', tooldir='.')
     ctx.load('build_utils.waf.svg', tooldir='.')
     ctx.load('build_utils.waf.faust', tooldir='.')
+    ctx.load('build_utils.waf.ffmpeg', tooldir='.')
 
     ctx.check_python_version(minver=(3, 5))
     ctx.check_python_headers(features=['pyext'])
