@@ -23,6 +23,7 @@
 import functools
 import logging
 import uuid
+import typing
 from typing import Any, Tuple
 
 from PyQt5.QtCore import Qt
@@ -31,7 +32,6 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
-from noisicaa import core
 from noisicaa import node_db
 from .graph import view as graph_view
 from . import ui_base
@@ -39,6 +39,9 @@ from . import render_dialog
 from . import project_registry
 from .track_list import view as track_list_view
 from . import player_state as player_state_lib
+
+if typing.TYPE_CHECKING:
+    from noisicaa import core
 
 logger = logging.getLogger(__name__)
 

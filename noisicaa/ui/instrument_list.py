@@ -23,14 +23,17 @@
 import bisect
 import logging
 import pathlib
+import typing
 from typing import cast, Any, Optional, Iterator, List, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 
 from noisicaa import instrument_db
-from noisicaa import core
 from . import ui_base
+
+if typing.TYPE_CHECKING:
+    from noisicaa import core
 
 logger = logging.getLogger(__name__)
 

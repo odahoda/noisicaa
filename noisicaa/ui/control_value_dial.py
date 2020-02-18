@@ -22,15 +22,18 @@
 
 import logging
 import math
+import typing
 from typing import Optional
 
 from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from . import slots
 from . import base_dial
+
+if typing.TYPE_CHECKING:
+    from PyQt5 import QtCore
 
 logger = logging.getLogger(__name__)
 

@@ -111,6 +111,8 @@ class ScoreTrackGenerator(NodeGenerator):
         return random.choice(cls.instruments)
 
     def create(self, num: int, pos: value_types.Pos2F) -> None:
+        # pylint: disable=import-outside-toplevel
+
         mixer_node = self.project.create_node(
             'builtin://mixer',
             name='Track #%d' % num,

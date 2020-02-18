@@ -18,10 +18,10 @@
 #
 # @end:license
 
+import typing
 from typing import List
 
 from noisicaa import lv2
-from noisicaa import node_db
 from noisicaa.audioproc.public import musical_time
 from noisicaa.audioproc.public import time_mapper
 from noisicaa.audioproc.engine import processor
@@ -31,6 +31,9 @@ from noisicaa.audioproc.engine import buffer_arena
 from . import unittest_mixins
 from . import unittest_engine_mixins
 from . import unittest_engine_utils
+
+if typing.TYPE_CHECKING:
+    from noisicaa import node_db
 
 
 class ProcessorTestMixin(

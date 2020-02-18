@@ -179,7 +179,7 @@ def configure(ctx):
     pip_mgr.check_package(DEV, 'mox3')
     pip_mgr.check_package(DEV, 'py-cpuinfo')
     pip_mgr.check_package(DEV, 'pyfakefs')
-    pip_mgr.check_package(DEV, 'pylint', version='2.3.1')
+    pip_mgr.check_package(DEV, 'pylint', version='2.4.4')
     pip_mgr.check_package(DEV, 'unittest-xml-reporting')
     pip_mgr.check_package(DEV, 'pyprof2calltree')
 

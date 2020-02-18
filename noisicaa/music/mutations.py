@@ -29,11 +29,11 @@ from typing import Any, Generator
 from noisicaa import audioproc
 from noisicaa import value_types
 from noisicaa import node_db
-from noisicaa import core
 from . import model_base
 from . import mutations_pb2
 
 if typing.TYPE_CHECKING:
+    from noisicaa import core
     from . import project
 
 logger = logging.getLogger(__name__)

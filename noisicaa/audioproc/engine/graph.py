@@ -21,6 +21,7 @@
 # @end:license
 
 import logging
+import typing
 from typing import Any, Dict, List, Optional, Set
 
 import toposort
@@ -28,7 +29,6 @@ import toposort
 from noisicaa import audioproc
 from noisicaa import node_db
 from noisicaa import host_system as host_system_lib
-from noisicaa.core import ipc
 from noisicaa.core import session_data_pb2
 from noisicaa.audioproc.public import node_port_properties_pb2
 from noisicaa.audioproc.public import node_parameters_pb2
@@ -40,6 +40,9 @@ from . import plugin_host_pb2
 from . import buffers
 from . import spec as spec_lib
 from . import realm as realm_lib
+
+if typing.TYPE_CHECKING:
+    from noisicaa.core import ipc
 
 logger = logging.getLogger(__name__)
 

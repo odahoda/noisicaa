@@ -25,6 +25,7 @@ import functools
 import logging
 import os.path
 import uuid
+import typing
 from typing import cast, Any, Dict, Set
 
 from PyQt5.QtCore import Qt
@@ -36,7 +37,6 @@ from noisicaa.constants import TEST_OPTS
 from noisicaa import runtime_settings as runtime_settings_lib
 from noisicaa import audioproc
 from noisicaa import core
-from noisicaa import instrument_db
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa import editor_main_pb2
@@ -44,6 +44,9 @@ from noisicaa.ui import ui_base
 from noisicaa.ui import clipboard
 from . import qttest
 from . import unittest_mixins
+
+if typing.TYPE_CHECKING:
+    from noisicaa import instrument_db
 
 logger = logging.getLogger(__name__)
 

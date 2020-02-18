@@ -189,7 +189,7 @@ class BaseProject(_model.Project, model_base.ObjectBase):
         kwargs['graph_color'] = graph_color
 
         # Defered import to work around cyclic import.
-        from noisicaa.builtin_nodes import model_registry
+        from noisicaa.builtin_nodes import model_registry  # pylint: disable=import-outside-toplevel
         try:
             node_cls = model_registry.node_cls_map[uri]
         except KeyError:
@@ -503,7 +503,7 @@ class Pool(model_base.Pool):
         self.register_class(graph.Node)
         self.register_class(transfer_function.TransferFunction)
 
-        from noisicaa.builtin_nodes import model_registry
+        from noisicaa.builtin_nodes import model_registry  # pylint: disable=import-outside-toplevel
         model_registry.register_classes(self)
 
     @property

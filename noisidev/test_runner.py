@@ -299,6 +299,7 @@ def main(argv):
         cov.set_option("run:branch", True)
         cov.start()
 
+    # pylint: disable=import-outside-toplevel
     from noisicaa import constants
     constants.TEST_OPTS.WRITE_PERF_STATS = args.write_perf_stats
     constants.TEST_OPTS.ENABLE_PROFILER = args.profile

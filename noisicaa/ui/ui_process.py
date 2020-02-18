@@ -24,14 +24,17 @@ import functools
 import asyncio
 import logging
 import signal
+import typing
 from typing import Any, Optional, Sequence
 
-from PyQt5 import QtWidgets
 import quamash
 
 from noisicaa import core
 from noisicaa import runtime_settings as runtime_settings_lib
 from . import editor_app
+
+if typing.TYPE_CHECKING:
+    from PyQt5 import QtWidgets
 
 logger = logging.getLogger(__name__)
 
