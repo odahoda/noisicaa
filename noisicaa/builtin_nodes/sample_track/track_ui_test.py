@@ -106,6 +106,18 @@ class SampleTrackEditorItemTest(track_editor_tests.TrackEditorItemTestMixin, uit
                     break
                 await asyncio.sleep(0.2, loop=self.loop)
 
+    async def test_delete_sample(self):
+        ls = await self.track.load_sample(SMPL_PATH, self.loop)
+        with self.project.apply_mutations('test'):
+            self.track.create_sample(MT(0, 4), ls)
+
+        with self._trackItem() as ti:
+            await self.moveMouse(QtCore.QPoint(ti.timeToX(MT(1, 4)), ti.height() // 2))
+            menu = await self.openContextMenu()
+            await self.triggerMenuAction(menu, 'delete-sample')
+
+            self.assertEqual(len(self.track.samples), 0)
+
     async def test_move_sample(self):
         ls = await self.track.load_sample(SMPL_PATH, self.loop)
         with self.project.apply_mutations('test'):

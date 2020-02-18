@@ -132,8 +132,12 @@ class EditSamplesTool(tools.ToolBase):
         except Cancelled:
             return
 
-        with self.project.apply_mutations('%s: Create sample' % self.track.track.name):
+        with self.project.apply_mutations('%s: Import audio file' % self.track.track.name):
             self.track.track.create_sample(time, loaded_sample)
+
+    def onDeleteSample(self, smpl: model.SampleRef) -> None:
+        with self.project.apply_mutations('%s: Delete segment' % self.track.track.name):
+            self.track.track.delete_sample(smpl)
 
     def contextMenuEvent(self, evt: QtGui.QContextMenuEvent) -> None:
         time = self.track.xToTime(evt.pos().x())
@@ -141,11 +145,20 @@ class EditSamplesTool(tools.ToolBase):
         menu = QtWidgets.QMenu(self.track)
         menu.setObjectName('context-menu')
 
-        add_sample_action = QtWidgets.QAction("Add sample...", menu)
+        add_sample_action = QtWidgets.QAction("Import audio file...", menu)
         add_sample_action.setObjectName('add-sample')
-        add_sample_action.setStatusTip("Add a sample to the track.")
+        add_sample_action.setStatusTip("Import an audio file and add it as a segment to the track.")
         add_sample_action.triggered.connect(functools.partial(self.onAddSampleSync, time))
         menu.addAction(add_sample_action)
+
+        smpl = self.track.highlightedSample()
+        if smpl is not None:
+            delete_sample_action = QtWidgets.QAction("Delete segment", menu)
+            delete_sample_action.setObjectName('delete-sample')
+            delete_sample_action.setStatusTip("Remove the selected segment from the track.")
+            delete_sample_action.triggered.connect(
+                functools.partial(self.onDeleteSample, smpl.sample))
+            menu.addAction(delete_sample_action)
 
         menu.popup(evt.globalPos())
         evt.accept()
@@ -157,15 +170,6 @@ class EditSamplesTool(tools.ToolBase):
             self.__moving_sample = self.track.highlightedSample()
             self.__moving_sample_original_pos = self.__moving_sample.pos()
             self.__moving_sample_offset = evt.pos() - self.__moving_sample.pos()
-
-            evt.accept()
-            return
-
-        if (evt.button() == Qt.LeftButton
-                and evt.modifiers() == Qt.ShiftModifier
-                and self.track.highlightedSample() is not None):
-            with self.project.apply_mutations('%s: Remove sample' % self.track.track.name):
-                self.track.track.delete_sample(self.track.highlightedSample().sample)
 
             evt.accept()
             return
