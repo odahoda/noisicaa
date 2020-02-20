@@ -129,6 +129,8 @@ class TimeLine(
         if self.__move_time:
             x = evt.pos().x() + self.xOffset()
             current_time = min(self.xToTime(x), self.projectEndTime())
+            if self.shouldSnap(evt):
+                current_time = self.snapTime(current_time)
             self.__player_state.setCurrentTime(current_time)
             evt.accept()
             return
@@ -140,6 +142,8 @@ class TimeLine(
             self.__move_time = False
             x = evt.pos().x() + self.xOffset()
             current_time = min(self.xToTime(x), self.projectEndTime())
+            if self.shouldSnap(evt):
+                current_time = self.snapTime(current_time)
             self.call_async(
                 self.project_client.update_player_state(
                     self.__player_id,

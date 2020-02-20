@@ -94,6 +94,7 @@ class ScaledTimeMixin(ui_base.ProjectMixin, QObjectMixin):
 class ContinuousTimeMixin(ScaledTimeMixin, slots.SlotContainer):
     additionalXOffset, setAdditionalXOffset, additionalXOffsetChanged = slots.slot(
         int, 'additionalXOffset', default=0)
+    snapToGrid, setSnapToGrid, snapToGridChanged = slots.slot(bool, 'snapToGrid', default=True)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -126,6 +127,19 @@ class ContinuousTimeMixin(ScaledTimeMixin, slots.SlotContainer):
 
     def gridStep(self) -> audioproc.MusicalDuration:
         return self.__grid_step
+
+    def shouldSnap(self, evt: QtGui.QMouseEvent) -> bool:
+        return self.snapToGrid() and not evt.modifiers() & Qt.ShiftModifier
+
+    def snapTime(self, time: audioproc.MusicalTime) -> audioproc.MusicalTime:
+        grid_time = (
+            audioproc.MusicalTime(0, 1)
+            + self.gridStep() * int(round(float(time / self.gridStep()))))
+        time_x = int(time * self.scaleX())
+        grid_x = int(grid_time * self.scaleX())
+        if abs(time_x - grid_x) <= 10:
+            return grid_time
+        return time
 
     def renderTimeGrid(
             self, painter: QtGui.QPainter, rect: QtCore.QRect, *, show_numbers: bool = False
