@@ -33,6 +33,7 @@ import textwrap
 import threading
 import traceback
 import unittest
+from typing import List, Callable, Tuple
 
 import coverage
 import xmlrunner
@@ -67,7 +68,7 @@ os.environ['LD_LIBRARY_PATH'] = os.path.join(os.getenv('VIRTUAL_ENV'), 'lib')
 os.environ['LV2_PATH'] = os.path.join(ROOTDIR, 'build', 'testdata', 'lv2')
 os.environ['LADSPA_PATH'] = os.path.join(ROOTDIR, 'build', 'testdata', 'ladspa')
 
-atexit = []
+atexit = []  # type: List[Tuple[Callable, Tuple]]
 
 
 def bool_arg(value):
@@ -377,13 +378,13 @@ if __name__ == '__main__':
     # atexit handlers.
     try:
         rc = main(sys.argv)
-    except:
+    except:  # pylint: disable=bare-except
         traceback.print_exc()
         rc = 1
     finally:
         while atexit:
-            func, args = atexit.pop(-1)
-            func(*args)
+            f, a = atexit.pop(-1)
+            f(*a)
 
     sys.stdout.flush()
     sys.stderr.flush()
