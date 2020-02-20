@@ -21,6 +21,7 @@
 # @end:license
 
 import logging
+import typing
 from typing import Any
 
 from PyQt5.QtCore import Qt
@@ -31,13 +32,13 @@ from PyQt5 import QtWidgets
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.ui import ui_base
-from noisicaa.ui import player_state as player_state_lib
 from . import time_view_mixin
 
-logger = logging.getLogger(__name__)
+if typing.TYPE_CHECKING:
+    from noisicaa.ui import player_state as player_state_lib
+    from noisicaa.ui import project_view as project_view_lib
 
-# TODO: fix cyclic dependency
-ProjectView = Any
+logger = logging.getLogger(__name__)
 
 
 class TimeLine(
@@ -47,8 +48,8 @@ class TimeLine(
         QtWidgets.QWidget):
     def __init__(
             self, *,
-            project_view: ProjectView,
-            player_state: player_state_lib.PlayerState,
+            project_view: 'project_view_lib.ProjectView',
+            player_state: 'player_state_lib.PlayerState',
             **kwargs: Any
     ) -> None:
         super().__init__(**kwargs)
