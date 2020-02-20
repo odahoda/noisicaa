@@ -87,6 +87,7 @@ class SetupProgressWidget(QtWidgets.QWidget):
 
 class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
     currentPageChanged = QtCore.pyqtSignal(QtWidgets.QWidget)
+    hasProjectView = QtCore.pyqtSignal(bool)
 
     def __init__(self, parent: QtWidgets.QTabWidget, **kwargs: Any) -> None:
         super().__init__(parent=parent, **kwargs)
@@ -105,6 +106,11 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
 
     def projectView(self) -> Optional[project_view.ProjectView]:
         return self.__project_view
+
+    def setProjectView(self, name: str, view: project_view.ProjectView) -> None:
+        self.__project_view = view
+        self.__setPage(name, view)
+        self.hasProjectView.emit(True)
 
     def projectDebugger(self) -> Optional[project_debugger.ProjectDebugger]:
         return self.__project_debugger
@@ -197,8 +203,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
             view = project_view.ProjectView(project_connection=project, context=self.context)
             view.setObjectName('project-view')
             await view.setup()
-            self.__project_view = view
-            self.__setPage(project.name, view)
+            self.setProjectView(project.name, view)
 
     async def createProject(self, path: str) -> None:
         project = project_registry_lib.Project(
@@ -217,8 +222,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
             view = project_view.ProjectView(project_connection=project, context=self.context)
             view.setObjectName('project-view')
             await view.setup()
-            self.__project_view = view
-            self.__setPage(project.name, view)
+            self.setProjectView(project.name, view)
 
     async def createLoadtestProject(self, path: str, spec: Dict[str, Any]) -> None:
         project = project_registry_lib.Project(
@@ -237,8 +241,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
             view = project_view.ProjectView(project_connection=project, context=self.context)
             view.setObjectName('project-view')
             await view.setup()
-            self.__project_view = view
-            self.__setPage(project.name, view)
+            self.setProjectView(project.name, view)
 
     async def __debugProject(self, project: project_registry_lib.Project) -> None:
         self.showLoadSpinner(project.name, "Loading project \"%s\"..." % project.name)
@@ -279,6 +282,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         await self.__project_view.cleanup()
         self.__project_view = None
         await project.close()
+        self.hasProjectView.emit(False)
         self.showOpenDialog()
 
     async def closeDebugger(self) -> None:
@@ -406,6 +410,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
     def addProjectTab(self) -> ProjectTabPage:
         page = ProjectTabPage(parent=self.__project_tabs, context=self.context)
+        page.hasProjectView.connect(self.onCurrentProjectTabChanged)
         idx = self.__project_tabs.addTab(page, '')
         self.__project_tabs.setCurrentIndex(idx)
         return page
@@ -439,12 +444,15 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._set_bpm_action.setStatusTip("Set the project's beats per second")
         self._set_bpm_action.triggered.connect(self.onSetBPM)
 
+        self.__player_actions = []
+
         self._player_move_to_start_action = QtWidgets.QAction("Move to start", self)
         self._player_move_to_start_action.setIcon(QtGui.QIcon(
             os.path.join(constants.DATA_DIR, 'icons', 'media-skip-backward.svg')))
         self._player_move_to_start_action.setShortcut(QtGui.QKeySequence('Home'))
         self._player_move_to_start_action.setShortcutContext(Qt.ApplicationShortcut)
         self._player_move_to_start_action.triggered.connect(lambda: self.onPlayerMoveTo('start'))
+        self.__player_actions.append(self._player_move_to_start_action)
 
         self._player_move_to_end_action = QtWidgets.QAction("Move to end", self)
         self._player_move_to_end_action.setIcon(QtGui.QIcon(
@@ -452,6 +460,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._player_move_to_end_action.setShortcut(QtGui.QKeySequence('End'))
         self._player_move_to_end_action.setShortcutContext(Qt.ApplicationShortcut)
         self._player_move_to_end_action.triggered.connect(lambda: self.onPlayerMoveTo('end'))
+        self.__player_actions.append(self._player_move_to_end_action)
 
         self._player_move_to_prev_action = QtWidgets.QAction("Move to previous measure", self)
         self._player_move_to_prev_action.setIcon(QtGui.QIcon(
@@ -459,6 +468,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._player_move_to_prev_action.setShortcut(QtGui.QKeySequence('PgUp'))
         self._player_move_to_prev_action.setShortcutContext(Qt.ApplicationShortcut)
         self._player_move_to_prev_action.triggered.connect(lambda: self.onPlayerMoveTo('prev'))
+        self.__player_actions.append(self._player_move_to_prev_action)
 
         self._player_move_to_next_action = QtWidgets.QAction("Move to next measure", self)
         self._player_move_to_next_action.setIcon(QtGui.QIcon(
@@ -466,6 +476,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._player_move_to_next_action.setShortcut(QtGui.QKeySequence('PgDown'))
         self._player_move_to_next_action.setShortcutContext(Qt.ApplicationShortcut)
         self._player_move_to_next_action.triggered.connect(lambda: self.onPlayerMoveTo('next'))
+        self.__player_actions.append(self._player_move_to_next_action)
 
         self._player_toggle_action = QtWidgets.QAction("Play", self)
         self._player_toggle_action.setIcon(QtGui.QIcon(
@@ -473,12 +484,17 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._player_toggle_action.setShortcut(QtGui.QKeySequence('Space'))
         self._player_toggle_action.setShortcutContext(Qt.ApplicationShortcut)
         self._player_toggle_action.triggered.connect(self.onPlayerToggle)
+        self.__player_actions.append(self._player_toggle_action)
 
         self._player_loop_action = QtWidgets.QAction("Loop playback", self)
         self._player_loop_action.setIcon(QtGui.QIcon(
             os.path.join(constants.DATA_DIR, 'icons', 'media-playlist-repeat.svg')))
         self._player_loop_action.setCheckable(True)
         self._player_loop_action.toggled.connect(self.onPlayerLoop)
+        self.__player_actions.append(self._player_loop_action)
+
+        for action in self.__player_actions:
+            action.setEnabled(False)
 
     def createMenus(self) -> None:
         menu_bar = self.menuBar()
@@ -603,6 +619,9 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         self.__current_project_view = view
 
+        for action in self.__player_actions:
+            action.setEnabled(view is not None)
+
         if view is not None:
             self.currentProjectChanged.emit(view.project)
         else:
@@ -618,8 +637,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         if self.__project_tabs.count() > 1:
             self.__project_tabs.removeTab(idx)
 
-    def onCurrentProjectTabChanged(self, idx: int) -> None:
-        tab = cast(ProjectTabPage, self.__project_tabs.widget(idx))
+    def onCurrentProjectTabChanged(self) -> None:
+        tab = cast(ProjectTabPage, self.__project_tabs.currentWidget())
         self.setCurrentProjectView(tab.projectView() if tab is not None else None)
 
     async def onCloseProjectTab(self, idx: int) -> None:
