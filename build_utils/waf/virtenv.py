@@ -258,7 +258,7 @@ def configure(ctx):
     pip_mgr.check_package(RUNTIME, 'gbulb', version='0.6.1')
 
     # Protobuf
-    pip_mgr.check_package(RUNTIME, 'protobuf', version='3.7.1')
+    pip_mgr.check_package(RUNTIME, 'protobuf', version='3.11.3')
     sys_mgr.check_package(BUILD, 'autoconf')
     sys_mgr.check_package(BUILD, 'automake')
     sys_mgr.check_package(BUILD, 'libtool')
@@ -266,7 +266,7 @@ def configure(ctx):
     sys_mgr.check_package(BUILD, 'make')
     sys_mgr.check_package(BUILD, 'g++')
     sys_mgr.check_package(BUILD, 'unzip')
-    ProtocBuilder(ctx).check(BUILD, version='3.7.1')
+    ProtocBuilder(ctx).check(BUILD, version='3.11.3')
     # TODO: get my changes upstream and use regular mypy-protobuf package from pip.
     pip_mgr.check_package(BUILD, 'mypy-protobuf', source='git+https://github.com/odahoda/mypy-protobuf.git#egg=mypy-protobuf&subdirectory=python')
 
