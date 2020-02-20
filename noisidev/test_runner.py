@@ -21,7 +21,6 @@
 # @end:license
 
 import argparse
-import atexit
 import logging
 import os
 import os.path
@@ -32,6 +31,7 @@ import sys
 import tempfile
 import textwrap
 import threading
+import traceback
 import unittest
 
 import coverage
@@ -67,6 +67,8 @@ os.environ['LD_LIBRARY_PATH'] = os.path.join(os.getenv('VIRTUAL_ENV'), 'lib')
 os.environ['LV2_PATH'] = os.path.join(ROOTDIR, 'build', 'testdata', 'lv2')
 os.environ['LADSPA_PATH'] = os.path.join(ROOTDIR, 'build', 'testdata', 'ladspa')
 
+atexit = []
+
 
 def bool_arg(value):
     if isinstance(value, bool):
@@ -84,6 +86,7 @@ class DisplayManager(object):
     def __init__(self, display):
         self.__display = display
 
+        self.__xvfb_logger_thread = None
         self.__xvfb_process = None
 
     def __xvfb_logger(self):
@@ -115,10 +118,9 @@ class DisplayManager(object):
                 pass_fds=[disp_w],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT)
-            atexit.register(self.__xvfb_process.kill)
 
-            xvfb_logger_thread = threading.Thread(target=self.__xvfb_logger)
-            xvfb_logger_thread.start()
+            self.__xvfb_logger_thread = threading.Thread(target=self.__xvfb_logger)
+            self.__xvfb_logger_thread.start()
 
             disp_num_str = b''
             while b'\n' not in disp_num_str and self.__xvfb_process.poll() is None:
@@ -144,7 +146,7 @@ class DisplayManager(object):
         if self.__xvfb_process is not None:
             self.__xvfb_process.terminate()
             self.__xvfb_process.wait()
-            atexit.unregister(self.__xvfb_process.kill)
+            self.__xvfb_logger_thread.join()
 
 
 def main(argv):
@@ -246,14 +248,14 @@ def main(argv):
         # sockets. So use a shorter path, which just symlinks to the real one.
         test_data_path = '/tmp/noisicaa-tests-%016x' % random.getrandbits(63)
         os.symlink(args.store_results, test_data_path)
-        atexit.register(os.unlink, test_data_path)
+        atexit.append((os.unlink, (test_data_path,)))
 
         coverage_path = os.path.join(test_data_path, 'coverage')
 
     else:
         test_data_path = tempfile.mkdtemp(prefix='noisicaa-tests-')
         if not args.keep_temp:
-            atexit.register(shutil.rmtree, test_data_path)
+            atexit.append((shutil.rmtree, (test_data_path,)))
 
         coverage_path = '/tmp/noisicaa-coverage'
 
@@ -369,4 +371,20 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    # There are sometimes segfaults during exit. Possibly because (PyQt5) objects are garbage
+    # collected in an unexpected order. Do a "hard" exit to just skip this "graceful" cleanup.
+    # And because that would not run the normal atexit callbacks, maintain our own list of
+    # atexit handlers.
+    try:
+        rc = main(sys.argv)
+    except:
+        traceback.print_exc()
+        rc = 1
+    finally:
+        while atexit:
+            func, args = atexit.pop(-1)
+            func(*args)
+
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(rc)
