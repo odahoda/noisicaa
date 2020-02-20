@@ -284,7 +284,7 @@ class TrackContainer(
     def setTrackGeometry(
             self, rect: QtCore.QRect, sidebar_width: int, separator_height: int, show_top_sep: bool
     ) -> None:
-        handle_width = 12
+        handle_width = sidebar_width
 
         if show_top_sep:
             self.top_separator.setVisible(True)
@@ -349,7 +349,7 @@ class Editor(
     playbackPosition, setPlaybackPosition, playbackPositionChanged = slots.slot(
         audioproc.MusicalTime, 'playbackPosition', default=audioproc.MusicalTime(-1, 1))
     sidebarWidth, setSidebarWidth, sidebarWidthChanged = slots.slot(
-        int, 'sidebarWidth', default=0)
+        int, 'sidebarWidth', default=12)
     zoom, setZoom, zoomChanged = slots.slot(
         fractions.Fraction, 'zoom', default=fractions.Fraction(1, 1))
 
