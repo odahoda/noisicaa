@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import enum
 import logging
 import time as time_lib
 from typing import Any
@@ -31,6 +32,11 @@ from noisicaa.audioproc.public import musical_time_pb2
 from . import ui_base
 
 logger = logging.getLogger(__name__)
+
+
+class TimeMode(enum.Enum):
+    Follow = 0
+    Manual = 1
 
 
 class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
@@ -45,6 +51,8 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
 
         self.__session_prefix = 'player_state:%s:' % self.project.id
         self.__last_current_time_update = None  # type: float
+
+        self.__time_mode = TimeMode.Follow
 
         self.__playing = False
         self.__current_time = self.__get_session_value('current_time', audioproc.MusicalTime())
@@ -67,10 +75,10 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
         self.__player_id = player_id
 
     def updateFromProto(self, player_state: audioproc.PlayerState) -> None:
-        if player_state.HasField('current_time'):
+        if player_state.HasField('current_time') and self.__time_mode == TimeMode.Follow:
             self.setCurrentTime(audioproc.MusicalTime.from_proto(player_state.current_time))
 
-        if player_state.HasField('playing'):
+        if player_state.HasField('playing') and self.__time_mode == TimeMode.Follow:
             self.setPlaying(player_state.playing)
 
         if player_state.HasField('loop_enabled'):
@@ -81,6 +89,9 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
 
         if player_state.HasField('loop_end_time'):
             self.setLoopEndTime(audioproc.MusicalTime.from_proto(player_state.loop_end_time))
+
+    def setTimeMode(self, mode: TimeMode) -> None:
+        self.__time_mode = mode
 
     def setPlaying(self, playing: bool) -> None:
         if playing == self.__playing:

@@ -96,8 +96,9 @@ class TrackListView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QSplitt
 
         time_line_frame = Frame(self)
         self.__time_line = time_line.TimeLine(
-            project_view=self.__project_view, player_state=self.__player_state,
-            parent=time_line_frame, context=self.context)
+            parent=time_line_frame,
+            player_state=self.__player_state,
+            context=self.context)
         time_line_frame.setWidget(self.__time_line)
 
         self.__time_line.setScaleX(self.__editor.scaleX())

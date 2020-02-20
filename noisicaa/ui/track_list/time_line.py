@@ -21,7 +21,6 @@
 # @end:license
 
 import logging
-import typing
 from typing import Any
 
 from PyQt5.QtCore import Qt
@@ -32,11 +31,8 @@ from PyQt5 import QtWidgets
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.ui import ui_base
+from noisicaa.ui import player_state as player_state_lib
 from . import time_view_mixin
-
-if typing.TYPE_CHECKING:
-    from noisicaa.ui import player_state as player_state_lib
-    from noisicaa.ui import project_view as project_view_lib
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +44,6 @@ class TimeLine(
         QtWidgets.QWidget):
     def __init__(
             self, *,
-            project_view: 'project_view_lib.ProjectView',
             player_state: 'player_state_lib.PlayerState',
             **kwargs: Any
     ) -> None:
@@ -58,7 +53,6 @@ class TimeLine(
         self.setMinimumHeight(20)
         self.setMaximumHeight(20)
 
-        self.__project_view = project_view
         self.__player_state = player_state
         self.__player_id = None  # type: str
         self.__move_time = False
@@ -124,7 +118,7 @@ class TimeLine(
                 self.project_client.update_player_state(
                     self.__player_id,
                     audioproc.PlayerState(playing=False)))
-            self.__project_view.setPlaybackPosMode('manual')
+            self.__player_state.setTimeMode(player_state_lib.TimeMode.Manual)
             self.__player_state.setCurrentTime(current_time)
             evt.accept()
             return
@@ -152,7 +146,7 @@ class TimeLine(
                     audioproc.PlayerState(
                         playing=self.__old_player_state,
                         current_time=current_time.to_proto())))
-            self.__project_view.setPlaybackPosMode('follow')
+            self.__player_state.setTimeMode(player_state_lib.TimeMode.Follow)
             evt.accept()
             return
 

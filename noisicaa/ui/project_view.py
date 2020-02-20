@@ -67,7 +67,6 @@ class ProjectView(ui_base.AbstractProjectView):
         self.__player_realm = None  # type: str
         self.__player_node_id = None  # type: str
         self.__player_status_listener = None  # type: core.Listener
-        self.__playback_pos_mode = 'follow'
 
         self.__player_state = player_state_lib.PlayerState(context=self.context)
         self.__player_state.playingChanged.connect(self.playingChanged)
@@ -156,10 +155,6 @@ class ProjectView(ui_base.AbstractProjectView):
 
     def loopEnabled(self) -> bool:
         return self.__player_state.loopEnabled()
-
-    def setPlaybackPosMode(self, mode: str) -> None:
-        assert mode in ('follow', 'manual')
-        self.__playback_pos_mode = mode
 
     async def createPluginUI(self, node_id: str) -> Tuple[int, Tuple[int, int]]:
         return await self.project_client.create_plugin_ui(self.__player_id, node_id)
