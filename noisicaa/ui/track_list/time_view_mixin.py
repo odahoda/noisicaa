@@ -105,12 +105,12 @@ class ContinuousTimeMixin(ScaledTimeMixin, slots.SlotContainer):
         self.__scaleXChanged(self.scaleX())
 
     def __scaleXChanged(self, scale_x: fractions.Fraction) -> None:
-        for s in (64, 32, 16, 8, 4, 2):
-            if scale_x / s > 96:
-                self.__grid_step = audioproc.MusicalDuration(1, s)
-                break
-        else:
-            self.__grid_step = audioproc.MusicalDuration(1, 1)
+        self.__grid_step = audioproc.MusicalDuration(1, 64)
+        min_dist = 96
+        while int(self.__grid_step * scale_x) <= min_dist:
+            self.__grid_step *= 2
+            if int(self.__grid_step) > 1:
+                min_dist = 36
 
     def durationPerPixel(self) -> audioproc.MusicalDuration:
         return audioproc.MusicalDuration(1 / self.scaleX())
