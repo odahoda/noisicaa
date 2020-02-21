@@ -23,7 +23,6 @@
 import asyncio
 import contextlib
 import logging
-import os.path
 import time
 import traceback
 import typing
@@ -34,7 +33,6 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-from noisicaa import constants
 from noisicaa.core import storage
 from noisicaa import audioproc
 from . import project_view
@@ -295,18 +293,10 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
 
 
 class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
-    # Could not figure out how to define a signal that takes either an instance
-    # of a specific class or None.
-    currentProjectChanged = QtCore.pyqtSignal(object)
-    playingChanged = QtCore.pyqtSignal(bool)
-    loopEnabledChanged = QtCore.pyqtSignal(bool)
-
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__engine_state_listener = None  # type: core.Listener[audioproc.EngineStateChange]
-
-        self.__current_project_view = None  # type: Optional[project_view.ProjectView]
 
         self.setWindowTitle("noisicaä")
         self.resize(1200, 800)
@@ -316,11 +306,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         self.createActions()
         self.createMenus()
-        self.createToolBar()
         self.createStatusBar()
-
-        self.playingChanged.connect(self.onPlayingChanged)
-        self.loopEnabledChanged.connect(self.onLoopEnabledChanged)
 
         self.__project_tabs = QtWidgets.QTabWidget(self)
         self.__project_tabs.setObjectName('project-tabs')
@@ -331,7 +317,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.__project_tabs.setDocumentMode(True)
         self.__project_tabs.tabCloseRequested.connect(
             lambda idx: self.call_async(self.onCloseProjectTab(idx)))
-        self.__project_tabs.currentChanged.connect(self.onCurrentProjectTabChanged)
 
         self.__main_layout = QtWidgets.QVBoxLayout()
         self.__main_layout.setContentsMargins(0, 0, 0, 0)
@@ -410,7 +395,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
     def addProjectTab(self) -> ProjectTabPage:
         page = ProjectTabPage(parent=self.__project_tabs, context=self.context)
-        page.hasProjectView.connect(self.onCurrentProjectTabChanged)
         idx = self.__project_tabs.addTab(page, '')
         self.__project_tabs.setCurrentIndex(idx)
         return page
@@ -443,58 +427,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._set_bpm_action = QtWidgets.QAction("Set BPM", self)
         self._set_bpm_action.setStatusTip("Set the project's beats per second")
         self._set_bpm_action.triggered.connect(self.onSetBPM)
-
-        self.__player_actions = []
-
-        self._player_move_to_start_action = QtWidgets.QAction("Move to start", self)
-        self._player_move_to_start_action.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'media-skip-backward.svg')))
-        self._player_move_to_start_action.setShortcut(QtGui.QKeySequence('Home'))
-        self._player_move_to_start_action.setShortcutContext(Qt.ApplicationShortcut)
-        self._player_move_to_start_action.triggered.connect(lambda: self.onPlayerMoveTo('start'))
-        self.__player_actions.append(self._player_move_to_start_action)
-
-        self._player_move_to_end_action = QtWidgets.QAction("Move to end", self)
-        self._player_move_to_end_action.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'media-skip-forward.svg')))
-        self._player_move_to_end_action.setShortcut(QtGui.QKeySequence('End'))
-        self._player_move_to_end_action.setShortcutContext(Qt.ApplicationShortcut)
-        self._player_move_to_end_action.triggered.connect(lambda: self.onPlayerMoveTo('end'))
-        self.__player_actions.append(self._player_move_to_end_action)
-
-        self._player_move_to_prev_action = QtWidgets.QAction("Move to previous measure", self)
-        self._player_move_to_prev_action.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'media-seek-backward.svg')))
-        self._player_move_to_prev_action.setShortcut(QtGui.QKeySequence('PgUp'))
-        self._player_move_to_prev_action.setShortcutContext(Qt.ApplicationShortcut)
-        self._player_move_to_prev_action.triggered.connect(lambda: self.onPlayerMoveTo('prev'))
-        self.__player_actions.append(self._player_move_to_prev_action)
-
-        self._player_move_to_next_action = QtWidgets.QAction("Move to next measure", self)
-        self._player_move_to_next_action.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'media-seek-forward.svg')))
-        self._player_move_to_next_action.setShortcut(QtGui.QKeySequence('PgDown'))
-        self._player_move_to_next_action.setShortcutContext(Qt.ApplicationShortcut)
-        self._player_move_to_next_action.triggered.connect(lambda: self.onPlayerMoveTo('next'))
-        self.__player_actions.append(self._player_move_to_next_action)
-
-        self._player_toggle_action = QtWidgets.QAction("Play", self)
-        self._player_toggle_action.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'media-playback-start.svg')))
-        self._player_toggle_action.setShortcut(QtGui.QKeySequence('Space'))
-        self._player_toggle_action.setShortcutContext(Qt.ApplicationShortcut)
-        self._player_toggle_action.triggered.connect(self.onPlayerToggle)
-        self.__player_actions.append(self._player_toggle_action)
-
-        self._player_loop_action = QtWidgets.QAction("Loop playback", self)
-        self._player_loop_action.setIcon(QtGui.QIcon(
-            os.path.join(constants.DATA_DIR, 'icons', 'media-playlist-repeat.svg')))
-        self._player_loop_action.setCheckable(True)
-        self._player_loop_action.toggled.connect(self.onPlayerLoop)
-        self.__player_actions.append(self._player_loop_action)
-
-        for action in self.__player_actions:
-            action.setEnabled(False)
 
     def createMenus(self) -> None:
         menu_bar = self.menuBar()
@@ -543,19 +475,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._help_menu.addAction(self.app.about_action)
         self._help_menu.addAction(self.app.aboutqt_action)
 
-    def createToolBar(self) -> None:
-        self.toolbar = QtWidgets.QToolBar()
-        self.toolbar.setObjectName('toolbar:main')
-        self.toolbar.addAction(self._player_toggle_action)
-        self.toolbar.addAction(self._player_loop_action)
-        self.toolbar.addSeparator()
-        self.toolbar.addAction(self._player_move_to_start_action)
-        #self.toolbar.addAction(self._player_move_to_prev_action)
-        #self.toolbar.addAction(self._player_move_to_next_action)
-        self.toolbar.addAction(self._player_move_to_end_action)
-
-        self.addToolBar(Qt.TopToolBarArea, self.toolbar)
-
     def createStatusBar(self) -> None:
         self.statusbar = QtWidgets.QStatusBar()
 
@@ -603,30 +522,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         event.ignore()
         self.call_async(self.app.deleteWindow(self))
 
-    def setCurrentProjectView(self, view: Optional[project_view.ProjectView]) -> None:
-        if view == self.__current_project_view:
-            return
-
-        if self.__current_project_view is not None:
-            self.__current_project_view.playingChanged.disconnect(self.playingChanged)
-            self.__current_project_view.loopEnabledChanged.disconnect(self.loopEnabledChanged)
-
-        if view is not None:
-            view.playingChanged.connect(self.playingChanged)
-            self.playingChanged.emit(view.playing())
-            view.loopEnabledChanged.connect(self.loopEnabledChanged)
-            self.loopEnabledChanged.emit(view.loopEnabled())
-
-        self.__current_project_view = view
-
-        for action in self.__player_actions:
-            action.setEnabled(view is not None)
-
-        if view is not None:
-            self.currentProjectChanged.emit(view.project)
-        else:
-            self.currentProjectChanged.emit(None)
-
     def onCloseCurrentProject(self) -> None:
         idx = self.__project_tabs.currentIndex()
         tab = cast(ProjectTabPage, self.__project_tabs.widget(idx))
@@ -636,10 +531,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             self.call_async(tab.closeDebugger())
         if self.__project_tabs.count() > 1:
             self.__project_tabs.removeTab(idx)
-
-    def onCurrentProjectTabChanged(self) -> None:
-        tab = cast(ProjectTabPage, self.__project_tabs.currentWidget())
-        self.setCurrentProjectView(tab.projectView() if tab is not None else None)
 
     async def onCloseProjectTab(self, idx: int) -> None:
         tab = cast(ProjectTabPage, self.__project_tabs.widget(idx))
@@ -677,29 +568,3 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         view = self.getCurrentProjectView()
         if view is not None:
             view.onSetBPM()
-
-    def onPlayingChanged(self, playing: bool) -> None:
-        if playing:
-            self._player_toggle_action.setIcon(
-                QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', 'media-playback-pause.svg')))
-        else:
-            self._player_toggle_action.setIcon(
-                QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', 'media-playback-start.svg')))
-
-    def onLoopEnabledChanged(self, loop_enabled: bool) -> None:
-        self._player_loop_action.setChecked(loop_enabled)
-
-    def onPlayerMoveTo(self, where: str) -> None:
-        view = self.getCurrentProjectView()
-        if view is not None:
-            view.onPlayerMoveTo(where)
-
-    def onPlayerToggle(self) -> None:
-        view = self.getCurrentProjectView()
-        if view is not None:
-            view.onPlayerToggle()
-
-    def onPlayerLoop(self, loop: bool) -> None:
-        view = self.getCurrentProjectView()
-        if view is not None:
-            view.onPlayerLoop(loop)

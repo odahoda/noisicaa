@@ -22,11 +22,16 @@
 
 import enum
 import logging
+import os.path
 import time as time_lib
 from typing import Any
 
+from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa import audioproc
 from noisicaa.audioproc.public import musical_time_pb2
 from . import ui_base
@@ -37,6 +42,13 @@ logger = logging.getLogger(__name__)
 class TimeMode(enum.Enum):
     Follow = 0
     Manual = 1
+
+
+class MoveTo(enum.Enum):
+    Start = 0
+    End = 1
+    PrevBeat = 2
+    NextBeat = 3
 
 
 class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
@@ -61,6 +73,47 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
         self.__loop_enabled = self.__get_session_value('loop_enabled', False)
 
         self.__player_id = None  # type: str
+
+        self.__move_to_start_action = QtWidgets.QAction("Move to start", self)
+        self.__move_to_start_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-skip-backward.svg')))
+        self.__move_to_start_action.setShortcut(QtGui.QKeySequence('Home'))
+        self.__move_to_start_action.setShortcutContext(Qt.ApplicationShortcut)
+        self.__move_to_start_action.triggered.connect(lambda: self.__onMoveTo(MoveTo.Start))
+
+        self.__move_to_end_action = QtWidgets.QAction("Move to end", self)
+        self.__move_to_end_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-skip-forward.svg')))
+        self.__move_to_end_action.setShortcut(QtGui.QKeySequence('End'))
+        self.__move_to_end_action.setShortcutContext(Qt.ApplicationShortcut)
+        self.__move_to_end_action.triggered.connect(lambda: self.__onMoveTo(MoveTo.End))
+
+        self.__move_to_prev_action = QtWidgets.QAction("Move to previous beat", self)
+        self.__move_to_prev_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-seek-backward.svg')))
+        self.__move_to_prev_action.setShortcut(QtGui.QKeySequence('PgUp'))
+        self.__move_to_prev_action.setShortcutContext(Qt.ApplicationShortcut)
+        self.__move_to_prev_action.triggered.connect(lambda: self.__onMoveTo(MoveTo.PrevBeat))
+
+        self.__move_to_next_action = QtWidgets.QAction("Move to next beat", self)
+        self.__move_to_next_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-seek-forward.svg')))
+        self.__move_to_next_action.setShortcut(QtGui.QKeySequence('PgDown'))
+        self.__move_to_next_action.setShortcutContext(Qt.ApplicationShortcut)
+        self.__move_to_next_action.triggered.connect(lambda: self.__onMoveTo(MoveTo.NextBeat))
+
+        self.__toggle_action = QtWidgets.QAction("Play", self)
+        self.__toggle_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-playback-start.svg')))
+        self.__toggle_action.setShortcut(QtGui.QKeySequence('Space'))
+        self.__toggle_action.setShortcutContext(Qt.ApplicationShortcut)
+        self.__toggle_action.triggered.connect(self.__onToggle)
+
+        self.__loop_action = QtWidgets.QAction("Loop playback", self)
+        self.__loop_action.setIcon(QtGui.QIcon(
+            os.path.join(constants.DATA_DIR, 'icons', 'media-playlist-repeat.svg')))
+        self.__loop_action.setCheckable(True)
+        self.__loop_action.toggled.connect(self.__onLoop)
 
     def __get_session_value(self, key: str, default: Any) -> Any:
         return self.get_session_value(self.__session_prefix + key, default)
@@ -90,12 +143,26 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
         if player_state.HasField('loop_end_time'):
             self.setLoopEndTime(audioproc.MusicalTime.from_proto(player_state.loop_end_time))
 
+    def populateToolBar(self, toolbar: QtWidgets.QToolBar) -> None:
+        toolbar.addAction(self.__toggle_action)
+        toolbar.addAction(self.__loop_action)
+        toolbar.addSeparator()
+        toolbar.addAction(self.__move_to_start_action)
+        toolbar.addAction(self.__move_to_end_action)
+
     def setTimeMode(self, mode: TimeMode) -> None:
         self.__time_mode = mode
 
     def setPlaying(self, playing: bool) -> None:
         if playing == self.__playing:
             return
+
+        if playing:
+            self.__toggle_action.setIcon(
+                QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', 'media-playback-pause.svg')))
+        else:
+            self.__toggle_action.setIcon(
+                QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', 'media-playback-start.svg')))
 
         self.__playing = playing
         self.playingChanged.emit(playing)
@@ -159,9 +226,77 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
         if loop_enabled == self.__loop_enabled:
             return
 
+        self.__loop_action.setChecked(loop_enabled)
+
         self.__loop_enabled = loop_enabled
         self.__set_session_value('loop_enabled', loop_enabled)
         self.loopEnabledChanged.emit(loop_enabled)
 
     def loopEnabled(self) -> bool:
         return self.__loop_enabled
+
+    def __onMoveTo(self, where: MoveTo) -> None:
+        if self.__player_id is None:
+            logger.warning("Player action without active player.")
+            return
+
+        new_time = None
+        if where == MoveTo.Start:
+            new_time = audioproc.MusicalTime()
+
+        elif where == MoveTo.End:
+            new_time = self.time_mapper.end_time
+
+        elif where == MoveTo.PrevBeat:
+            raise NotImplementedError
+            # measure_start_time = audioproc.MusicalTime()
+            # current_time = self.__player_state.currentTime()
+            # for mref in self.project.property_track.measure_list:
+            #     measure = mref.measure
+            #     if measure_start_time <= current_time < (measure_start_time + measure.duration
+            #                                              + audioproc.MusicalDuration(1, 16)):
+            #         new_time = measure_start_time
+            #         break
+
+            #     measure_start_time += measure.duration
+
+        elif where == MoveTo.NextBeat:
+            raise NotImplementedError
+            # measure_start_time = audioproc.MusicalTime()
+            # current_time = self.__player_state.currentTime()
+            # for mref in self.project.property_track.measure_list:
+            #     measure = mref.measure
+            #     if measure_start_time <= current_time < measure_start_time + measure.duration:
+            #         new_time = measure_start_time + measure.duration
+            #         break
+
+            #     measure_start_time += measure.duration
+
+        else:
+            raise ValueError(where)
+
+        if new_time is not None:
+            self.call_async(
+                self.project_client.update_player_state(
+                    self.__player_id,
+                    audioproc.PlayerState(current_time=new_time.to_proto())))
+
+    def __onToggle(self) -> None:
+        if self.__player_id is None:
+            logger.warning("Player action without active player.")
+            return
+
+        self.call_async(
+            self.project_client.update_player_state(
+                self.__player_id,
+                audioproc.PlayerState(playing=not self.__playing)))
+
+    def __onLoop(self, loop: bool) -> None:
+        if self.__player_id is None:
+            logger.warning("Player action without active player.")
+            return
+
+        self.call_async(
+            self.project_client.update_player_state(
+                self.__player_id,
+                audioproc.PlayerState(loop_enabled=loop)))

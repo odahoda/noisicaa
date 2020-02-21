@@ -69,8 +69,6 @@ class ProjectView(ui_base.AbstractProjectView):
         self.__player_status_listener = None  # type: core.Listener
 
         self.__player_state = player_state_lib.PlayerState(context=self.context)
-        self.__player_state.playingChanged.connect(self.playingChanged)
-        self.__player_state.loopEnabledChanged.connect(self.loopEnabledChanged)
 
         self.__track_list = track_list_view.TrackListView(
             project_view=self, player_state=self.__player_state,
@@ -88,8 +86,14 @@ class ProjectView(ui_base.AbstractProjectView):
         self.__splitter.setCollapsible(0, False)
         self.__splitter.addWidget(self.__graph)
 
+        self.__toolbar = QtWidgets.QToolBar(self)
+        self.__toolbar.setObjectName('toolbar:%016x' % self.project.id)
+        self.__player_state.populateToolBar(self.__toolbar)
+
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.__toolbar)
         layout.addWidget(self.__splitter)
         self.setLayout(layout)
 
@@ -150,11 +154,8 @@ class ProjectView(ui_base.AbstractProjectView):
 
         self.__track_list.cleanup()
 
-    def playing(self) -> bool:
-        return self.__player_state.playing()
-
-    def loopEnabled(self) -> bool:
-        return self.__player_state.loopEnabled()
+    def playerState(self) -> player_state_lib.PlayerState:
+        return self.__player_state
 
     async def createPluginUI(self, node_id: str) -> Tuple[int, Tuple[int, int]]:
         return await self.project_client.create_plugin_ui(self.__player_id, node_id)
@@ -165,72 +166,6 @@ class ProjectView(ui_base.AbstractProjectView):
     async def sendNodeMessage(self, msg: audioproc.ProcessorMessage) -> None:
         await self.audioproc_client.send_node_messages(
             self.__player_realm, audioproc.ProcessorMessageList(messages=[msg]))
-
-    def onPlayerMoveTo(self, where: str) -> None:
-        if self.__player_id is None:
-            logger.warning("Player action without active player.")
-            return
-
-        new_time = None
-        if where == 'start':
-            new_time = audioproc.MusicalTime()
-
-        elif where == 'end':
-            new_time = self.time_mapper.end_time
-
-        elif where == 'prev':
-            raise NotImplementedError
-            # measure_start_time = audioproc.MusicalTime()
-            # current_time = self.__player_state.currentTime()
-            # for mref in self.project.property_track.measure_list:
-            #     measure = mref.measure
-            #     if measure_start_time <= current_time < (measure_start_time + measure.duration
-            #                                              + audioproc.MusicalDuration(1, 16)):
-            #         new_time = measure_start_time
-            #         break
-
-            #     measure_start_time += measure.duration
-
-        elif where == 'next':
-            raise NotImplementedError
-            # measure_start_time = audioproc.MusicalTime()
-            # current_time = self.__player_state.currentTime()
-            # for mref in self.project.property_track.measure_list:
-            #     measure = mref.measure
-            #     if measure_start_time <= current_time < measure_start_time + measure.duration:
-            #         new_time = measure_start_time + measure.duration
-            #         break
-
-            #     measure_start_time += measure.duration
-
-        else:
-            raise ValueError(where)
-
-        if new_time is not None:
-            self.call_async(
-                self.project_client.update_player_state(
-                    self.__player_id,
-                    audioproc.PlayerState(current_time=new_time.to_proto())))
-
-    def onPlayerToggle(self) -> None:
-        if self.__player_id is None:
-            logger.warning("Player action without active player.")
-            return
-
-        self.call_async(
-            self.project_client.update_player_state(
-                self.__player_id,
-                audioproc.PlayerState(playing=not self.__player_state.playing())))
-
-    def onPlayerLoop(self, loop: bool) -> None:
-        if self.__player_id is None:
-            logger.warning("Player action without active player.")
-            return
-
-        self.call_async(
-            self.project_client.update_player_state(
-                self.__player_id,
-                audioproc.PlayerState(loop_enabled=loop)))
 
     def onRender(self) -> None:
         dialog = render_dialog.RenderDialog(parent=self, context=self.context)
