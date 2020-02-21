@@ -51,6 +51,67 @@ class MoveTo(enum.Enum):
     NextBeat = 3
 
 
+class TimeDisplayMode(enum.Enum):
+    MusicalTime = 0
+    RealTime = 1
+
+
+class TimeDisplay(QtWidgets.QLCDNumber):
+    def __init__(self, parent: QtWidgets.QWidget, time_mapper: audioproc.TimeMapper) -> None:
+        super().__init__(parent)
+
+        self.setDigitCount(9)
+        self.setSegmentStyle(QtWidgets.QLCDNumber.Flat)
+        self.setFrameStyle(QtWidgets.QFrame.Panel)
+        self.setFrameShadow(QtWidgets.QFrame.Sunken)
+
+        self.__time_mapper = time_mapper
+        self.__time_mode = TimeDisplayMode.MusicalTime
+        self.__current_time = audioproc.MusicalTime()
+
+    def __update(self) -> None:
+        if self.__time_mode == TimeDisplayMode.MusicalTime:
+            beat = self.__current_time / audioproc.MusicalDuration(1, 4)
+            self.display('%.3f' % beat)
+
+        else:
+            assert self.__time_mode == TimeDisplayMode.RealTime
+            t = self.__time_mapper.musical_to_sample_time(self.__current_time) / self.__time_mapper.sample_rate
+            millis = int(1000 * t) % 1000
+            seconds = int(t) % 60
+            minutes = int(t) // 60
+            self.display('%d:%02d.%03d' % (minutes, seconds, millis))
+
+    def setCurrentTime(self, current_time: audioproc.MusicalTime) -> None:
+        self.__current_time = current_time
+        self.__update()
+
+    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
+        if evt.button() == Qt.LeftButton:
+            if self.__time_mode == TimeDisplayMode.MusicalTime:
+                self.__time_mode = TimeDisplayMode.RealTime
+            else:
+                self.__time_mode = TimeDisplayMode.MusicalTime
+            self.__update()
+            evt.accept()
+            return
+
+        super().mousePressEvent(evt)
+
+
+class TimeDisplayAction(QtWidgets.QWidgetAction):
+    def __init__(self, player_state: 'PlayerState', time_mapper: audioproc.TimeMapper) -> None:
+        super().__init__(player_state)
+        self.__player_state = player_state
+        self.__time_mapper = time_mapper
+
+    def createWidget(self, parent: QtWidgets.QWidget) -> QtWidgets.QWidget:
+        display = TimeDisplay(parent, self.__time_mapper)
+        self.__player_state.currentTimeChanged.connect(display.setCurrentTime)
+        display.setCurrentTime(self.__player_state.currentTime())
+        return display
+
+
 class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
     playingChanged = QtCore.pyqtSignal(bool)
     currentTimeChanged = QtCore.pyqtSignal(object)
@@ -73,6 +134,8 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
         self.__loop_enabled = self.__get_session_value('loop_enabled', False)
 
         self.__player_id = None  # type: str
+
+        self.__time_display = TimeDisplayAction(self, self.time_mapper)
 
         self.__move_to_start_action = QtWidgets.QAction("Move to start", self)
         self.__move_to_start_action.setIcon(QtGui.QIcon(
@@ -144,6 +207,8 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
             self.setLoopEndTime(audioproc.MusicalTime.from_proto(player_state.loop_end_time))
 
     def populateToolBar(self, toolbar: QtWidgets.QToolBar) -> None:
+        toolbar.addAction(self.__time_display)
+        toolbar.addSeparator()
         toolbar.addAction(self.__toggle_action)
         toolbar.addAction(self.__loop_action)
         toolbar.addSeparator()
