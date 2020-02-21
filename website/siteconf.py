@@ -4,6 +4,11 @@ import odasite
 import odasite.blog
 
 class BlogPost(odasite.blog.BlogPost):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.relative_path = self.source.path.relative_to(self.blog.source_root).with_suffix('.html')
+
     @property
     def content(self):
         old_content = super().content
@@ -51,6 +56,7 @@ class Site(odasite.Site):
 
         blog = odasite.blog.Blog(
             source_root='blog',
+            output_root='/blog/',
             post_renderer=jinja2_engine.get_renderer('blog-post.html'),
             index_renderer=jinja2_engine.get_renderer('blog-index.html'),
             archive_renderer=jinja2_engine.get_renderer('blog-archive.html'),
