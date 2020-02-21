@@ -109,11 +109,13 @@ class TimeLine(
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if (self.__player_id is not None
                 and evt.button() == Qt.LeftButton
-                and evt.modifiers() == Qt.NoModifier):
+                and evt.modifiers() in (Qt.NoModifier, Qt.ShiftModifier)):
             self.__move_time = True
             self.__old_player_state = self.__player_state.playing()
             x = evt.pos().x() + self.xOffset()
             current_time = self.xToTime(x)
+            if self.shouldSnap(evt):
+                current_time = self.snapTime(current_time)
             self.call_async(
                 self.project_client.update_player_state(
                     self.__player_id,
@@ -138,7 +140,7 @@ class TimeLine(
         super().mouseMoveEvent(evt)
 
     def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
-        if self.__move_time and evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
+        if self.__move_time and evt.button() == Qt.LeftButton:
             self.__move_time = False
             x = evt.pos().x() + self.xOffset()
             current_time = min(self.xToTime(x), self.projectEndTime())

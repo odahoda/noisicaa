@@ -129,7 +129,7 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
 
     def updateFromProto(self, player_state: audioproc.PlayerState) -> None:
         if player_state.HasField('current_time') and self.__time_mode == TimeMode.Follow:
-            self.setCurrentTime(audioproc.MusicalTime.from_proto(player_state.current_time))
+            self.setCurrentTime(audioproc.MusicalTime.from_proto(player_state.current_time), True)
 
         if player_state.HasField('playing') and self.__time_mode == TimeMode.Follow:
             self.setPlaying(player_state.playing)
@@ -148,6 +148,8 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
         toolbar.addAction(self.__loop_action)
         toolbar.addSeparator()
         toolbar.addAction(self.__move_to_start_action)
+        toolbar.addAction(self.__move_to_prev_action)
+        toolbar.addAction(self.__move_to_next_action)
         toolbar.addAction(self.__move_to_end_action)
 
     def setTimeMode(self, mode: TimeMode) -> None:
@@ -170,7 +172,7 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
     def playing(self) -> bool:
         return self.__playing
 
-    def setCurrentTime(self, current_time: audioproc.MusicalTime) -> None:
+    def setCurrentTime(self, current_time: audioproc.MusicalTime, from_engine=False) -> None:
         if current_time == self.__current_time:
             return
 
@@ -179,6 +181,13 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
                 or time_lib.time() - self.__last_current_time_update > 5):
             self.__set_session_value('current_time', current_time)
             self.__last_current_time_update = time_lib.time()
+
+        if not from_engine:
+            self.call_async(
+                self.project_client.update_player_state(
+                    self.__player_id,
+                    audioproc.PlayerState(current_time=current_time.to_proto())))
+
         self.currentTimeChanged.emit(current_time)
 
     def currentTime(self) -> audioproc.MusicalTime:
@@ -240,46 +249,28 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
             logger.warning("Player action without active player.")
             return
 
-        new_time = None
         if where == MoveTo.Start:
-            new_time = audioproc.MusicalTime()
+            self.setCurrentTime(audioproc.MusicalTime())
 
         elif where == MoveTo.End:
-            new_time = self.time_mapper.end_time
+            self.setCurrentTime(self.time_mapper.end_time)
 
         elif where == MoveTo.PrevBeat:
-            raise NotImplementedError
-            # measure_start_time = audioproc.MusicalTime()
-            # current_time = self.__player_state.currentTime()
-            # for mref in self.project.property_track.measure_list:
-            #     measure = mref.measure
-            #     if measure_start_time <= current_time < (measure_start_time + measure.duration
-            #                                              + audioproc.MusicalDuration(1, 16)):
-            #         new_time = measure_start_time
-            #         break
-
-            #     measure_start_time += measure.duration
+            beat = int((self.__current_time + audioproc.MusicalDuration(3, 16)) / audioproc.MusicalTime(1, 4))
+            new_time = audioproc.MusicalTime(beat - 1, 4)
+            if new_time < audioproc.MusicalTime(0, 1):
+                new_time = audioproc.MusicalTime(0, 1)
+            self.setCurrentTime(new_time)
 
         elif where == MoveTo.NextBeat:
-            raise NotImplementedError
-            # measure_start_time = audioproc.MusicalTime()
-            # current_time = self.__player_state.currentTime()
-            # for mref in self.project.property_track.measure_list:
-            #     measure = mref.measure
-            #     if measure_start_time <= current_time < measure_start_time + measure.duration:
-            #         new_time = measure_start_time + measure.duration
-            #         break
-
-            #     measure_start_time += measure.duration
+            beat = int((self.__current_time + audioproc.MusicalDuration(3, 16)) / audioproc.MusicalTime(1, 4))
+            new_time = audioproc.MusicalTime(beat + 1, 4)
+            if new_time > self.time_mapper.end_time:
+                new_time = self.time_mapper.end_time
+            self.setCurrentTime(new_time)
 
         else:
             raise ValueError(where)
-
-        if new_time is not None:
-            self.call_async(
-                self.project_client.update_player_state(
-                    self.__player_id,
-                    audioproc.PlayerState(current_time=new_time.to_proto())))
 
     def __onToggle(self) -> None:
         if self.__player_id is None:
