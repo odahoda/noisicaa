@@ -42,6 +42,7 @@ from .track_list import view as track_list_view
 from . import player_state as player_state_lib
 from . import vumeter
 from . import slots
+from . import engine_state as engine_state_lib
 
 if typing.TYPE_CHECKING:
     from noisicaa import core
@@ -109,6 +110,7 @@ class ProjectView(ui_base.AbstractProjectView):
     def __init__(
             self, *,
             project_connection: project_registry.Project,
+            engine_state: engine_state_lib.EngineState,
             context: ui_base.CommonContext,
             **kwargs: Any) -> None:
         context = ui_base.ProjectContext(
@@ -116,6 +118,8 @@ class ProjectView(ui_base.AbstractProjectView):
             project_view=self,
             app=context.app)
         super().__init__(parent=None, context=context, **kwargs)
+
+        self.__engine_state = engine_state
 
         self.__session_prefix = 'project-view:%016x:' % self.project.id
 
@@ -155,6 +159,9 @@ class ProjectView(ui_base.AbstractProjectView):
 
         self.__vumeter = vumeter.VUMeter(self)
         self.__vumeter.setMinimumWidth(250)
+
+        self.__engine_load = engine_state_lib.LoadHistory(self, self.__engine_state)
+        self.__engine_load.setFixedWidth(100)
 
         self.__toggle_playback_button = QtWidgets.QToolButton(self)
         self.__toggle_playback_button.setDefaultAction(self.__player_state.togglePlaybackAction())
@@ -213,6 +220,8 @@ class ProjectView(ui_base.AbstractProjectView):
         tb_layout.addWidget(self.__vumeter, 0, c, 2, 1)
         c += 1
         tb_layout.setColumnStretch(c, 1)
+        c += 1
+        tb_layout.addWidget(self.__engine_load, 0, c, 2, 1)
 
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)

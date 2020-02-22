@@ -40,8 +40,8 @@ from . import project_debugger
 from . import ui_base
 from . import qprogressindicator
 from . import project_registry as project_registry_lib
-from . import load_history
 from . import open_project_dialog
+from . import engine_state as engine_state_lib
 
 if typing.TYPE_CHECKING:
     from noisicaa import core
@@ -87,10 +87,16 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
     currentPageChanged = QtCore.pyqtSignal(QtWidgets.QWidget)
     hasProjectView = QtCore.pyqtSignal(bool)
 
-    def __init__(self, parent: QtWidgets.QTabWidget, **kwargs: Any) -> None:
+    def __init__(
+            self, *,
+            parent: QtWidgets.QTabWidget,
+            engine_state: engine_state_lib.EngineState,
+            **kwargs: Any
+    ) -> None:
         super().__init__(parent=parent, **kwargs)
 
         self.__tab_widget = parent
+        self.__engine_state = engine_state
 
         self.__page = None  # type: QtWidgets.QWidget
         self.__page_cleanup_func = None  # type: Callable[[], None]
@@ -198,7 +204,10 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
                 exc, "Failed to open project \"%s\"." % project.name)
 
         else:
-            view = project_view.ProjectView(project_connection=project, context=self.context)
+            view = project_view.ProjectView(
+                project_connection=project,
+                engine_state=self.__engine_state,
+                context=self.context)
             view.setObjectName('project-view')
             await view.setup()
             self.setProjectView(project.name, view)
@@ -217,7 +226,10 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
 
         else:
             await self.app.project_registry.refresh()
-            view = project_view.ProjectView(project_connection=project, context=self.context)
+            view = project_view.ProjectView(
+                project_connection=project,
+                engine_state=self.__engine_state,
+                context=self.context)
             view.setObjectName('project-view')
             await view.setup()
             self.setProjectView(project.name, view)
@@ -236,7 +248,10 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
 
         else:
             await self.app.project_registry.refresh()
-            view = project_view.ProjectView(project_connection=project, context=self.context)
+            view = project_view.ProjectView(
+                project_connection=project,
+                engine_state=self.__engine_state,
+                context=self.context)
             view.setObjectName('project-view')
             await view.setup()
             self.setProjectView(project.name, view)
@@ -296,6 +311,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
+        self.__engine_state = engine_state_lib.EngineState(self)
         self.__engine_state_listener = None  # type: core.Listener[audioproc.EngineStateChange]
 
         self.setWindowTitle("noisicaä")
@@ -306,7 +322,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         self.createActions()
         self.createMenus()
-        self.createStatusBar()
 
         self.__project_tabs = QtWidgets.QTabWidget(self)
         self.__project_tabs.setObjectName('project-tabs')
@@ -358,7 +373,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
     def audioprocReady(self) -> None:
         self.__engine_state_listener = self.audioproc_client.engine_state_changed.add(
-            self.__engineStateChanged)
+            self.__engine_state.updateState)
 
     def createSetupProgress(self) -> SetupProgressWidget:
         assert self.__setup_progress is None
@@ -394,7 +409,10 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.__setup_progress_fade_task = None
 
     def addProjectTab(self) -> ProjectTabPage:
-        page = ProjectTabPage(parent=self.__project_tabs, context=self.context)
+        page = ProjectTabPage(
+            parent=self.__project_tabs,
+            engine_state=self.__engine_state,
+            context=self.context)
         idx = self.__project_tabs.addTab(page, '')
         self.__project_tabs.setCurrentIndex(idx)
         return page
@@ -475,47 +493,10 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._help_menu.addAction(self.app.about_action)
         self._help_menu.addAction(self.app.aboutqt_action)
 
-    def createStatusBar(self) -> None:
-        self.statusbar = QtWidgets.QStatusBar()
-
-        self.pipeline_load = load_history.LoadHistoryWidget(100, 30)
-        self.pipeline_load.setToolTip("Load of the playback engine.")
-        self.statusbar.addPermanentWidget(self.pipeline_load)
-
-        self.pipeline_status = QtWidgets.QLabel()
-        self.statusbar.addPermanentWidget(self.pipeline_status)
-
-        self.setStatusBar(self.statusbar)
-
     def storeState(self) -> None:
         logger.info("Saving current EditorWindow geometry.")
         self.app.settings.setValue('mainwindow/geometry', self.saveGeometry())
         self.app.settings.setValue('mainwindow/state', self.saveState())
-
-    def __engineStateChanged(self, engine_state: audioproc.EngineStateChange) -> None:
-        show_status, show_load = False, False
-        if engine_state.state == audioproc.EngineStateChange.SETUP:
-            self.pipeline_status.setText("Starting engine...")
-            show_status = True
-        elif engine_state.state == audioproc.EngineStateChange.CLEANUP:
-            self.pipeline_status.setText("Stopping engine...")
-            show_status = True
-        elif engine_state.state == audioproc.EngineStateChange.RUNNING:
-            if engine_state.HasField('load'):
-                self.pipeline_load.addValue(engine_state.load)
-                show_load = True
-            else:
-                self.pipeline_status.setText("Engine running")
-                show_status = True
-        elif engine_state.state == audioproc.EngineStateChange.STOPPED:
-            self.pipeline_status.setText("Engine stopped")
-            show_status = True
-
-        self.pipeline_status.setVisible(show_status)
-        self.pipeline_load.setVisible(show_load)
-
-    def setInfoMessage(self, msg: str) -> None:
-        self.statusbar.showMessage(msg)
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         logger.info("CloseEvent received")
