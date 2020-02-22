@@ -57,6 +57,7 @@ class VUMeterNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.Q
         self.__current_orientation = None  # type: Qt.Orientation
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.__vu_meter)
         self.setLayout(layout)
 
