@@ -10,9 +10,9 @@ There were also some more commits to the master branch afterwards, but those wer
 work, i.e. upgrading the package dependencies, incl. `mypy`/`pylint`, which triggered some code
 cleanups. I just did not bother to create a new branch for that.
 
-# What's new
+### What's new
 
-## Sample track improvements
+#### Sample track improvements
 
 [[thumb:2020-02-21-sample-tracks.png]] I made various improvements to the sample tracks (which I
 should really rename to "Audio Track") to make them at least somewhat usable - for my current
@@ -34,7 +34,7 @@ are now correctly rendered as well.
 
 There are still no advanced features, like editing, enveloped, disk streaming, etc.
 
-# Internal changes
+### Internal changes
 
 * Audio files are now decoded into raw files (32bit floats, single channel per file) into the
   project directory, which can be directly loaded into memory for playback.
