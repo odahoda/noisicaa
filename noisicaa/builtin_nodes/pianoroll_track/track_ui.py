@@ -743,7 +743,6 @@ class PianoRollTrackEditor(
     effectiveGridYSize, setEffectiveGridYSize, effectiveGridYSizeChanged = slots.slot(
         int, 'effectiveGridYSize', default=15)
     hoverPitch, setHoverPitch, hoverPitchChanged = slots.slot(int, 'hoverPitch', default=-1)
-    snapToGrid, setSnapToGrid, snapToGridChanged = slots.slot(bool, 'snapToGrid', default=True)
     currentChannel, setCurrentChannel, currentChannelChanged = slots.slot(
         int, 'currentChannel', default=0)
     showKeys, setShowKeys, showKeysChanged = slots.slot(
@@ -1159,19 +1158,6 @@ class PianoRollTrackEditor(
     def __updateYScrollbar(self) -> None:
         self.__y_scrollbar.setRange(0, max(0, self.gridHeight() - self.height()))
         self.__y_scrollbar.setPageStep(self.height())
-
-    def shouldSnap(self, evt: QtGui.QMouseEvent) -> bool:
-        return self.snapToGrid() and not evt.modifiers() & Qt.ShiftModifier
-
-    def snapTime(self, time: audioproc.MusicalTime) -> audioproc.MusicalTime:
-        grid_time = (
-            audioproc.MusicalTime(0, 1)
-            + self.gridStep() * int(round(float(time / self.gridStep()))))
-        time_x = int(time * self.scaleX())
-        grid_x = int(grid_time * self.scaleX())
-        if abs(time_x - grid_x) <= 10:
-            return grid_time
-        return time
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)

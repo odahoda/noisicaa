@@ -56,6 +56,7 @@ class BaseMeasureEditor(ui_base.ProjectMixin, QtCore.QObject):
         super().__init__(**kwargs)
 
         self.__top_left = QtCore.QPoint()
+        self.__width = 100
         self.__playback_time = None  # type: audioproc.MusicalTime
         self.__track_editor = track_editor
 
@@ -95,7 +96,10 @@ class BaseMeasureEditor(ui_base.ProjectMixin, QtCore.QObject):
         return self.track_editor.scaleX()
 
     def width(self) -> int:
-        raise NotImplementedError
+        return self.__width
+
+    def setWidth(self, w: int) -> None:
+        self.__width = w
 
     def height(self) -> int:
         return self.track_editor.height()
@@ -192,9 +196,6 @@ class MeasureEditor(core.AutoCleanupMixin, slots.SlotContainer, BaseMeasureEdito
         return (
             self.__measure_reference is not None
             and self.__measure_reference.index == 0)
-
-    def width(self) -> int:
-        return int(self.scaleX() * self.measure.duration.fraction)
 
     def addMeasureListeners(self) -> None:
         raise NotImplementedError
@@ -303,9 +304,6 @@ class Appendix(BaseMeasureEditor):
         y1 = max(5, ymid - 40)
         y2 = min(self.height() - 5, ymid + 40)
         return QtCore.QRect(10, y1, 80, y2 - y1 + 1)
-
-    def width(self) -> int:
-        return 90
 
     def paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
         click_rect = self.clickRect()
@@ -794,10 +792,18 @@ class MeasuredTrackEditor(  # pylint: disable=abstract-method
         if self.__closing:
             return
 
-        p = QtCore.QPoint(self.leftMargin(), 0)
+        t0 = audioproc.MusicalTime()
+        x0 = int(t0 * self.scaleX())
         for measure_editor in self.measure_editors():
-            measure_editor.setTopLeft(p)
-            p += QtCore.QPoint(measure_editor.width(), 0)
+            t1 = t0 + measure_editor.duration
+            if isinstance(measure_editor, Appendix):
+                x1 = x0 + 90
+            else:
+                x1 = int(t1 * self.scaleX())
+            measure_editor.setTopLeft(QtCore.QPoint(x0 + self.leftMargin(), 0))
+            measure_editor.setWidth(x1 - x0)
+            x0 = x1
+            t0 = t1
 
     def setScaleX(self, scale_x: fractions.Fraction) -> None:
         super().setScaleX(scale_x)

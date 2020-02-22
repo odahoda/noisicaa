@@ -58,7 +58,7 @@ class EditorAppTest(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         os.makedirs(self.music_dir)
 
         self.setup_node_db_process(inline=True)
-        self.setup_urid_mapper_process(inline=True)
+        self.setup_urid_mapper_process(inline=False)
         self.setup_instrument_db_process(inline=True)
         self.setup_audioproc_process(inline=True)
         self.setup_writer_process(inline=True)

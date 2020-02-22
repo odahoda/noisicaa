@@ -36,9 +36,6 @@ from . import time_view_mixin
 
 logger = logging.getLogger(__name__)
 
-# TODO: fix cyclic dependency
-ProjectView = Any
-
 
 class TimeLine(
         time_view_mixin.ContinuousTimeMixin,
@@ -47,8 +44,7 @@ class TimeLine(
         QtWidgets.QWidget):
     def __init__(
             self, *,
-            project_view: ProjectView,
-            player_state: player_state_lib.PlayerState,
+            player_state: 'player_state_lib.PlayerState',
             **kwargs: Any
     ) -> None:
         super().__init__(**kwargs)
@@ -57,7 +53,6 @@ class TimeLine(
         self.setMinimumHeight(20)
         self.setMaximumHeight(20)
 
-        self.__project_view = project_view
         self.__player_state = player_state
         self.__player_id = None  # type: str
         self.__move_time = False
@@ -114,16 +109,18 @@ class TimeLine(
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if (self.__player_id is not None
                 and evt.button() == Qt.LeftButton
-                and evt.modifiers() == Qt.NoModifier):
+                and evt.modifiers() in (Qt.NoModifier, Qt.ShiftModifier)):
             self.__move_time = True
             self.__old_player_state = self.__player_state.playing()
             x = evt.pos().x() + self.xOffset()
             current_time = self.xToTime(x)
+            if self.shouldSnap(evt):
+                current_time = self.snapTime(current_time)
             self.call_async(
                 self.project_client.update_player_state(
                     self.__player_id,
                     audioproc.PlayerState(playing=False)))
-            self.__project_view.setPlaybackPosMode('manual')
+            self.__player_state.setTimeMode(player_state_lib.TimeMode.Manual)
             self.__player_state.setCurrentTime(current_time)
             evt.accept()
             return
@@ -134,6 +131,8 @@ class TimeLine(
         if self.__move_time:
             x = evt.pos().x() + self.xOffset()
             current_time = min(self.xToTime(x), self.projectEndTime())
+            if self.shouldSnap(evt):
+                current_time = self.snapTime(current_time)
             self.__player_state.setCurrentTime(current_time)
             evt.accept()
             return
@@ -141,17 +140,19 @@ class TimeLine(
         super().mouseMoveEvent(evt)
 
     def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
-        if self.__move_time and evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
+        if self.__move_time and evt.button() == Qt.LeftButton:
             self.__move_time = False
             x = evt.pos().x() + self.xOffset()
             current_time = min(self.xToTime(x), self.projectEndTime())
+            if self.shouldSnap(evt):
+                current_time = self.snapTime(current_time)
             self.call_async(
                 self.project_client.update_player_state(
                     self.__player_id,
                     audioproc.PlayerState(
                         playing=self.__old_player_state,
                         current_time=current_time.to_proto())))
-            self.__project_view.setPlaybackPosMode('follow')
+            self.__player_state.setTimeMode(player_state_lib.TimeMode.Follow)
             evt.accept()
             return
 

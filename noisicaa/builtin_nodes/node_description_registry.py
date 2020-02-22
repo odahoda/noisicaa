@@ -43,6 +43,7 @@ from .metronome.node_description import MetronomeDescription
 from .midi_velocity_mapper.node_description import MidiVelocityMapperDescription
 from .cv_mapper.node_description import CVMapperDescription
 from .oscilloscope.node_description import OscilloscopeDescription
+from .vumeter.node_description import VUMeterDescription
 
 
 def node_descriptions() -> Iterator[node_db.NodeDescription]:
@@ -66,3 +67,4 @@ def node_descriptions() -> Iterator[node_db.NodeDescription]:
     yield MidiVelocityMapperDescription
     yield CVMapperDescription
     yield OscilloscopeDescription
+    yield VUMeterDescription
