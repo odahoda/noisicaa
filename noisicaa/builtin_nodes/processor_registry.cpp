@@ -39,6 +39,7 @@
 #include "noisicaa/builtin_nodes/midi_velocity_mapper/processor.h"
 #include "noisicaa/builtin_nodes/cv_mapper/processor.h"
 #include "noisicaa/builtin_nodes/oscilloscope/processor.h"
+#include "noisicaa/builtin_nodes/vumeter/processor.h"
 
 namespace noisicaa {
 
@@ -101,6 +102,9 @@ StatusOr<Processor*> create_processor(
   } else if (desc.processor().type() == "builtin://oscilloscope") {
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
     return new ProcessorOscilloscope(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://vumeter") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorVUMeter(realm_name, node_id, host_system, desc);
   }
 
   return ERROR_STATUS("Invalid processor type %s", desc.processor().type().c_str());

@@ -45,6 +45,7 @@ from .metronome.node_ui import MetronomeNode
 from .midi_velocity_mapper.node_ui import MidiVelocityMapperNode
 from .cv_mapper.node_ui import CVMapperNode
 from .oscilloscope.node_ui import OscilloscopeNode
+from .vumeter.node_ui import VUMeterNode
 
 if typing.TYPE_CHECKING:
     from noisicaa.ui.graph import base_node
@@ -69,6 +70,7 @@ node_ui_cls_map = {
     'builtin://midi-velocity-mapper': MidiVelocityMapperNode,
     'builtin://cv-mapper': CVMapperNode,
     'builtin://oscilloscope': OscilloscopeNode,
+    'builtin://vumeter': VUMeterNode,
 }  # type: Dict[str, Type[base_node.Node]]
 
 track_editor_cls_map = {
