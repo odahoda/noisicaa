@@ -41,6 +41,7 @@ from . import project_registry
 from .track_list import view as track_list_view
 from . import player_state as player_state_lib
 from . import vumeter
+from . import slots
 
 if typing.TYPE_CHECKING:
     from noisicaa import core
@@ -48,14 +49,18 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class TimeDisplayMode(enum.Enum):
-    MusicalTime = 0
-    RealTime = 1
+class TimeDisplay(slots.SlotContainer, QtWidgets.QLCDNumber):
+    class DisplayMode(enum.IntEnum):
+        MusicalTime = 0
+        RealTime = 1
 
+    displayMode, setDisplayMode, displayModeChanged = slots.slot(
+        DisplayMode, 'displayMode', default=DisplayMode.MusicalTime)
 
-class TimeDisplay(QtWidgets.QLCDNumber):
-    def __init__(self, parent: QtWidgets.QWidget, time_mapper: audioproc.TimeMapper) -> None:
-        super().__init__(parent)
+    def __init__(
+            self, parent: QtWidgets.QWidget, time_mapper: audioproc.TimeMapper, **kwargs: Any
+    ) -> None:
+        super().__init__(parent=parent, **kwargs)
 
         self.setDigitCount(9)
         self.setSegmentStyle(QtWidgets.QLCDNumber.Flat)
@@ -63,16 +68,17 @@ class TimeDisplay(QtWidgets.QLCDNumber):
         self.setFrameShadow(QtWidgets.QFrame.Sunken)
 
         self.__time_mapper = time_mapper
-        self.__time_mode = TimeDisplayMode.MusicalTime
         self.__current_time = audioproc.MusicalTime()
 
+        self.displayModeChanged.connect(self.__update)
+
     def __update(self) -> None:
-        if self.__time_mode == TimeDisplayMode.MusicalTime:
+        if self.displayMode() == self.DisplayMode.MusicalTime:
             beat = self.__current_time / audioproc.MusicalDuration(1, 4)
             self.display('%.3f' % beat)
 
         else:
-            assert self.__time_mode == TimeDisplayMode.RealTime
+            assert self.displayMode() == self.DisplayMode.RealTime
             t = (self.__time_mapper.musical_to_sample_time(self.__current_time)
                  / self.__time_mapper.sample_rate)
             millis = int(1000 * t) % 1000
@@ -86,11 +92,10 @@ class TimeDisplay(QtWidgets.QLCDNumber):
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
         if evt.button() == Qt.LeftButton:
-            if self.__time_mode == TimeDisplayMode.MusicalTime:
-                self.__time_mode = TimeDisplayMode.RealTime
+            if self.displayMode() == self.DisplayMode.MusicalTime:
+                self.setDisplayMode(self.DisplayMode.RealTime)
             else:
-                self.__time_mode = TimeDisplayMode.MusicalTime
-            self.__update()
+                self.setDisplayMode(self.DisplayMode.MusicalTime)
             evt.accept()
             return
 
@@ -143,6 +148,10 @@ class ProjectView(ui_base.AbstractProjectView):
         self.__time_display.setMinimumWidth(9*20)
         self.__player_state.currentTimeChanged.connect(self.__time_display.setCurrentTime)
         self.__time_display.setCurrentTime(self.__player_state.currentTime())
+        self.__time_display.setDisplayMode(TimeDisplay.DisplayMode(self.get_session_value(
+            self.__session_prefix + 'time-display-mode', TimeDisplay.DisplayMode.MusicalTime)))
+        self.__time_display.displayModeChanged.connect(functools.partial(
+            self.set_session_value, self.__session_prefix + 'time-display-mode'))
 
         self.__vumeter = vumeter.VUMeter(self)
         self.__vumeter.setMinimumWidth(250)
