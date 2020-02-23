@@ -64,25 +64,29 @@ instr 2
 
   ; filters
   if (gk_hp_cutoff > 1) then
-    a_sig_l = butterhp(a_sig_l, gk_hp_cutoff)
-    a_sig_r = butterhp(a_sig_r, gk_hp_cutoff)
+    a_hp_cutoff = tone(a(gk_hp_cutoff), 10)
+    a_sig_l = butterhp(a_sig_l, a_hp_cutoff)
+    a_sig_r = butterhp(a_sig_r, a_hp_cutoff)
   endif
 
   if (gk_lp_cutoff < 20000) then
-    a_sig_l = butterlp(a_sig_l, gk_lp_cutoff)
-    a_sig_r = butterlp(a_sig_r, gk_lp_cutoff)
+    a_lp_cutoff = tone(a(gk_lp_cutoff), 10)
+    a_sig_l = butterlp(a_sig_l, a_lp_cutoff)
+    a_sig_r = butterlp(a_sig_r, a_lp_cutoff)
   endif
 
   ; pan signal
   i_sqrt2   = 1.414213562373095
-  k_theta   = 3.141592653589793 * 45 * (1 - gk_pan) / 180
-  a_sig_l = i_sqrt2 * sin(k_theta) * a_sig_l
-  a_sig_r = i_sqrt2 * cos(k_theta) * a_sig_r
+  a_pan = tone(a(gk_pan), 10)
+  a_theta   = 3.141592653589793 * 45 * (1 - a_pan) / 180
+  a_sig_l = i_sqrt2 * sin(a_theta) * a_sig_l
+  a_sig_r = i_sqrt2 * cos(a_theta) * a_sig_r
 
   ; apply gain
-  k_volume = db(gk_gain)
-  ga_out_l = k_volume * a_sig_l
-  ga_out_r = k_volume * a_sig_r
+  a_gain = tone(a(gk_gain), 10)
+  a_volume = db(a_gain)
+  ga_out_l = a_volume * a_sig_l
+  ga_out_r = a_volume * a_sig_r
 
 end:
 endin
