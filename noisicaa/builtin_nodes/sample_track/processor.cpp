@@ -98,6 +98,7 @@ void SampleScript::apply_mutation(Logger* logger, pb::ProcessorMessage* msg) {
   // Invalidate script's cursor (so ProcessorSampleScript::process_block() is forced to do a seek
   // first).
   offset = -1;
+  tmap_serialnum = 0;
 }
 
 ProcessorSampleScript::ProcessorSampleScript(
@@ -155,13 +156,16 @@ Status ProcessorSampleScript::process_block_internal(BlockContext* ctxt, TimeMap
       lvalue = 0.0;
       rvalue = 0.0;
     } else {
-      if (script->offset < 0 || script->current_time != stime->start_time) {
+      if (script->offset < 0
+          || script->tmap_serialnum != time_mapper->serialnum()
+          || script->current_time != stime->start_time) {
         // seek to new time.
 
         // TODO: We could to better than a sequential search.
         // - Do a binary search to find the new script->offset.
 
         script->offset = 0;
+        script->tmap_serialnum = time_mapper->serialnum();
         script->current_audio_file = nullptr;
         while ((size_t)script->offset < script->samples.size()) {
           const Sample& sample = script->samples[script->offset];
