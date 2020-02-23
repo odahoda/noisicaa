@@ -198,6 +198,10 @@ class TrackLabel(slots.SlotContainer, QtWidgets.QLabel):
         font.setPointSizeF(0.8 * font.pointSizeF())
         self.setFont(font)
 
+    def setText(self, text: str) -> None:
+        super().setText(text)
+        self.resize(self.sizeHint())
+
 
 class TrackContainer(
         object_list_manager.ObjectWrapper[music.Track, 'Editor'],
