@@ -346,19 +346,6 @@ class ProjectView(ui_base.AbstractProjectView):
         dialog.setModal(True)
         dialog.show()
 
-    def onSetNumMeasures(self) -> None:
-        raise NotImplementedError
-        # dialog = QtWidgets.QInputDialog(self)
-        # dialog.setInputMode(QtWidgets.QInputDialog.IntInput)
-        # dialog.setIntRange(1, 1000)
-        # dialog.setIntValue(len(self.project.property_track.measure_list))
-        # dialog.setLabelText("Number of measures:")
-        # dialog.setWindowTitle("noisicaa - Set # measures")
-        # dialog.accepted.connect(lambda: self.send_command_async(music.Command(
-        #     target=self.project.id,
-        #     set_num_measures=music.SetNumMeasures(num_measures=dialog.intValue()))))
-        # dialog.show()
-
     def onSetBPM(self) -> None:
         dialog = QtWidgets.QInputDialog(self)
         dialog.setInputMode(QtWidgets.QInputDialog.IntInput)

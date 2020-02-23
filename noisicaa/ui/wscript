@@ -59,6 +59,7 @@ def build(ctx):
     #ctx.py_test('project_view_test.py')
     ctx.py_module('project_debugger.py')
     ctx.py_module('property_connector.py')
+    ctx.py_module('qtmisc.py')
     ctx.py_module('qled.py',
                   # Ignore formatting of 3rd party code for now.
                   mypy='disabled')

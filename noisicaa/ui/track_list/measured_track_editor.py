@@ -21,6 +21,7 @@
 # @end:license
 
 import fractions
+import functools
 import itertools
 import logging
 from typing import Any, Optional, Union, Dict, List, Set, Type
@@ -39,6 +40,7 @@ from noisicaa.music import base_track_pb2
 from noisicaa.ui import ui_base
 from noisicaa.ui import clipboard
 from noisicaa.ui import slots
+from noisicaa.ui import qtmisc
 from . import base_track_editor
 from . import tools
 
@@ -368,6 +370,11 @@ class MeasuredTrackToolBase(clipboard.CopyableMixin, tools.ToolBase):  # pylint:
                     self.onSetTimeSignature(affected_measure_editors, time_signature)))
             time_signature_menu.addAction(time_signature_action)
 
+        append_measures_action = QtWidgets.QAction("Append measures...", menu)
+        append_measures_action.setStatusTip("Append measures to the end of the track.")
+        append_measures_action.triggered.connect(self.onAppendMeasures)
+        menu.addAction(append_measures_action)
+
         measure_editor = self.track.measureEditorAt(pos)
         if measure_editor is not None:
             measure_editor.buildContextMenu(
@@ -379,6 +386,78 @@ class MeasuredTrackToolBase(clipboard.CopyableMixin, tools.ToolBase):  # pylint:
         self.buildContextMenu(menu, evt.pos())
         menu.popup(evt.globalPos())
         evt.accept()
+
+    def onAppendMeasures(self) -> None:
+        dialog = QtWidgets.QDialog(self.track)
+        dialog.setModal(True)
+        dialog.setWindowTitle("noisicaa - Append measures")
+
+        buttons = QtWidgets.QButtonGroup(dialog)
+
+        fill_button = QtWidgets.QRadioButton(dialog)
+        fill_button.setChecked(True)
+        buttons.addButton(fill_button, 1)
+
+        fill_label = qtmisc.QClickLabel(dialog)
+        fill_label.setText("Fill track to end")
+        fill_label.clicked.connect(fill_button.click)
+
+        count_button = QtWidgets.QRadioButton(dialog)
+        buttons.addButton(count_button, 2)
+
+        class ClickSpinBox(qtmisc.QClickable, qtmisc.QFocusSignals, QtWidgets.QSpinBox):
+            pass
+
+        count_input = ClickSpinBox(dialog)
+        count_input.setRange(1, 1000)
+        count_input.clicked.connect(count_button.click)
+        count_input.focusGained.connect(count_button.click)
+
+        button_box = QtWidgets.QDialogButtonBox(Qt.Horizontal)
+        button_box.addButton(QtWidgets.QDialogButtonBox.Ok)
+        button_box.addButton(QtWidgets.QDialogButtonBox.Cancel)
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+
+        l1 = QtWidgets.QGridLayout()
+        l1.setColumnStretch(0, 0)
+        l1.setColumnStretch(1, 1)
+        l1.addWidget(fill_button, 0, 0, 1, 1)
+        l1.addWidget(fill_label, 0, 1, 1, 1)
+        l1.addWidget(count_button, 1, 0, 1, 1)
+        l1.addWidget(count_input, 1, 1, 1, 1)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(l1)
+        layout.addStretch()
+        layout.addWidget(button_box)
+        dialog.setLayout(layout)
+
+        dialog.accepted.connect(functools.partial(
+            self.__onAppendMeasuresDone, buttons, count_input))
+        dialog.show()
+
+    def __onAppendMeasuresDone(
+            self, buttons: QtWidgets.QButtonGroup, count_input: QtWidgets.QSpinBox) -> None:
+        track = self.track.track
+        if buttons.checkedId() == 1:
+            with self.project.apply_mutations('%s: Fill track to end' % track.name):
+                duration = audioproc.MusicalDuration()
+                for mref in track.measure_list:
+                    duration += mref.measure.duration
+
+                cnt = int(
+                    (self.project.duration - duration)
+                    / track.measure_list[-1].measure.duration)
+                for _ in range(cnt):
+                    track.append_measure()
+
+        else:
+            assert buttons.checkedId() == 2
+            cnt = count_input.value()
+            with self.project.apply_mutations('%s: Append %d measures' % (track.name, cnt)):
+                for _ in range(cnt):
+                    track.append_measure()
 
 
 class MeasuredToolBase(MeasuredTrackToolBase):  # pylint: disable=abstract-method

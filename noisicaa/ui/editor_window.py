@@ -438,10 +438,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._redo_action.setStatusTip("Redo most recently undone action")
         self._redo_action.triggered.connect(self.onRedo)
 
-        self._set_num_measures_action = QtWidgets.QAction("Set # measures", self)
-        self._set_num_measures_action.setStatusTip("Set the number of measures in the project")
-        self._set_num_measures_action.triggered.connect(self.onSetNumMeasures)
-
         self._set_bpm_action = QtWidgets.QAction("Set BPM", self)
         self._set_bpm_action.setStatusTip("Set the project's beats per second")
         self._set_bpm_action.triggered.connect(self.onSetBPM)
@@ -539,11 +535,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         view = self.getCurrentProjectView()
         if view is not None:
             self.call_async(view.project.redo())
-
-    def onSetNumMeasures(self) -> None:
-        view = self.getCurrentProjectView()
-        if view is not None:
-            view.onSetNumMeasures()
 
     def onSetBPM(self) -> None:
         view = self.getCurrentProjectView()
