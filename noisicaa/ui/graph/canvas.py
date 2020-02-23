@@ -913,7 +913,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             if event.isAccepted():
                 return
 
-        menu = QtWidgets.QMenu()
+        menu = QtWidgets.QMenu(self)
 
         scene_pos = self.mapToScene(event.pos())
         click_node = self.__scene.nodeAt(scene_pos)
