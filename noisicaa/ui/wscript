@@ -30,6 +30,7 @@ def build(ctx):
     ctx.py_module('int_dial.py')
     ctx.py_module('clipboard.py')
     ctx.py_module('device_list.py')
+    ctx.py_test('device_list_test.py')
     ctx.py_module('dynamic_layout.py')
     ctx.py_module('editor_app.py')
     ctx.py_test('editor_app_test.py')
