@@ -60,6 +60,7 @@ class BaseProject(_model.Project, model_base.ObjectBase):
 
         self.__time_mapper = audioproc.TimeMapper(44100)
         self.__time_mapper.setup(self)
+        self.time_mapper_changed = core.Callback()
 
         self._in_mutation = False
 

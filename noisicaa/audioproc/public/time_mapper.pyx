@@ -18,6 +18,8 @@
 #
 # @end:license
 
+from cpython.ref cimport PyObject
+from cpython.exc cimport PyErr_Fetch, PyErr_Restore
 from cython.operator cimport dereference, preincrement
 from noisicaa.core.status cimport check
 from .musical_time cimport PyMusicalTime, PyMusicalDuration
@@ -28,19 +30,26 @@ cdef class PyTimeMapper(object):
         self.__ptr.reset(new TimeMapper(sample_rate))
         self.__tmap = self.__ptr.get()
         self.__listeners = {}
+        self.__project = None
 
     def setup(self, project=None):
         with nogil:
             check(self.__tmap.setup())
 
         if project is not None:
-            self.bpm = project.bpm
-            self.__listeners['bpm'] = project.bpm_changed.add(self.__on_bpm_changed)
+            self.__project = project
 
-            self.duration = project.duration
-            self.__listeners['duration'] = project.duration_changed.add(self.__on_duration_changed)
+            self.bpm = self.__project.bpm
+            self.__listeners['bpm'] = self.__project.bpm_changed.add(self.__on_bpm_changed)
+
+            self.duration = self.__project.duration
+            self.__listeners['duration'] = self.__project.duration_changed.add(self.__on_duration_changed)
+
+        self.__tmap.set_change_callback(self.__change_callback, <PyObject*>self)
 
     def cleanup(self):
+        self.__project = None
+
         for listener in self.__listeners.values():
             listener.remove()
         self.__listeners.clear()
@@ -52,6 +61,25 @@ cdef class PyTimeMapper(object):
 
     cdef TimeMapper* release(self):
         return self.__ptr.release()
+
+    @staticmethod
+    cdef void __change_callback(void* c_self) with gil:
+        self = <PyTimeMapper><PyObject*>c_self
+
+        # Have to stash away any active exception, because otherwise exception handling
+        # might get confused.
+        # See https://github.com/cython/cython/issues/1877
+        cdef PyObject* exc_type
+        cdef PyObject* exc_value
+        cdef PyObject* exc_trackback
+        PyErr_Fetch(&exc_type, &exc_value, &exc_trackback)
+        try:
+            if self.__project is not None:
+                self.__project.time_mapper_changed.call()
+
+        finally:
+            PyErr_Restore(exc_type, exc_value, exc_trackback)
+
 
     def __on_bpm_changed(self, change):
         self.bpm = change.new_value

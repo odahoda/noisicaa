@@ -254,7 +254,7 @@ class SampleItem(core.AutoCleanupMixin, object):
         self.__pos = QtCore.QPoint()
         self.__width = 50
         self.__height = None  # type: int
-        self.__updateRect()
+        self.updateRect()
 
         self.__listeners = core.ListenerList()
         self.add_cleanup_function(self.__listeners.cleanup)
@@ -304,15 +304,15 @@ class SampleItem(core.AutoCleanupMixin, object):
         return QtCore.QRect(self.pos(), self.size())
 
     def __onTimeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
-        self.__updateRect()
+        self.updateRect()
         self.__track_editor.update()
 
     def __onScaleXChanged(self, scale_x: fractions.Fraction) -> None:
-        self.__updateRect()
+        self.updateRect()
         self.__tile_cache.clear()
         self.purgePaintCaches()
 
-    def __updateRect(self) -> None:
+    def updateRect(self) -> None:
         tmap = self.__track_editor.project.time_mapper
 
         num_samples = int(math.ceil(
@@ -506,6 +506,7 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
             self.addSample(len(self.__samples), sample)
 
         self.__listeners.add(self.track.samples_changed.add(self.onSamplesChanged))
+        self.__listeners.add(self.project.time_mapper_changed.add(self.__timeMapperChanged))
 
         self.playbackPositionChanged.connect(self.__playbackPositionChanged)
 
@@ -546,6 +547,12 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
     def removeSample(self, remove_index: int, sample: model.SampleRef) -> None:
         item = self.__samples.pop(remove_index)
         item.cleanup()
+        self.update()
+
+    def __timeMapperChanged(self) -> None:
+        self.purgePaintCaches()
+        for item in self.__samples:
+            item.updateRect()
         self.update()
 
     def __playbackPositionChanged(self, time: audioproc.MusicalTime) -> None:

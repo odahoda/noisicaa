@@ -20,6 +20,7 @@
  * @end:license
  */
 
+#include <assert.h>
 #include "noisicaa/audioproc/public/time_mapper.h"
 
 namespace noisicaa {
@@ -32,6 +33,31 @@ Status TimeMapper::setup() {
 }
 
 void TimeMapper::cleanup() {
+  _callback = nullptr;
+  _userdata = nullptr;
+}
+
+void TimeMapper::set_change_callback(void (*func)(void*), void* userdata) {
+  assert(_callback == nullptr);
+  _callback = func;
+  _userdata = userdata;
+}
+
+void TimeMapper::_changed() {
+  ++_serialnum;
+  if (_callback != nullptr) {
+    _callback(_userdata);
+  }
+}
+
+void TimeMapper::set_bpm(uint32_t bpm) {
+  _bpm = bpm;
+  _changed();
+}
+
+void TimeMapper::set_duration(MusicalDuration duration) {
+  _duration = duration;
+  _changed();
 }
 
 MusicalTime TimeMapper::sample_to_musical_time(uint64_t sample_time) const {
