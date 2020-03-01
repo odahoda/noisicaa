@@ -23,7 +23,9 @@
 import argparse
 import asyncio
 import functools
+import os
 import signal
+import subprocess
 import sys
 import time
 from typing import List
@@ -171,6 +173,11 @@ class Editor(object):
                         await asyncio.sleep(delay, loop=self.event_loop)
                 else:
                     return proc.returncode
+
+            if self.runtime_settings.dev_mode:
+                subprocess.check_call(
+                    ['./waf', 'build'],
+                    cwd=os.environ['NOISICAA_SRC_ROOT'])
 
     def ui_closed(self, task: asyncio.Task) -> None:
         if task.exception():
