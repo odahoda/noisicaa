@@ -32,11 +32,10 @@ EXIT_EXCEPTION = 1
 EXIT_RESTART = 17
 EXIT_RESTART_CLEAN = 18
 
-ROOT = os.path.abspath(os.path.dirname(__file__))
-
 DATA_DIR = os.environ['NOISICAA_DATA_DIR']
 
 CACHE_DIR = os.path.abspath(os.path.join(os.path.expanduser('~'), '.cache', 'noisicaä'))
+RUN_DIR = os.path.abspath(os.path.join(os.path.expanduser('~'), '.config', 'noisicaä'))
 
 def __xdg_user_dir(resource: str) -> str:
     try:

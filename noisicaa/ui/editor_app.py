@@ -24,8 +24,10 @@ import asyncio
 import functools
 import logging
 import os
+import os.path
 import sys
 import textwrap
+import time
 import traceback
 import types
 from typing import Optional, Callable, Sequence, List, Type
@@ -35,6 +37,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa import audioproc
 from noisicaa import instrument_db
 from noisicaa import node_db
@@ -43,7 +46,6 @@ from noisicaa import lv2
 from noisicaa import editor_main_pb2
 from noisicaa import runtime_settings as runtime_settings_lib
 from noisicaa import exceptions
-from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
 from . import clipboard
 from . import editor_window
 from . import audio_thread_profiler
@@ -68,10 +70,10 @@ class ExceptHook(object):
             self, exc_type: Type[BaseException], exc_value: BaseException, tb: types.TracebackType
     ) -> None:
         if issubclass(exc_type, exceptions.RestartAppException):
-            self.app.quit(EXIT_RESTART)
+            self.app.quit(constants.EXIT_RESTART)
             return
         if issubclass(exc_type, exceptions.RestartAppCleanException):
-            self.app.quit(EXIT_RESTART_CLEAN)
+            self.app.quit(constants.EXIT_RESTART_CLEAN)
             return
 
         msg = ''.join(traceback.format_exception(exc_type, exc_value, tb))
@@ -154,7 +156,19 @@ class EditorApp(ui_base.AbstractEditorApp):
     def context(self) -> ui_base.CommonContext:
         return self.__context
 
+    @property
+    def __run_sentinel_path(self) -> str:
+        return os.path.join(constants.RUN_DIR, 'runlock')
+
     async def setup(self) -> None:
+        has_crashed = os.path.isfile(self.__run_sentinel_path)
+        if has_crashed:
+            logger.warning("Previous run crashed, starting without opening previous projects.")
+
+        os.makedirs(os.path.dirname(self.__run_sentinel_path), exist_ok=True)
+        with open(self.__run_sentinel_path, 'w') as fp:
+            fp.write("time=%s\npid=%d\n" % (time.ctime(), os.getpid()))
+
         logger.info("Installing custom excepthook.")
         self.__old_excepthook = sys.excepthook
         sys.excepthook = ExceptHook(self)  # type: ignore[assignment]
@@ -270,7 +284,7 @@ class EditorApp(ui_base.AbstractEditorApp):
                             initial_projects.append((True, path[1:]))
                         else:
                             initial_projects.append((False, path))
-                else:
+                elif not has_crashed:
                     for path in self.settings.value('opened_projects', []) or []:
                         initial_projects.append((False, path))
 
@@ -455,6 +469,12 @@ class EditorApp(ui_base.AbstractEditorApp):
         return self.__windows
 
     def quit(self, exit_code: int = 0) -> None:
+        if exit_code in (constants.EXIT_SUCCESS, constants.EXIT_RESTART):
+            try:
+                os.unlink(self.__run_sentinel_path)
+            except OSError as exc:
+                logger.warning("Failed to delete run sentinel file '%s': %s", self.__run_sentinel_path, exc)
+
         # TODO: quit() is not a method of ProcessBase, only in UIProcess. Find some way to
         #   fix that without a cyclic import.
         self.process.quit(exit_code)  # type: ignore[attr-defined]
@@ -628,4 +648,4 @@ class EditorApp(ui_base.AbstractEditorApp):
 
         sys.stdout.flush()
         sys.stderr.flush()
-        os._exit(EXIT_EXCEPTION)
+        os._exit(constants.EXIT_EXCEPTION)
