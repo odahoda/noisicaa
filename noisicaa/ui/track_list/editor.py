@@ -279,11 +279,12 @@ class TrackContainer(
         self.label.hide()
 
     def __globalMouseMove(self, pos: QtCore.QPoint) -> None:
-        pos = self.label.mapFromGlobal(pos)
-        rect = self.label.rect().adjusted(-10, -10, 10, 10)
-        self.__hide_label_under_mouse = rect.contains(pos)
-        self.label.setVisible(
-            not self.__hide_label_under_mouse and not self.__hide_label_small_track)
+        if self.track_editor.isVisible():
+            pos = self.label.mapFromGlobal(pos)
+            rect = self.label.rect().adjusted(-10, -10, 10, 10)
+            self.__hide_label_under_mouse = rect.contains(pos)
+            self.label.setVisible(
+                not self.__hide_label_under_mouse and not self.__hide_label_small_track)
 
     def setTrackGeometry(
             self, rect: QtCore.QRect, sidebar_width: int, separator_height: int, show_top_sep: bool
