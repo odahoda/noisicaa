@@ -199,18 +199,23 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         await self.app.setup_complete.wait()
         try:
             await project.open()
-        except Exception as exc:  # pylint: disable=broad-except
-            self.__projectErrorDialog(
-                exc, "Failed to open project \"%s\"." % project.name)
 
-        else:
             view = project_view.ProjectView(
                 project_connection=project,
                 engine_state=self.__engine_state,
                 context=self.context)
             view.setObjectName('project-view')
-            await view.setup()
+            try:
+                await view.setup()
+            except:
+                await view.cleanup()
+                raise
             self.setProjectView(project.name, view)
+
+        except Exception as exc:  # pylint: disable=broad-except
+            await project.close()
+            self.__projectErrorDialog(
+                exc, "Failed to open project \"%s\"." % project.name)
 
     async def createProject(self, path: str) -> None:
         project = project_registry_lib.Project(
@@ -219,20 +224,24 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         await self.app.setup_complete.wait()
         try:
             await project.create()
-
-        except Exception as exc:  # pylint: disable=broad-except
-            self.__projectErrorDialog(
-                exc, "Failed to create project \"%s\"." % project.name)
-
-        else:
             await self.app.project_registry.refresh()
+
             view = project_view.ProjectView(
                 project_connection=project,
                 engine_state=self.__engine_state,
                 context=self.context)
             view.setObjectName('project-view')
-            await view.setup()
+            try:
+                await view.setup()
+            except:
+                await view.cleanup()
+                raise
             self.setProjectView(project.name, view)
+
+        except Exception as exc:  # pylint: disable=broad-except
+            await project.close()
+            self.__projectErrorDialog(
+                exc, "Failed to create project \"%s\"." % project.name)
 
     async def createLoadtestProject(self, path: str, spec: Dict[str, Any]) -> None:
         project = project_registry_lib.Project(
@@ -241,20 +250,24 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         await self.app.setup_complete.wait()
         try:
             await project.create_loadtest(spec)
-
-        except Exception as exc:  # pylint: disable=broad-except
-            self.__projectErrorDialog(
-                exc, "Failed to create project \"%s\"." % project.name)
-
-        else:
             await self.app.project_registry.refresh()
+
             view = project_view.ProjectView(
                 project_connection=project,
                 engine_state=self.__engine_state,
                 context=self.context)
             view.setObjectName('project-view')
-            await view.setup()
+            try:
+                await view.setup()
+            except:
+                await view.cleanup()
+                raise
             self.setProjectView(project.name, view)
+
+        except Exception as exc:  # pylint: disable=broad-except
+            await project.close()
+            self.__projectErrorDialog(
+                exc, "Failed to create project \"%s\"." % project.name)
 
     async def __debugProject(self, project: project_registry_lib.Project) -> None:
         self.showLoadSpinner(project.name, "Loading project \"%s\"..." % project.name)
