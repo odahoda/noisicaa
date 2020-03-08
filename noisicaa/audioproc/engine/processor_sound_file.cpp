@@ -92,15 +92,20 @@ Status ProcessorSoundFile::process_block_internal(BlockContext* ctxt, TimeMapper
         if (_playing) {
           _playing = false;
 
-          uint8_t buf[100];
+          uint8_t atom[200];
           LV2_Atom_Forge forge;
           lv2_atom_forge_init(&forge, &_host_system->lv2->urid_map);
+          lv2_atom_forge_set_buffer(&forge, atom, sizeof(atom));
 
-          lv2_atom_forge_set_buffer(&forge, buf, sizeof(buf));
+          LV2_Atom_Forge_Frame oframe;
+          lv2_atom_forge_object(&forge, &oframe, _host_system->lv2->urid.core_nodemsg, 0);
 
-          lv2_atom_forge_atom(&forge, 0, _sound_file_complete_urid);
+          lv2_atom_forge_key(&forge, _sound_file_complete_urid);
+          lv2_atom_forge_bool(&forge, true);
 
-          NodeMessage::push(ctxt->out_messages, node_id(), (LV2_Atom*)buf);
+          lv2_atom_forge_pop(&forge, &oframe);
+
+          NodeMessage::push(ctxt->out_messages, node_id(), (LV2_Atom*)atom);
         }
 
         *l_out++ = 0.0;

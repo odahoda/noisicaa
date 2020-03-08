@@ -444,20 +444,22 @@ class AudioProcProcess(core.ProcessBase):
         sink.inputs['in:right'].connect(node.outputs['out:right'], node_db.PortDescription.AUDIO)
         realm.update_spec()
 
-        sound_file_complete_urid = self.__urid_mapper.map(
-            "http://noisicaa.odahoda.de/lv2/processor_sound_file#complete")
+        sound_file_complete_uri = 'http://noisicaa.odahoda.de/lv2/processor_sound_file#complete'
 
         complete = asyncio.Event(loop=self.event_loop)
 
         def handle_notification(notification: engine_notification_pb2.EngineNotification) -> None:
             for node_message in notification.node_messages:
                 if node_message.node_id == node.id:
-                    msg = lv2.wrap_atom(self.__urid_mapper, node_message.atom)
-                    if msg.type_urid == sound_file_complete_urid:
+                    msg = lv2.wrap_atom(self.__urid_mapper, node_message.atom).as_object
+                    if msg.get(sound_file_complete_uri, False):
                         complete.set()
 
         listener = self.__engine.notifications.add(handle_notification)
-        await complete.wait()
+        try:
+            await asyncio.wait_for(complete.wait(), timeout=10.0, loop=self.event_loop)
+        except asyncio.TimeoutError:
+            pass
         listener.remove()
 
         sink.inputs['in:left'].disconnect(node.outputs['out:left'])
