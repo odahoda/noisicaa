@@ -44,6 +44,7 @@ if typing.TYPE_CHECKING:
     from . import instrument_list as instrument_list_lib
     from . import project_registry as project_registry_lib
     from . import editor_window
+    from . import engine_state as engine_state_lib
 
 
 class CommonContext(object):
@@ -248,6 +249,7 @@ class AbstractEditorApp(QtCore.QObject):
     project_registry = None  # type: project_registry_lib.ProjectRegistry
     setup_complete = None  # type: asyncio.Event
     clipboard = None  # type: clipboard.Clipboard
+    engine_state = None  # type: engine_state_lib.EngineState
 
     def quit(self, exit_code: int = 0) -> None:
         raise NotImplementedError

@@ -58,6 +58,7 @@ from . import instrument_list
 from . import instrument_library
 from . import ui_base
 from . import open_project_dialog
+from . import engine_state
 
 logger = logging.getLogger('ui.editor_app')
 
@@ -149,6 +150,8 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.setup_complete = None  # type: asyncio.Event
         self.__settings_dialog = None  # type: settings_dialog.SettingsDialog
         self.__instrument_library_dialog = None  # type: instrument_library.InstrumentLibraryDialog
+        self.engine_state = None  # type: engine_state.EngineState
+        self.__engine_state_listener = None  # type: core.Listener
 
         self.__player_state_listeners = core.CallbackMap[str, audioproc.EngineNotification]()
 
@@ -262,6 +265,9 @@ class EditorApp(ui_base.AbstractEditorApp):
         try:
             progress.setNumSteps(5)
 
+            logger.info("Creating EngineState...")
+            self.engine_state = engine_state.EngineState(self)
+
             logger.info("Creating StatMonitor.")
             self.__stat_monitor = stat_monitor.StatMonitor(context=self.context)
             self.show_stat_monitor_action.setChecked(self.__stat_monitor.isVisible())
@@ -324,8 +330,6 @@ class EditorApp(ui_base.AbstractEditorApp):
                 self.devices = device_list.DeviceList()
                 await self.createAudioProcProcess()
 
-                win.audioprocReady()
-
                 logger.info("Creating AudioThreadProfiler...")
                 self.__audio_thread_profiler = audio_thread_profiler.AudioThreadProfiler(
                     context=self.context)
@@ -374,6 +378,10 @@ class EditorApp(ui_base.AbstractEditorApp):
         logger.info("Cleanup app...")
 
         self.qt_app.removeEventFilter(self)
+
+        if self.__engine_state_listener is not None:
+            self.__engine_state_listener.remove()
+            self.__engine_state_listener = None
 
         if self.__stat_monitor is not None:
             self.__stat_monitor.storeState()
@@ -493,6 +501,9 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.audioproc_client = audioproc.AudioProcClient(
             self.process.event_loop, self.process.server, self.urid_mapper)
         self.audioproc_client.engine_notifications.add(self.__handleEngineNotification)
+        self.__engine_state_listener = self.audioproc_client.engine_state_changed.add(
+            self.engine_state.updateState)
+
         await self.audioproc_client.setup()
         await self.audioproc_client.connect(
             self.audioproc_process, {'perf_data'})
