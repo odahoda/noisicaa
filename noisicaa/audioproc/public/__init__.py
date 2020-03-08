@@ -21,6 +21,7 @@
 from .engine_notification_pb2 import (
     NodeStateChange,
     EngineStateChange,
+    EngineLoad,
     EngineNotification,
 )
 from .musical_time import (

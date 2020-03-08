@@ -39,6 +39,7 @@ from .audioproc_client import (
 from .public import (
     NodeStateChange,
     EngineStateChange,
+    EngineLoad,
     EngineNotification,
     MusicalDuration,
     MusicalTime,

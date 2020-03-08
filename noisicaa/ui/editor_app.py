@@ -152,6 +152,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.__instrument_library_dialog = None  # type: instrument_library.InstrumentLibraryDialog
         self.engine_state = None  # type: engine_state.EngineState
         self.__engine_state_listener = None  # type: core.Listener
+        self.__engine_load_listener = None  # type: core.Listener
 
         self.__player_state_listeners = core.CallbackMap[str, audioproc.EngineNotification]()
 
@@ -383,6 +384,10 @@ class EditorApp(ui_base.AbstractEditorApp):
             self.__engine_state_listener.remove()
             self.__engine_state_listener = None
 
+        if self.__engine_load_listener is not None:
+            self.__engine_load_listener.remove()
+            self.__engine_load_listener = None
+
         if self.__stat_monitor is not None:
             self.__stat_monitor.storeState()
             self.__stat_monitor = None
@@ -503,6 +508,8 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.audioproc_client.engine_notifications.add(self.__handleEngineNotification)
         self.__engine_state_listener = self.audioproc_client.engine_state_changed.add(
             self.engine_state.updateState)
+        self.__engine_load_listener = self.audioproc_client.engine_load_changed.add(
+            self.engine_state.updateLoad)
 
         await self.audioproc_client.setup()
         await self.audioproc_client.connect(
