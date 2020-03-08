@@ -21,6 +21,7 @@
 # @end:license
 
 import functools
+import logging
 import os.path
 from typing import Any
 
@@ -29,6 +30,9 @@ from PyQt5 import QtWidgets
 
 from ..constants import DATA_DIR
 from . import ui_base
+from . import engine_state
+
+logger = logging.getLogger(__name__)
 
 
 class SettingsDialog(ui_base.CommonMixin, QtWidgets.QDialog):
@@ -181,23 +185,34 @@ class AudioPage(Page):
                 sample_rate_widget.setCurrentIndex(idx)
         sample_rate_widget.currentIndexChanged.connect(self.sampleRateChanged)
 
+        self.__test_button = QtWidgets.QPushButton("Test")
+        self.__test_button.clicked.connect(self.testBackend)
+
+        self.__engine_state = QtWidgets.QLabel()
+        font = QtGui.QFont(self.__engine_state.font())
+        font.setBold(True)
+        self.__engine_state.setFont(font)
+
+        self.__engine_load = engine_state.LoadHistory(self, self.app.engine_state)
+        self.__engine_load.setFixedWidth(100)
+
+        self.__engineStateChanged(self.app.engine_state.state())
+        self.app.engine_state.stateChanged.connect(self.__engineStateChanged)
+
         main_layout = QtWidgets.QFormLayout()
         main_layout.addRow("Backend:", backend_widget)
         main_layout.addRow("Block size:", block_size_widget)
         main_layout.addRow("Sample rate:", sample_rate_widget)
 
-        layout.addLayout(main_layout)
-
-        layout.addStretch()
-
         buttons_layout = QtWidgets.QHBoxLayout()
-        layout.addLayout(buttons_layout)
+        buttons_layout.addWidget(self.__engine_state)
         buttons_layout.addStretch()
+        buttons_layout.addWidget(self.__engine_load)
+        buttons_layout.addWidget(self.__test_button)
 
-        test_button = QtWidgets.QPushButton("Test")
-        buttons_layout.addWidget(test_button)
-
-        test_button.clicked.connect(self.testBackend)
+        layout.addLayout(main_layout)
+        layout.addStretch()
+        layout.addLayout(buttons_layout)
 
     def backendChanged(self, index: int) -> None:
         backend = self._backends[index]
@@ -231,3 +246,26 @@ class AudioPage(Page):
     async def _testBackendAsync(self) -> None:
         await self.app.audioproc_client.play_file(
             os.path.join(DATA_DIR, 'sounds', 'test_sound.wav'))
+
+    def __engineStateChanged(self, state: engine_state.EngineState.State) -> None:
+        self.__test_button.setEnabled(state == engine_state.EngineState.State.Running)
+        self.__engine_load.setVisible(state == engine_state.EngineState.State.Running)
+
+        if state == engine_state.EngineState.State.Cleanup:
+            state_text = "Engine is shutting down..."
+            state_color = QtGui.QColor(160, 100, 0)
+        elif state == engine_state.EngineState.State.Setup:
+            state_text = "Engine is starting..."
+            state_color = QtGui.QColor(160, 100, 0)
+        elif state == engine_state.EngineState.State.Stopped:
+            state_text = "Engine is stopped"
+            state_color = QtGui.QColor(160, 0, 0)
+        else:
+            assert state == engine_state.EngineState.State.Running
+            state_text = "Engine is running"
+            state_color = QtGui.QColor(0, 160, 0)
+
+        self.__engine_state.setText(state_text)
+        palette = QtGui.QPalette(self.__engine_state.palette())
+        palette.setColor(QtGui.QPalette.WindowText, state_color)
+        self.__engine_state.setPalette(palette)
