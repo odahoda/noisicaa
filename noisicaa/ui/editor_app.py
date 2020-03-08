@@ -486,7 +486,8 @@ class EditorApp(ui_base.AbstractEditorApp):
             try:
                 os.unlink(self.__run_sentinel_path)
             except OSError as exc:
-                logger.warning("Failed to delete run sentinel file '%s': %s", self.__run_sentinel_path, exc)
+                logger.warning(
+                    "Failed to delete run sentinel file '%s': %s", self.__run_sentinel_path, exc)
 
         # TODO: quit() is not a method of ProcessBase, only in UIProcess. Find some way to
         #   fix that without a cyclic import.

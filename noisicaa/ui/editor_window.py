@@ -34,7 +34,6 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa.core import storage
-from noisicaa import audioproc
 from . import project_view
 from . import project_debugger
 from . import ui_base
