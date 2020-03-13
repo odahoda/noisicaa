@@ -171,10 +171,11 @@ class DeviceList(QtCore.QAbstractItemModel):
             return QtCore.QModelIndex()
 
         item = down_cast(ModelItem, index.internalPointer())
-        if item is self.__root:
+        parent = item.parent
+        if parent is self.__root:
             return QtCore.QModelIndex()
 
-        return self.createIndex(item.parent.index, 0, item.parent)
+        return self.createIndex(parent.index, 0, parent)
 
     def columnCount(self, parent: QtCore.QModelIndex = QtCore.QModelIndex()) -> int:
         return 1

@@ -57,6 +57,7 @@ public:
 
   vector<Sample> samples;
 
+  uint32_t tmap_serialnum = 0;
   int offset = -1;
   MusicalTime current_time = MusicalTime(0, 1);
 

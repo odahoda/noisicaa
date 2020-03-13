@@ -198,6 +198,10 @@ class TrackLabel(slots.SlotContainer, QtWidgets.QLabel):
         font.setPointSizeF(0.8 * font.pointSizeF())
         self.setFont(font)
 
+    def setText(self, text: str) -> None:
+        super().setText(text)
+        self.resize(self.sizeHint())
+
 
 class TrackContainer(
         object_list_manager.ObjectWrapper[music.Track, 'Editor'],
@@ -275,11 +279,12 @@ class TrackContainer(
         self.label.hide()
 
     def __globalMouseMove(self, pos: QtCore.QPoint) -> None:
-        pos = self.label.mapFromGlobal(pos)
-        rect = self.label.rect().adjusted(-10, -10, 10, 10)
-        self.__hide_label_under_mouse = rect.contains(pos)
-        self.label.setVisible(
-            not self.__hide_label_under_mouse and not self.__hide_label_small_track)
+        if self.track_editor.isVisible():
+            pos = self.label.mapFromGlobal(pos)
+            rect = self.label.rect().adjusted(-10, -10, 10, 10)
+            self.__hide_label_under_mouse = rect.contains(pos)
+            self.label.setVisible(
+                not self.__hide_label_under_mouse and not self.__hide_label_small_track)
 
     def setTrackGeometry(
             self, rect: QtCore.QRect, sidebar_width: int, separator_height: int, show_top_sep: bool

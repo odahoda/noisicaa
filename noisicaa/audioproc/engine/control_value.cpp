@@ -20,6 +20,7 @@
  * @end:license
  */
 
+#include "noisicaa/audioproc/engine/misc.h"
 #include "noisicaa/audioproc/engine/control_value.h"
 
 namespace noisicaa {
@@ -31,12 +32,28 @@ ControlValue::ControlValue(ControlValueType type, const string& name, uint32_t g
 
 ControlValue::~ControlValue() {}
 
+const char* ControlValue::type_name() const {
+  switch (_type) {
+  case ControlValueType::FloatCV: return "FLOAT";
+  case ControlValueType::IntCV: return "INT";
+  default: return "??";
+  }
+}
+
 FloatControlValue::FloatControlValue(const string& name, float value, uint32_t generation)
   : ControlValue(ControlValueType::FloatCV, name, generation),
     _value(value) {}
 
+string FloatControlValue::formatted_value() const {
+  return sprintf("%f", _value);
+}
+
 IntControlValue::IntControlValue(const string& name, int64_t value, uint32_t generation)
   : ControlValue(ControlValueType::IntCV, name, generation),
     _value(value) {}
+
+string IntControlValue::formatted_value() const {
+  return sprintf("%ld", _value);
+}
 
 }  // namespace noisicaa

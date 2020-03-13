@@ -272,6 +272,7 @@ class Node(object):
         The counterpart of setup().
         """
         logger.info("%s: cleanup()", self.name)
+        self.__control_values.clear()
 
     def set_session_value(self, key: str, value: session_data_pb2.SessionValue) -> None:
         pass

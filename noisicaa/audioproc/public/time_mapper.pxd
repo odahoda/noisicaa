@@ -35,6 +35,8 @@ cdef extern from "noisicaa/audioproc/public/time_mapper.h" namespace "noisicaa" 
         Status setup()
         void cleanup()
 
+        void set_change_callback(void (*func)(void*&), void* userdata)
+
         uint32_t sample_rate() const
 
         void set_bpm(uint32_t bpm)
@@ -63,6 +65,9 @@ cdef class PyTimeMapper(object):
     cdef unique_ptr[TimeMapper] __ptr
     cdef TimeMapper* __tmap
     cdef dict __listeners
+    cdef object __project
 
     cdef TimeMapper* get(self)
     cdef TimeMapper* release(self)
+    @staticmethod
+    cdef void __change_callback(void* c_self) with gil

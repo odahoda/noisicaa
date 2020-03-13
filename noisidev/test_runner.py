@@ -336,9 +336,14 @@ def main(argv):
         flat_suite.addTest(case)
 
     if args.store_results:
+        test_log_fp = open(os.path.join(test_data_path, 'test.log'), 'w')
+        atexit.append((test_log_fp.close, ()))
+        results_xml_fp = open(os.path.join(test_data_path, 'results.xml'), 'wb')
+        atexit.append((results_xml_fp.close, ()))
+
         runner = xmlrunner.XMLTestRunner(
-            stream=open(os.path.join(test_data_path, 'test.log'), 'w'),
-            output=open(os.path.join(test_data_path, 'results.xml'), 'wb'),
+            stream=test_log_fp,
+            output=results_xml_fp,
             verbosity=2,
             failfast=args.fail_fast)
     else:

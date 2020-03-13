@@ -60,6 +60,7 @@ class BaseProject(_model.Project, model_base.ObjectBase):
 
         self.__time_mapper = audioproc.TimeMapper(44100)
         self.__time_mapper.setup(self)
+        self.time_mapper_changed = core.Callback()
 
         self._in_mutation = False
 
@@ -87,18 +88,43 @@ class BaseProject(_model.Project, model_base.ObjectBase):
             conn.dest_node.connections_changed.call(change)
         self.node_connections_changed.add(self.__node_connections_changed)
 
+        self.nodes_changed.add(self.__nodes_changed)
+
     def __node_connections_changed(
             self, change: model_base.PropertyListChange[graph.NodeConnection]
     ) -> None:
         if isinstance(change, model_base.PropertyListInsert):
             conn = change.new_value
+            for mutation in conn.get_add_mutations():
+                self.handle_pipeline_mutation(mutation)
         elif isinstance(change, model_base.PropertyListDelete):
             conn = change.old_value
+            for mutation in conn.get_remove_mutations():
+                self.handle_pipeline_mutation(mutation)
         else:
             raise ValueError(change)
 
         conn.source_node.connections_changed.call(change)
         conn.dest_node.connections_changed.call(change)
+
+    def __nodes_changed(
+            self, change: model_base.PropertyListChange[graph.Node]
+    ) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
+            node = change.new_value
+            for mutation in node.get_add_mutations():
+                self.handle_pipeline_mutation(mutation)
+
+        elif isinstance(change, model_base.PropertyListDelete):
+            node = change.old_value
+            for mutation in node.get_remove_mutations():
+                self.handle_pipeline_mutation(mutation)
+
+        elif isinstance(change, model_base.PropertyListMove):
+            pass
+
+        else:
+            raise ValueError(change)
 
     @property
     def time_mapper(self) -> audioproc.TimeMapper:
@@ -206,9 +232,6 @@ class BaseProject(_model.Project, model_base.ObjectBase):
                 node.connections_changed.call(
                     model_base.PropertyListInsert(self, 'node_connections', -1, conn))
 
-        for mutation in node.get_add_mutations():
-            self.handle_pipeline_mutation(mutation)
-
         self.nodes.append(node)
 
     def remove_node(self, node: graph.BaseNode) -> None:
@@ -220,9 +243,6 @@ class BaseProject(_model.Project, model_base.ObjectBase):
                 delete_connections.add(cidx)
         for cidx in sorted(delete_connections, reverse=True):
             self.remove_node_connection(self.node_connections[cidx])
-
-        for mutation in node.get_remove_mutations():
-            self.handle_pipeline_mutation(mutation)
 
         del self.nodes[node.index]
 
@@ -250,12 +270,8 @@ class BaseProject(_model.Project, model_base.ObjectBase):
 
     def add_node_connection(self, connection: graph.NodeConnection) -> None:
         self.node_connections.append(connection)
-        for mutation in connection.get_add_mutations():
-            self.handle_pipeline_mutation(mutation)
 
     def remove_node_connection(self, connection: graph.NodeConnection) -> None:
-        for mutation in connection.get_remove_mutations():
-            self.handle_pipeline_mutation(mutation)
         del self.node_connections[connection.index]
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:

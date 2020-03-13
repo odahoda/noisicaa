@@ -42,8 +42,10 @@ public:
   virtual ~ControlValue();
 
   ControlValueType type() const { return _type; }
+  const char* type_name() const;
   const string& name() const { return _name; }
   uint32_t generation() const { return _generation; }
+  virtual string formatted_value() const = 0;
 
 protected:
   ControlValue(ControlValueType type, const string& name, uint32_t generation);
@@ -60,6 +62,7 @@ class FloatControlValue : public ControlValue {
 public:
   FloatControlValue(const string& name, float value, uint32_t generation);
 
+  string formatted_value() const;
   float value() const { return _value; }
   void set_value(float value, uint32_t generation) {
     _value = value;
@@ -74,6 +77,7 @@ class IntControlValue : public ControlValue {
 public:
   IntControlValue(const string& name, int64_t value, uint32_t generation);
 
+  string formatted_value() const;
   int64_t value() const { return _value; }
   void set_value(int64_t value, uint32_t generation) {
     _value = value;

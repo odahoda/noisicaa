@@ -42,7 +42,7 @@ from .track_list import view as track_list_view
 from . import player_state as player_state_lib
 from . import vumeter
 from . import slots
-from . import engine_state as engine_state_lib
+from . import engine_state
 
 if typing.TYPE_CHECKING:
     from noisicaa import core
@@ -110,7 +110,6 @@ class ProjectView(ui_base.AbstractProjectView):
     def __init__(
             self, *,
             project_connection: project_registry.Project,
-            engine_state: engine_state_lib.EngineState,
             context: ui_base.CommonContext,
             **kwargs: Any) -> None:
         context = ui_base.ProjectContext(
@@ -118,8 +117,6 @@ class ProjectView(ui_base.AbstractProjectView):
             project_view=self,
             app=context.app)
         super().__init__(parent=None, context=context, **kwargs)
-
-        self.__engine_state = engine_state
 
         self.__session_prefix = 'project-view:%016x:' % self.project.id
 
@@ -160,7 +157,7 @@ class ProjectView(ui_base.AbstractProjectView):
         self.__vumeter = vumeter.VUMeter(self)
         self.__vumeter.setMinimumWidth(250)
 
-        self.__engine_load = engine_state_lib.LoadHistory(self, self.__engine_state)
+        self.__engine_load = engine_state.LoadHistory(self, self.app.engine_state)
         self.__engine_load.setFixedWidth(100)
 
         self.__toggle_playback_button = QtWidgets.QToolButton(self)
@@ -345,19 +342,6 @@ class ProjectView(ui_base.AbstractProjectView):
         dialog = render_dialog.RenderDialog(parent=self, context=self.context)
         dialog.setModal(True)
         dialog.show()
-
-    def onSetNumMeasures(self) -> None:
-        raise NotImplementedError
-        # dialog = QtWidgets.QInputDialog(self)
-        # dialog.setInputMode(QtWidgets.QInputDialog.IntInput)
-        # dialog.setIntRange(1, 1000)
-        # dialog.setIntValue(len(self.project.property_track.measure_list))
-        # dialog.setLabelText("Number of measures:")
-        # dialog.setWindowTitle("noisicaa - Set # measures")
-        # dialog.accepted.connect(lambda: self.send_command_async(music.Command(
-        #     target=self.project.id,
-        #     set_num_measures=music.SetNumMeasures(num_measures=dialog.intValue()))))
-        # dialog.show()
 
     def onSetBPM(self) -> None:
         dialog = QtWidgets.QInputDialog(self)

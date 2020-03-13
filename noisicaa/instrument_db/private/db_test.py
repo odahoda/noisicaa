@@ -22,10 +22,8 @@
 
 import asyncio
 import logging
-import os.path
 
 from noisidev import unittest
-from noisicaa import constants
 from noisicaa import instrument_db
 from . import db
 
@@ -45,7 +43,7 @@ class InstrumentDBTest(unittest.AsyncTestCase):
         try:
             instdb.setup()
 
-            instdb.start_scan([os.path.join(constants.ROOT, '..', 'testdata')], False)
+            instdb.start_scan([unittest.TESTDATA_DIR], False)
             self.assertTrue(await complete.wait())
 
         finally:

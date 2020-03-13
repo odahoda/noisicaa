@@ -40,50 +40,105 @@ Spec::~Spec() {
   _buffer_map.clear();
 }
 
-string Spec::dump() const {
+string Spec::dump(HostSystem* host_system) const {
   string out = "";
 
-  int i = 0;
-  for (const auto& opcode : _opcodes) {
-    const auto& opspec = opspecs[opcode.opcode];
-
-    string args = "";
-    for (size_t a = 0 ; a < opcode.args.size() ; ++a) {
-      const auto& arg = opcode.args[a];
-
-      if (a > 0) {
-        args += ", ";
-      }
-
-      switch (opspec.argspec[a]) {
-      case 'i':
-        args += sprintf("%ld", arg.int_value());
-        break;
-      case 'b': {
-        args += sprintf("#BUF<%d>", arg.int_value());
-        break;
-      }
-      case 'p': {
-        Processor* processor = _processors[arg.int_value()];
-        args += sprintf("#PROC<%016lx>", processor->id());
-        break;
-      }
-      case 'c': {
-        ControlValue* cv = _control_values[arg.int_value()];
-        args += sprintf("#CV<%s>", cv->name().c_str());
-        break;
-      }
-      case 'f':
-        args += sprintf("%f", arg.float_value());
-        break;
-      case 's':
-        args += sprintf("\"%s\"", arg.string_value().c_str());
-        break;
-      }
+  if (_buffers.size() > 0) {
+    out += "Buffers:\n";
+    unsigned int i = 0;
+    for (const auto& buf : _buffers) {
+      out += sprintf(
+          "% 3u %s [%d bytes]\n",
+          i, pb::PortDescription::Type_Name(buf->type()).c_str(), buf->size(host_system));
+      ++i;
     }
+  }
 
-    out += sprintf("% 3d %s(%s)\n", i, opspec.name, args.c_str());
-    ++i;
+  if (_processors.size() > 0) {
+    out += "Processors:\n";
+    unsigned int i = 0;
+    for (const auto& proc : _processors) {
+      out += sprintf(
+          "% 3u %016lx [node_id=%s, state=%s]\n",
+          i, proc->id(), proc->node_id().c_str(), proc->state_name(proc->state()));
+      ++i;
+    }
+  }
+
+  if (_control_values.size() > 0) {
+    out += "Control Values:\n";
+    unsigned int i = 0;
+    for (const auto& cv : _control_values) {
+      out += sprintf(
+          "% 3u %s [type=%s, value=%s, generation=%d]\n",
+          i, cv->name().c_str(), cv->type_name(), cv->formatted_value().c_str(), cv->generation());
+      ++i;
+    }
+  }
+
+  if (_child_realms.size() > 0) {
+    out += "Child Realms:\n";
+    unsigned int i = 0;
+    for (const auto& cr : _child_realms) {
+      out += sprintf(
+                     "% 3u %s\n",
+                     i, cr->name().c_str());
+      ++i;
+    }
+  }
+
+  if (_opcodes.size() > 0) {
+    out += "Opcodes:\n";
+    unsigned int i = 0;
+    for (const auto& opcode : _opcodes) {
+      const auto& opspec = opspecs[opcode.opcode];
+
+      string args = "";
+      for (size_t a = 0 ; a < opcode.args.size() ; ++a) {
+        const auto& arg = opcode.args[a];
+
+        if (a > 0) {
+          args += ", ";
+        }
+
+        switch (opspec.argspec[a]) {
+        case 'i':
+          args += sprintf("%ld", arg.int_value());
+          break;
+        case 'b': {
+          args += sprintf("#BUF<%d>", arg.int_value());
+          break;
+        }
+        case 'p': {
+          Processor* processor = _processors[arg.int_value()];
+          args += sprintf("#PROC<%016lx>", processor->id());
+          break;
+        }
+        case 'c': {
+          ControlValue* cv = _control_values[arg.int_value()];
+          args += sprintf("#CV<%s>", cv->name().c_str());
+          break;
+        }
+        case 'r': {
+          Realm* cr = _child_realms[arg.int_value()];
+          args += sprintf("#REALM<%s>", cr->name().c_str());
+          break;
+        }
+        case 'f':
+          args += sprintf("%f", arg.float_value());
+          break;
+        case 's':
+          args += sprintf("\"%s\"", arg.string_value().c_str());
+          break;
+        default:
+          args += sprintf("?%c?", opspec.argspec[a]);
+          break;
+        }
+      }
+
+      out += sprintf("% 3u %s(%s)\n", i, opspec.name, args.c_str());
+      ++i;
+    }
   }
 
   return out;

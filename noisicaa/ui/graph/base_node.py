@@ -180,10 +180,6 @@ class Title(QtWidgets.QGraphicsSimpleTextItem):
     def setWidth(self, width: float) -> None:
         self.__width = width
 
-    def mouseDoubleClickEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent) -> None:
-        logger.error("click")
-        cast(Node, self.parentItem()).renameNode()
-
 
 class Box(QtWidgets.QGraphicsPathItem):
     def mousePressEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent) -> None:
@@ -868,6 +864,9 @@ class Node(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QGraphicsItem)
             remove = menu.addAction("Remove")
             remove.triggered.connect(self.onRemove)
 
+        rename = menu.addAction("Rename")
+        rename.triggered.connect(self.renameNode)
+
         color_menu = menu.addMenu("Set color")
         color_action = SelectColorAction(color_menu)
         color_action.colorSelected.connect(self.onSetColor)
@@ -895,6 +894,8 @@ class Node(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QGraphicsItem)
     def renameNode(self) -> None:
         self.__rename_node = True
         self.__title_edit.setText(self.__node.name)
+        self.__title_edit.setFocus()
+        self.__title_edit.selectAll()
         self.__layout()
 
     def __renameNodeFinished(self) -> None:

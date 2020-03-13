@@ -75,8 +75,8 @@ class EngineState(slots.SlotContainer, QtCore.QObject):
             audioproc.EngineStateChange.STOPPED: self.State.Stopped,
         }[msg.state])
 
-        if msg.state == audioproc.EngineStateChange.RUNNING and msg.HasField('load'):
-            self.setCurrentLoad(msg.load)
+    def updateLoad(self, msg: audioproc.EngineLoad) -> None:
+        self.setCurrentLoad(msg.load)
 
     def loadHistory(self, num_ticks: int) -> List[float]:
         num_ticks = min(num_ticks, self.HISTORY_LENGTH)

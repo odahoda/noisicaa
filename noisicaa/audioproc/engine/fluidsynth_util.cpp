@@ -167,7 +167,7 @@ Status FluidSynthUtil::process_block(
       } else if ((midi[0] & 0xf0) == 0x80) {
         int rc = fluid_synth_noteoff(_synth, 0, midi[1]);
         if (rc == FLUID_FAILED) {
-          _logger->info("noteoff failed.");
+          _logger->debug("noteoff failed.");
         }
       } else {
         _logger->warning("Ignoring unsupported midi event %d.", midi[0] & 0xf0);

@@ -210,7 +210,7 @@ string Realm::dump() const {
 
   Program* program = _current_program.load();
   if (program != nullptr) {
-    out += program->spec->dump();
+    out += program->spec->dump(_host_system);
   } else {
     out += "No current program.\n";
   }

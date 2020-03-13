@@ -34,14 +34,12 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa.core import storage
-from noisicaa import audioproc
 from . import project_view
 from . import project_debugger
 from . import ui_base
 from . import qprogressindicator
 from . import project_registry as project_registry_lib
 from . import open_project_dialog
-from . import engine_state as engine_state_lib
 
 if typing.TYPE_CHECKING:
     from noisicaa import core
@@ -90,13 +88,11 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
     def __init__(
             self, *,
             parent: QtWidgets.QTabWidget,
-            engine_state: engine_state_lib.EngineState,
             **kwargs: Any
     ) -> None:
         super().__init__(parent=parent, **kwargs)
 
         self.__tab_widget = parent
-        self.__engine_state = engine_state
 
         self.__page = None  # type: QtWidgets.QWidget
         self.__page_cleanup_func = None  # type: Callable[[], None]
@@ -199,18 +195,22 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         await self.app.setup_complete.wait()
         try:
             await project.open()
-        except Exception as exc:  # pylint: disable=broad-except
-            self.__projectErrorDialog(
-                exc, "Failed to open project \"%s\"." % project.name)
 
-        else:
             view = project_view.ProjectView(
                 project_connection=project,
-                engine_state=self.__engine_state,
                 context=self.context)
             view.setObjectName('project-view')
-            await view.setup()
+            try:
+                await view.setup()
+            except:
+                await view.cleanup()
+                raise
             self.setProjectView(project.name, view)
+
+        except Exception as exc:  # pylint: disable=broad-except
+            await project.close()
+            self.__projectErrorDialog(
+                exc, "Failed to open project \"%s\"." % project.name)
 
     async def createProject(self, path: str) -> None:
         project = project_registry_lib.Project(
@@ -219,20 +219,23 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         await self.app.setup_complete.wait()
         try:
             await project.create()
-
-        except Exception as exc:  # pylint: disable=broad-except
-            self.__projectErrorDialog(
-                exc, "Failed to create project \"%s\"." % project.name)
-
-        else:
             await self.app.project_registry.refresh()
+
             view = project_view.ProjectView(
                 project_connection=project,
-                engine_state=self.__engine_state,
                 context=self.context)
             view.setObjectName('project-view')
-            await view.setup()
+            try:
+                await view.setup()
+            except:
+                await view.cleanup()
+                raise
             self.setProjectView(project.name, view)
+
+        except Exception as exc:  # pylint: disable=broad-except
+            await project.close()
+            self.__projectErrorDialog(
+                exc, "Failed to create project \"%s\"." % project.name)
 
     async def createLoadtestProject(self, path: str, spec: Dict[str, Any]) -> None:
         project = project_registry_lib.Project(
@@ -241,20 +244,23 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         await self.app.setup_complete.wait()
         try:
             await project.create_loadtest(spec)
-
-        except Exception as exc:  # pylint: disable=broad-except
-            self.__projectErrorDialog(
-                exc, "Failed to create project \"%s\"." % project.name)
-
-        else:
             await self.app.project_registry.refresh()
+
             view = project_view.ProjectView(
                 project_connection=project,
-                engine_state=self.__engine_state,
                 context=self.context)
             view.setObjectName('project-view')
-            await view.setup()
+            try:
+                await view.setup()
+            except:
+                await view.cleanup()
+                raise
             self.setProjectView(project.name, view)
+
+        except Exception as exc:  # pylint: disable=broad-except
+            await project.close()
+            self.__projectErrorDialog(
+                exc, "Failed to create project \"%s\"." % project.name)
 
     async def __debugProject(self, project: project_registry_lib.Project) -> None:
         self.showLoadSpinner(project.name, "Loading project \"%s\"..." % project.name)
@@ -311,9 +317,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__engine_state = engine_state_lib.EngineState(self)
-        self.__engine_state_listener = None  # type: core.Listener[audioproc.EngineStateChange]
-
         self.setWindowTitle("noisicaä")
         self.resize(1200, 800)
 
@@ -360,20 +363,12 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
                 pass
             self.__setup_progress_fade_task = None
 
-        if self.__engine_state_listener is not None:
-            self.__engine_state_listener.remove()
-            self.__engine_state_listener = None
-
         while self.__project_tabs.count() > 0:
             tab = cast(ProjectTabPage, self.__project_tabs.widget(0))
             view = tab.projectView()
             if view is not None:
                 await view.cleanup()
             self.__project_tabs.removeTab(0)
-
-    def audioprocReady(self) -> None:
-        self.__engine_state_listener = self.audioproc_client.engine_state_changed.add(
-            self.__engine_state.updateState)
 
     def createSetupProgress(self) -> SetupProgressWidget:
         assert self.__setup_progress is None
@@ -411,7 +406,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     def addProjectTab(self) -> ProjectTabPage:
         page = ProjectTabPage(
             parent=self.__project_tabs,
-            engine_state=self.__engine_state,
             context=self.context)
         idx = self.__project_tabs.addTab(page, '')
         self.__project_tabs.setCurrentIndex(idx)
@@ -437,10 +431,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._redo_action.setShortcut(QtGui.QKeySequence.Redo)
         self._redo_action.setStatusTip("Redo most recently undone action")
         self._redo_action.triggered.connect(self.onRedo)
-
-        self._set_num_measures_action = QtWidgets.QAction("Set # measures", self)
-        self._set_num_measures_action.setStatusTip("Set the number of measures in the project")
-        self._set_num_measures_action.triggered.connect(self.onSetNumMeasures)
 
         self._set_bpm_action = QtWidgets.QAction("Set BPM", self)
         self._set_bpm_action.setStatusTip("Set the project's beats per second")
@@ -539,11 +529,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         view = self.getCurrentProjectView()
         if view is not None:
             self.call_async(view.project.redo())
-
-    def onSetNumMeasures(self) -> None:
-        view = self.getCurrentProjectView()
-        if view is not None:
-            view.onSetNumMeasures()
 
     def onSetBPM(self) -> None:
         view = self.getCurrentProjectView()

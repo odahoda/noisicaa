@@ -39,12 +39,16 @@ public:
   Status setup();
   void cleanup();
 
+  void set_change_callback(void (*func)(void*), void* userdata);
+
+  uint32_t serialnum() const { return _serialnum; }
+
   uint32_t sample_rate() const { return _sample_rate; }
 
-  void set_bpm(uint32_t bpm) { _bpm = bpm; }
+  void set_bpm(uint32_t bpm);
   uint32_t bpm() const { return _bpm; }
 
-  void set_duration(MusicalDuration duration) { _duration = duration; }
+  void set_duration(MusicalDuration duration);
   MusicalDuration duration() const { return _duration; }
   MusicalTime end_time() const { return MusicalTime(0, 1) + _duration; }
   uint64_t num_samples() const { return musical_to_sample_time(end_time()); }
@@ -100,6 +104,12 @@ public:
   iterator find(MusicalTime t) { return iterator(this, musical_to_sample_time(t)); }
 
 private:
+  void _changed();
+
+  uint32_t _serialnum = 1;
+  void (*_callback)(void*) = nullptr;
+  void *_userdata = nullptr;
+
   uint32_t _bpm = 120;
   uint32_t _sample_rate;
   MusicalDuration _duration = MusicalDuration(4, 1);

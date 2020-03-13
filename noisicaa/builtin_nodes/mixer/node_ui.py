@@ -56,6 +56,7 @@ class MixerNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QWi
             name='hp_cutoff',
             context=self.context)
         self.__hp_cutoff_dial = control_value_dial.ControlValueDial(self)
+        self.__hp_cutoff_dial.setMinimumSize(32, 32)
         self.__hp_cutoff_dial.setRange(10.0, 20000.0)
         self.__hp_cutoff_dial.setDefault(1.0)
         self.__hp_cutoff_dial.setLogScale(True)
@@ -74,6 +75,7 @@ class MixerNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QWi
             name='lp_cutoff',
             context=self.context)
         self.__lp_cutoff_dial = control_value_dial.ControlValueDial(self)
+        self.__lp_cutoff_dial.setMinimumSize(32, 32)
         self.__lp_cutoff_dial.setRange(10.0, 20000.0)
         self.__lp_cutoff_dial.setDefault(20000.0)
         self.__lp_cutoff_dial.setLogScale(True)
@@ -92,6 +94,7 @@ class MixerNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QWi
             name='gain',
             context=self.context)
         self.__gain_dial = control_value_dial.ControlValueDial(self)
+        self.__gain_dial.setMinimumSize(32, 32)
         self.__gain_dial.setRange(-40.0, 20.0)
         self.__gain_dial.setDefault(0.0)
         self.__gain_dial.setDisplayFunc(lambda value: '%+.2fdB' % value)
@@ -114,6 +117,7 @@ class MixerNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QWi
             name='pan',
             context=self.context)
         self.__pan_dial = control_value_dial.ControlValueDial(self)
+        self.__pan_dial.setMinimumSize(32, 32)
         self.__pan_dial.setRange(-1.0, 1.0)
         self.__pan_dial.setDefault(0.0)
         self.__pan_dial.setDisplayFunc(lambda value: '%.2f' % value)

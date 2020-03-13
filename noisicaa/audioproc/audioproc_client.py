@@ -155,6 +155,7 @@ class AudioProcClient(AbstractAudioProcClient):
 
         self.engine_notifications = core.Callback[engine_notification_pb2.EngineNotification]()
         self.engine_state_changed = core.Callback[engine_notification_pb2.EngineStateChange]()
+        self.engine_load_changed = core.Callback[engine_notification_pb2.EngineLoad]()
         self.player_state_changed = core.CallbackMap[str, player_state_pb2.PlayerState]()
         self.node_state_changed = core.CallbackMap[str, engine_notification_pb2.NodeStateChange]()
         self.node_messages = core.CallbackMap[str, Dict[str, Any]]()
@@ -221,6 +222,9 @@ class AudioProcClient(AbstractAudioProcClient):
 
             for engine_state_change in request.engine_state_changes:
                 self.engine_state_changed.call(engine_state_change)
+
+            for engine_load in request.engine_load:
+                self.engine_load_changed.call(engine_load)
 
             if request.HasField('perf_stats'):
                 perf_stats = core.PerfStats()

@@ -101,8 +101,7 @@ void Engine::out_messages_pump_main() {
 
           case MessageType::ENGINE_LOAD: {
             EngineLoadMessage* tmsg = (EngineLoadMessage*)msg;
-            auto n = notification.add_engine_state_changes();
-            n->set_state(pb::EngineStateChange::RUNNING);
+            auto n = notification.add_engine_load();
             n->set_load(tmsg->load);
             break;
           }

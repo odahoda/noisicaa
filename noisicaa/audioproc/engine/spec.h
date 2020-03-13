@@ -42,6 +42,7 @@ class Processor;
 class ControlValue;
 class BufferType;
 class Realm;
+class HostSystem;
 
 struct Instruction {
   OpCode opcode;
@@ -56,7 +57,7 @@ public:
   Spec(const Spec&) = delete;
   Spec operator=(const Spec&) = delete;
 
-  string dump() const;
+  string dump(HostSystem* host_system) const;
 
   void set_bpm(uint32_t bpm) { _bpm = bpm; }
   uint32_t bpm() const { return _bpm; }
