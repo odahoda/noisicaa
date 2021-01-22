@@ -177,7 +177,7 @@ def configure(ctx):
     pip_mgr.check_package(DEV, 'py-cpuinfo', version='5.0.0')
     pip_mgr.check_package(DEV, 'pyfakefs', version='3.7.1')
     pip_mgr.check_package(DEV, 'pylint', version='2.4.4')
-    pip_mgr.check_package(DEV, 'unittest-xml-reporting', version='3.0.1')
+    pip_mgr.check_package(DEV, 'unittest-xml-reporting', version='3.0.4')
     pip_mgr.check_package(DEV, 'pyprof2calltree', version='1.4.4')
 
     # misc sys packages:
@@ -210,7 +210,7 @@ def configure(ctx):
     sys_mgr.check_package(BUILD, 'libboost-dev')
     sys_mgr.check_package(BUILD, 'flex')
     sys_mgr.check_package(BUILD, 'bison')
-    CSoundBuilder(ctx).check(RUNTIME, version='6.08.0')
+    CSoundBuilder(ctx).check(RUNTIME, version='6.15.0')
 
     # LV2
     sys_mgr.check_package(BUILD, 'libserd-dev')
@@ -220,7 +220,7 @@ def configure(ctx):
         sys_mgr.check_package(BUILD, 'lv2-dev')
     else:
         LV2Builder(ctx).check(RUNTIME, version='1.14.0')
-    LilvBuilder(ctx).check(RUNTIME, version='0.24.3-git')
+    LilvBuilder(ctx).check(RUNTIME, version='0.24.12')
     SuilBuilder(ctx).check(RUNTIME, version='0.10.0')
     sys_mgr.check_package(DEV, 'mda-lv2')
 
@@ -239,7 +239,10 @@ def configure(ctx):
     sys_mgr.check_package(BUILD, 'libavutil-dev')
 
     # sf2
-    sys_mgr.check_package(RUNTIME, 'libfluidsynth1')
+    if os_dist == 'ubuntu' and os_release >= Version('20.04'):
+        sys_mgr.check_package(RUNTIME, 'libfluidsynth2')
+    else:
+        sys_mgr.check_package(RUNTIME, 'libfluidsynth1')
     sys_mgr.check_package(RUNTIME, 'timgm6mb-soundfont')
     sys_mgr.check_package(RUNTIME, 'fluid-soundfont-gs')
     sys_mgr.check_package(RUNTIME, 'fluid-soundfont-gm')
@@ -248,7 +251,8 @@ def configure(ctx):
     pip_mgr.check_package(RUNTIME, 'PyQt5')
     # TODO: get my changes upstream and use regular quamash package from pip.
     pip_mgr.check_package(RUNTIME, 'Quamash', source='git+https://github.com/odahoda/quamash.git#egg=quamash')
-    sys_mgr.check_package(BUILD, 'libqt4-dev')
+    if os_dist == 'ubuntu' and os_release < Version('20.04'):
+        sys_mgr.check_package(BUILD, 'libqt4-dev')
 
     # GTK
     sys_mgr.check_package(BUILD, 'libgtk2.0-dev')
@@ -331,6 +335,9 @@ def check_virtual_env(ctx):
         except BaseException as exc:  # pylint: disable=broad-except
             shutil.rmtree(venvdir)
             ctx.fatal("Failed to create virtual env: %s: %s" % (type(exc).__name__, exc))
+
+        # Convenience function for pink: exclude the venv dir from backups.
+        open(os.path.join(venvdir, '.nobackup'), 'w').close()
 
         # Always update PIP to something more recent than what ensurepip has installed. We need at
         # least 9.0 for 'pip list --format=json' to work.
@@ -759,11 +766,11 @@ class FaustLibrariesBuilder(ThirdPartyBuilder):
 
 class LilvBuilder(ThirdPartyBuilder):
     def __init__(self, ctx):
-        super().__init__(ctx, 'lilv', '.zip')
+        super().__init__(ctx, 'lilv', '.tar.bz2')
 
     def download_url(self, version):
-        # 'http://git.drobilla.net/cgit.cgi/lilv.git/snapshot/lilv-%s.tar.bz2' % version
-        return 'https://github.com/odahoda/lilv/archive/master.zip'
+        return 'https://download.drobilla.net/lilv-%s.tar.bz2' % version
+        #return 'https://github.com/odahoda/lilv/archive/master.zip'
 
     def build(self, src_path):
         os.chmod(os.path.join(src_path, 'waf'), 0o755)
@@ -772,10 +779,10 @@ class LilvBuilder(ThirdPartyBuilder):
             ['./waf',
              'configure',
              '--prefix=%s' % self._ctx.env.VIRTUAL_ENV,
-             '--bindings',
              '--no-utils',
              '--no-bash-completion',
              '--test',
+             '--python=%s' % self._ctx.env.PYTHON[0],
             ],
             cwd=src_path)
         self._ctx.cmd_and_log(
@@ -797,7 +804,7 @@ class SuilBuilder(ThirdPartyBuilder):
         super().__init__(ctx, 'suil', '.tar.bz2')
 
     def download_url(self, version):
-        return 'http://git.drobilla.net/cgit.cgi/suil.git/snapshot/suil-%s.tar.bz2' % version
+        return 'https://download.drobilla.net/suil-%s.tar.bz2' % version
 
     def build(self, src_path):
         os.chmod(os.path.join(src_path, 'waf'), 0o755)

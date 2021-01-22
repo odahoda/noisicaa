@@ -804,7 +804,8 @@ cdef class UI(object):
         This will return true if the feature is an optional or required feature
         of the UI.
         """
-        return lilv_ui_has_feature(self.ui, feature_uri.node)
+        return False
+        #return lilv_ui_has_feature(self.ui, feature_uri.node)
 
     @property
     def required_features(self):
@@ -814,17 +815,17 @@ cdef class UI(object):
             const LilvNode* node
         result = []
 
-        nodes = lilv_ui_get_required_features(self.ui)
-        try:
-            it = lilv_nodes_begin(nodes)
-            while not lilv_nodes_is_end(nodes, it):
-                node = lilv_nodes_get(nodes, it)
-                assert node != NULL
-                result.append(lilv_node_as_string(node).decode('utf-8'))
-                it = lilv_nodes_next(nodes, it)
+        # nodes = lilv_ui_get_required_features(self.ui)
+        # try:
+        #     it = lilv_nodes_begin(nodes)
+        #     while not lilv_nodes_is_end(nodes, it):
+        #         node = lilv_nodes_get(nodes, it)
+        #         assert node != NULL
+        #         result.append(lilv_node_as_string(node).decode('utf-8'))
+        #         it = lilv_nodes_next(nodes, it)
 
-        finally:
-            lilv_nodes_free(nodes)
+        # finally:
+        #     lilv_nodes_free(nodes)
 
         return result
 
@@ -836,17 +837,17 @@ cdef class UI(object):
             const LilvNode* node
         result = []
 
-        nodes = lilv_ui_get_optional_features(self.ui)
-        try:
-            it = lilv_nodes_begin(nodes)
-            while not lilv_nodes_is_end(nodes, it):
-                node = lilv_nodes_get(nodes, it)
-                assert node != NULL
-                result.append(lilv_node_as_string(node).decode('utf-8'))
-                it = lilv_nodes_next(nodes, it)
+        # nodes = lilv_ui_get_optional_features(self.ui)
+        # try:
+        #     it = lilv_nodes_begin(nodes)
+        #     while not lilv_nodes_is_end(nodes, it):
+        #         node = lilv_nodes_get(nodes, it)
+        #         assert node != NULL
+        #         result.append(lilv_node_as_string(node).decode('utf-8'))
+        #         it = lilv_nodes_next(nodes, it)
 
-        finally:
-            lilv_nodes_free(nodes)
+        # finally:
+        #     lilv_nodes_free(nodes)
 
         return result
 
