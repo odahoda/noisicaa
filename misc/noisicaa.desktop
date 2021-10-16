@@ -1,6 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=noisicaä
-Exec={BINDIR}/noisicaa
-Icon={DATADIR}/icons/noisicaa-small.png
-Categories=Audio;AudioVideo;Sequencer;AudioVideoEditing;Music

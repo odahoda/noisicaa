@@ -1,8 +1,0 @@
-#!/bin/bash
-
-export NOISICAA_INSTALL_ROOT="{PREFIX}"
-export NOISICAA_DATA_DIR="{DATADIR}"
-export LD_LIBRARY_PATH="${{NOISICAA_INSTALL_ROOT}}/lib/noisicaa"
-export PYTHONPATH="${{NOISICAA_INSTALL_ROOT}}/lib/noisicaa"
-
-exec python{PYTHON_VERSION} -m noisicaa.editor_main "$@"

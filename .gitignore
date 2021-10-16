@@ -1,13 +1,5 @@
-__pycache__/
-/build
-/3rdparty/*/build
-/vmtests
-/ENV
+*.pyc
 *~
 .nobackup
-/.venv
-/website/_build/
-/website/_serve/
 /.waf*
 /.lock-waf*
-/venv/

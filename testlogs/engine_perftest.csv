@@ -1,6 +1,0 @@
-"datetime","CPU brand","CPU speed","CPU cores","testname","#frames","mean","stddev","50.0th %tile","75.0th %tile","90.0th %tile","95.0th %tile","99.0th %tile","99.9th %tile"
-"2017-08-07 23:10:29","AMD E2-3000M APU with Radeon(tm) HD Graphics","800.0000 MHz","2","PipelineVMPerfTest.test_fluidsynth","990","599.628282828","111.310545699","586.0","603.0","630.0","657.0","691.22","2625.49"
-"2017-08-11 01:19:02","AMD E2-3000M APU with Radeon(tm) HD Graphics","1.0000 GHz","2","PipelineVMPerfTest.test_fluidsynth","990","478.112121212","40.0986983661","471.0","483.0","514.1","531.0","569.11","976.85"
-"2017-08-13 23:16:49","AMD E2-3000M APU with Radeon(tm) HD Graphics","1.6000 GHz","2","PipelineVMPerfTest.test_fluidsynth","990","526.538383838","78.0923827518","509.0","525.0","569.0","614.1","846.22","1247.742"
-"2017-08-13 23:57:09","AMD E2-3000M APU with Radeon(tm) HD Graphics","1.8000 GHz","2","PipelineVMPerfTest.test_csound","990","591.329292929","183.125525891","552.0","580.0","633.0","852.15","1138.11","3446.84"
-"2017-08-13 23:57:11","AMD E2-3000M APU with Radeon(tm) HD Graphics","1.0000 GHz","2","PipelineVMPerfTest.test_fluidsynth","990","519.845454545","650.450329903","437.0","466.0","531.1","707.55","1578.27","9491.4"
