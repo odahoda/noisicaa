@@ -3,3 +3,5 @@
 .nobackup
 /.waf*
 /.lock-waf*
+/build/
+/result
