@@ -1,3 +1,6 @@
+**This repository is archived. The code is now hosted at https://git.odahoda.de/pink/noisicaa**
+
+
 noisicaä
 ========
 
